@@ -1,0 +1,191 @@
+"""
+Integration tests for the FastAPI endpoints (app.api.router).
+
+These tests use the FastAPI TestClient and mock MongoDB + external services
+to validate request/response contracts without needing live infrastructure.
+"""
+
+import unittest
+from datetime import datetime, timezone
+from unittest.mock import AsyncMock, patch
+
+from fastapi.testclient import TestClient
+
+
+def _make_client():
+    """Create a TestClient with DB init/close mocked out."""
+    with patch("app.database.init_db", new_callable=AsyncMock), \
+         patch("app.database.close_db", new_callable=AsyncMock), \
+         patch("app.services.faiss_index.faiss_manager") as mock_faiss:
+        mock_faiss.rebuild = AsyncMock()
+        mock_faiss.size = 0
+        from app.main import app
+        return TestClient(app, raise_server_exceptions=False)
+
+
+class TestMetaEndpoints(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.client = _make_client()
+
+    def test_api_root(self):
+        r = self.client.get("/api/v1")
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertIn("name", data)
+        self.assertIn("version", data)
+
+    def test_api_root_trailing_slash(self):
+        r = self.client.get("/api/v1/")
+        self.assertEqual(r.status_code, 200)
+
+    def test_docs_accessible(self):
+        r = self.client.get("/docs")
+        self.assertEqual(r.status_code, 200)
+
+    def test_openapi_schema(self):
+        r = self.client.get("/openapi.json")
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertIn("paths", data)
+
+
+class TestFrontendServing(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.client = _make_client()
+
+    def test_root_serves_chatbot(self):
+        r = self.client.get("/")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("text/html", r.headers.get("content-type", ""))
+
+    def test_admin_serves_admin_panel(self):
+        r = self.client.get("/admin")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("text/html", r.headers.get("content-type", ""))
+
+
+class TestDocumentEndpoints(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.client = _make_client()
+
+    @patch("app.services.document_service.list_documents", new_callable=AsyncMock)
+    def test_list_documents(self, mock_list):
+        mock_list.return_value = ([], 0)
+        r = self.client.get("/api/v1/documents")
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertIn("documents", data)
+        self.assertIn("total", data)
+
+    def test_upload_no_file_returns_422(self):
+        r = self.client.post("/api/v1/documents/upload")
+        self.assertIn(r.status_code, (400, 422))
+
+    @patch("app.services.search_service.semantic_search", new_callable=AsyncMock)
+    def test_search_endpoint(self, mock_search):
+        mock_search.return_value = []
+        r = self.client.post("/api/v1/search", json={"query": "test", "top_k": 5})
+        self.assertEqual(r.status_code, 200)
+
+    @patch("app.api.router.search_service.get_vector_stats", new_callable=AsyncMock)
+    def test_vector_stats(self, mock_stats):
+        mock_stats.return_value = {
+            "pgvector_available": False,
+            "faiss_available": True,
+            "active_backend": "faiss",
+            "total_vectors": 100,
+            "total_chunks": 100,
+        }
+        r = self.client.get("/api/v1/admin/vector-stats")
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertIn("total_vectors", data)
+
+
+class TestAskEndpoints(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.client = _make_client()
+
+    @patch("app.services.llm_service.ask", new_callable=AsyncMock)
+    def test_ask_classic(self, mock_ask):
+        mock_ask.return_value = {
+            "answer": "Voici la reponse.",
+            "sources": [],
+            "model": "qwen2.5:7b",
+            "chunks_used": 3,
+        }
+        r = self.client.post("/api/v1/ask", json={"question": "Qu'est-ce qu'une SARL ?", "top_k": 5})
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertIn("answer", data)
+
+    @patch("app.services.llm_service.ask_agentic", new_callable=AsyncMock)
+    def test_ask_agentic(self, mock_ask):
+        mock_ask.return_value = {
+            "answer": "reponse agentique.",
+            "sources": [],
+            "model": "qwen2.5:7b",
+            "chunks_used": 5,
+            "reasoning_steps": ["step1"],
+            "retrieval_attempts": 1,
+            "rewritten_query": None,
+            "intent": "advice",
+            "route_decision": None,
+            "timings_ms": {"search": 10, "generation": 50, "total": 60},
+        }
+        r = self.client.post("/api/v1/ask-agentic", json={"question": "Conseils conformité", "top_k": 5})
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertIn("answer", data)
+
+
+class TestCompanyProfileEndpoints(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.client = _make_client()
+
+    @patch("app.services.applicability_service.list_company_profiles", new_callable=AsyncMock)
+    def test_list_profiles(self, mock_list):
+        mock_list.return_value = ([], 0)
+        r = self.client.get("/api/v1/company-profiles")
+        self.assertEqual(r.status_code, 200)
+
+    @patch("app.services.applicability_service.create_company_profile", new_callable=AsyncMock)
+    def test_create_profile(self, mock_create):
+        now = datetime.now(timezone.utc)
+        mock_create.return_value = {
+            "id": "test-uuid",
+            "name": "Test Corp",
+            "sector": "tech",
+            "size": "medium",
+            "employees": 50,
+            "activities": "IT services",
+            "jurisdiction": "tunisia",
+            "notes": None,
+            "created_at": now,
+            "updated_at": now,
+        }
+        r = self.client.post("/api/v1/company-profiles", json={
+            "name": "Test Corp",
+            "sector": "tech",
+            "size": "medium",
+            "employees": 50,
+        })
+        self.assertEqual(r.status_code, 201)
+        data = r.json()
+        self.assertEqual(data["name"], "Test Corp")
+
+    def test_create_profile_invalid_size_rejected(self):
+        r = self.client.post("/api/v1/company-profiles", json={
+            "name": "Bad Corp",
+            "size": "PME",
+        })
+        self.assertEqual(r.status_code, 422)
+
+
+if __name__ == "__main__":
+    unittest.main()

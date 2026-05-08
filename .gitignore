@@ -1,0 +1,91 @@
+# ── Environment ──
+.env
+
+# ── Python ──
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+# Model files
+*.pt
+*.bin
+*.safetensors
+training/models/
+*.onnx
+
+# FAISS
+*.faiss
+*.index
+
+
+__pycache__/
+*.pyc
+# ── Virtual environments ──
+.venv/
+.venv-1/
+venv/
+
+# ── IDE / Editor ──
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.kilo/
+.qodo/
+
+# ── Testing & coverage ──
+.pytest_cache/
+htmlcov/
+.coverage
+*.cover
+
+# ── Logs ──
+*.log
+uvicorn_*.log
+
+# ── Temporary / debug artifacts ──
+tmp_*.py
+tmp_*.pid
+answer_*.txt
+response.json
+
+# ── Uploaded & processed data (runtime) ──
+uploads/
+processed/
+
+# ── OS files ──
+Thumbs.db
+.DS_Store
+# Training artifacts too large for GitHub
+training/models/cache/
+training/models/**/model.safetensors
+
+training/models/daleel-reasoning-v1/model.pt
+
+training/models/daleel-reasoning-v2/model.pt
+
+training/models/**/optimizer.pt
+
+training/models/**/model.pt
+
+*.safetensors
+
+training/models/**/model.pt
+
+training/models/**/optimizer.pt
+
+training/models/**/checkpoint-*/
+
+*.safetensors
+
+*.pth
+
+*.bin
+
+training/models/
+
+training/models/

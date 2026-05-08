@@ -1,0 +1,10 @@
+{"task":"classify","text":"Notre établissement de crédit doit-il déclarer les opérations suspectes à la CTAF ?","language":"fr","labels":{"domain":"credit_info","case_type":"question","risk":"medium"}}
+{"task":"classify","text":"Un client conteste son inscription au fichier des incidents de paiement de la Centrale des risques.","language":"fr","labels":{"domain":"credit_info","case_type":"complaint","risk":"medium"}}
+{"task":"classify","text":"Quelles sont les conditions d'agrément pour un fonds d'investissement par le CMF ?","language":"fr","labels":{"domain":"investment","case_type":"question","risk":"low"}}
+{"task":"classify","text":"Un investisseur étranger souhaite acquérir 40% du capital d'une société cotée en bourse de Tunis.","language":"fr","labels":{"domain":"investment","case_type":"question","risk":"medium"}}
+{"task":"classify","text":"L'organisme de crédit n'a pas respecté les délais de reponse pour une demande de prêt immobilier.","language":"fr","labels":{"domain":"credit_info","case_type":"complaint","risk":"low"}}
+{"task":"classify","text":"ما هي شروط الاستثمار الاجنبي في القطاع البنكي التونسي؟","language":"ar","labels":{"domain":"investment","case_type":"question","risk":"medium"}}
+{"task":"classify","text":"Nous avons besoin d'un avis juridique sur un contrat de bail commercial.","language":"fr","labels":{"domain":"other","case_type":"question","risk":"low"}}
+{"task":"classify","text":"Un fournisseur n'a pas respecté les délais de livraison prévus dans le cahier des charges.","language":"fr","labels":{"domain":"other","case_type":"complaint","risk":"low"}}
+{"task":"classify","text":"L'audit a révélé un non-respect des ratios prudentiels imposés par la BCT.","language":"fr","labels":{"domain":"credit_info","case_type":"audit","risk":"high"}}
+{"task":"classify","text":"La société de gestion de portefeuille n'a pas publié son rapport semestriel dans les délais réglementaires.","language":"fr","labels":{"domain":"investment","case_type":"incident","risk":"medium"}}

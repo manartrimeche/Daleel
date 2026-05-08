@@ -1,0 +1,96 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Daleel — Docker Compose
+# One-command full-stack setup for local development and demos.
+#
+# Usage:
+#   docker compose up --build
+#
+# Services:
+#   - daleel-api   : FastAPI application (port 8000)
+#   - mongodb      : Document + vector store (port 27017)
+#   - ollama       : Local LLM inference (port 11434, optional)
+#
+# Notes:
+#   - Ollama requires pulling a model after startup:
+#     docker compose exec ollama ollama pull qwen2.5:7b
+#   - Set your .env file OR edit environment variables below.
+# ─────────────────────────────────────────────────────────────────────────────
+
+version: "3.8"
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: daleel-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.runCommand({ping:1}).ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - daleel-network
+
+  daleel-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: daleel-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DALEEL_MONGODB_URL: mongodb://mongodb:27017
+      DALEEL_MONGODB_DB_NAME: manar
+      DALEEL_LLM_BASE_URL: http://ollama:11434
+      DALEEL_LLM_MODEL: qwen2.5:7b
+      DALEEL_LLM_MAX_RETRIES: 3
+      DALEEL_LLM_TIMEOUT_CONNECT: 15.0
+      DALEEL_LLM_TIMEOUT_READ: 300.0
+      DALEEL_LLM_BACKOFF_BASE: 1.0
+      DALEEL_LLM_BACKOFF_MAX: 16.0
+      DALEEL_EMBEDDING_MODEL: sentence-transformers/paraphrase-multilingual-mpnet-base-v2
+      DALEEL_EMBEDDING_DIMENSION: 768
+      DALEEL_VECTOR_SEARCH_BACKEND: faiss
+      DALEEL_CHUNK_SIZE: 1500
+      DALEEL_CHUNK_OVERLAP: 200
+      DALEEL_MAX_UPLOAD_MB: 100
+      DALEEL_DOMAIN_ROUTER_ENABLED: true
+      DALEEL_QUALITY_GUARD_ENABLED: true
+      DALEEL_KG_LIGHT_ENABLED: true
+      DALEEL_AUTO_MODE_ENABLED: true
+      DALEEL_CORS_ORIGINS: http://localhost:8000,http://127.0.0.1:8000
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    networks:
+      - daleel-network
+    volumes:
+      - ./uploads:/app/uploads
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: daleel-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - daleel-network
+    # Ollama is optional; if you prefer using an external Ollama instance,
+    # set DALEEL_LLM_BASE_URL in your .env and remove this service.
+
+volumes:
+  mongodb_data:
+  ollama_data:
+
+networks:
+  daleel-network:
+    driver: bridge

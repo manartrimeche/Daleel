@@ -1,0 +1,16 @@
+# Ajouts nécessaires uniquement pour l'entraînement (pas pour l'API)
+sentence-transformers>=3.0.0
+datasets>=2.19.0
+accelerate>=0.30.0
+torch>=2.2.0
+pymongo>=4.10.0
+tqdm>=4.66.0
+httpx>=0.27.0
+
+# Track 1 — Style fine-tuning (LoRA)
+transformers>=4.43.0
+peft>=0.11.0
+trl>=0.9.0
+
+# Track 2 — Reasoning classifier (XLM-R)
+scikit-learn>=1.4.0

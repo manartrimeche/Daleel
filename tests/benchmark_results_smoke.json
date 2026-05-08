@@ -1,0 +1,52 @@
+{
+  "config": {
+    "base_url": "http://127.0.0.1:8000",
+    "models": [
+      "qwen2.5:7b"
+    ],
+    "top_k": 8,
+    "temperature": 0.2,
+    "timeout": 120.0,
+    "questions_count": 2
+  },
+  "summary": {
+    "qwen2.5:7b": {
+      "total": 2,
+      "success": 2,
+      "success_rate": 100.0,
+      "avg_latency_ms": 35974.7,
+      "p95_latency_ms": 133094.9,
+      "avg_chunks_used": 4,
+      "avg_answer_len": 2536,
+      "avg_unsupported_refs": 0,
+      "total_unsupported_refs": 0,
+      "errors": []
+    }
+  },
+  "rows": [
+    {
+      "model": "qwen2.5:7b",
+      "question": "Quelles sont les obligations du gerant d'une SARL en Tunisie ?",
+      "ok": true,
+      "status_code": 200,
+      "elapsed_ms": 71945.1446000021,
+      "chunks_used": 8,
+      "answer_len": 3902,
+      "answer_refs": 0,
+      "unsupported_refs": 0,
+      "error": ""
+    },
+    {
+      "model": "qwen2.5:7b",
+      "question": "Quelles formalites sont obligatoires pour constituer une SARL en Tunisie ?",
+      "ok": true,
+      "status_code": 200,
+      "elapsed_ms": 4.25369999720715,
+      "chunks_used": 0,
+      "answer_len": 1170,
+      "answer_refs": 0,
+      "unsupported_refs": 0,
+      "error": ""
+    }
+  ]
+}

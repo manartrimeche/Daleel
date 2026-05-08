@@ -1,0 +1,1902 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daleel Admin — Plateforme de Conformité</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #0a0a0f; --bg2: #12121a; --bg3: #1a1a2e; --card: #16162a;
+  --accent: #7c5cfc; --accent2: #a78bfa; --accent-glow: rgba(124,92,252,.15);
+  --text: #e8e6f0; --text2: #9896a8; --text3: #6b6980;
+  --border: #2a2a40; --success: #34d399; --warn: #fbbf24; --danger: #f87171;
+  --info: #60a5fa; --shadow: 0 4px 24px rgba(0,0,0,.4);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);display:flex;height:100vh;overflow:hidden;font-size:14px}
+
+/* Sidebar */
+.sidebar{width:220px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
+.sidebar-logo{padding:20px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.sidebar-logo span{font-size:18px;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--accent2));background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.nav{padding:8px 0;flex:1;overflow-y:auto}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;border-radius:0;transition:.15s;color:var(--text2);border-left:3px solid transparent}
+.nav-item:hover{background:var(--accent-glow);color:var(--text)}
+.nav-item.active{background:var(--accent-glow);color:var(--accent);border-left-color:var(--accent)}
+.nav-item .icon{width:18px;text-align:center;font-size:16px}
+.sidebar-footer{padding:12px 16px;border-top:1px solid var(--border)}
+.chatbot-btn{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--accent);border-radius:8px;color:#fff;cursor:pointer;text-decoration:none;font-size:13px;font-weight:500;transition:.15s}
+.chatbot-btn:hover{background:var(--accent2)}
+
+/* Main */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.topbar-title{font-size:16px;font-weight:600}
+.topbar-right{display:flex;align-items:center;gap:12px}
+.badge{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.badge-success{background:rgba(52,211,153,.15);color:var(--success)}
+.badge-warn{background:rgba(251,191,36,.15);color:var(--warn)}
+.badge-info{background:rgba(96,165,250,.15);color:var(--info)}
+.content{flex:1;overflow-y:auto;padding:24px}
+
+/* Cards & Grid */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:16px;margin-bottom:24px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;transition:.2s}
+.stat-card:hover{border-color:var(--accent);box-shadow:0 0 20px var(--accent-glow)}
+.stat-icon{font-size:24px;margin-bottom:8px}
+.stat-value{font-size:28px;font-weight:700;color:var(--accent2)}
+.stat-label{font-size:12px;color:var(--text2);margin-top:4px}
+
+/* Tables */
+.table-wrap{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+table{width:100%;border-collapse:collapse}
+th{padding:10px 14px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text2);border-bottom:1px solid var(--border);background:var(--bg3)}
+td{padding:10px 14px;border-bottom:1px solid rgba(42,42,64,.5);font-size:13px}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(124,92,252,.05)}
+
+/* Forms */
+.form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:16px}
+.form-group{display:flex;flex-direction:column;gap:6px}
+label{font-size:12px;color:var(--text2);font-weight:500}
+input,select,textarea{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:13px;outline:none;transition:.15s}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow)}
+textarea{resize:vertical;min-height:80px}
+select option{background:var(--bg3)}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:500;transition:.15s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent2)}
+.btn-secondary{background:var(--bg3);color:var(--text);border:1px solid var(--border)}.btn-secondary:hover{border-color:var(--accent);color:var(--accent)}
+.btn-danger{background:rgba(248,113,113,.15);color:var(--danger);border:1px solid rgba(248,113,113,.3)}.btn-danger:hover{background:rgba(248,113,113,.25)}
+.btn-success{background:rgba(52,211,153,.15);color:var(--success);border:1px solid rgba(52,211,153,.3)}.btn-success:hover{background:rgba(52,211,153,.25)}
+.btn-warn{background:rgba(251,191,36,.15);color:var(--warn);border:1px solid rgba(251,191,36,.3)}.btn-warn:hover{background:rgba(251,191,36,.25)}
+.btn-sm{padding:4px 10px;font-size:12px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-group{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+
+/* Section headers */
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.section-title{font-size:18px;font-weight:600}
+.section-sub{font-size:13px;color:var(--text2);margin-bottom:20px}
+
+/* Status badges */
+.tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.tag-active{background:rgba(52,211,153,.15);color:var(--success)}
+.tag-pending{background:rgba(251,191,36,.15);color:var(--warn)}
+.tag-applied{background:rgba(96,165,250,.15);color:var(--info)}
+.tag-rejected,.tag-error{background:rgba(248,113,113,.15);color:var(--danger)}
+.tag-superseded{background:rgba(107,105,128,.2);color:var(--text2)}
+.tag-repealed{background:rgba(248,113,113,.1);color:var(--danger)}
+.tag-critique{background:rgba(248,113,113,.15);color:var(--danger)}
+.tag-importante{background:rgba(251,191,36,.15);color:var(--warn)}
+.tag-secondaire{background:rgba(52,211,153,.15);color:var(--success)}
+.tag-modificatif{background:rgba(251,191,36,.15);color:var(--warn)}
+.tag-loi_principale{background:rgba(96,165,250,.15);color:var(--info)}
+/* Case status / priority badges */
+.tag-open{background:rgba(96,165,250,.15);color:var(--info)}
+.tag-in_progress{background:rgba(251,191,36,.15);color:var(--warn)}
+.tag-under_review{background:rgba(124,92,252,.15);color:var(--accent2)}
+.tag-resolved{background:rgba(52,211,153,.15);color:var(--success)}
+.tag-closed{background:rgba(107,105,128,.15);color:var(--text3)}
+.tag-critical{background:rgba(248,113,113,.2);color:var(--danger)}
+.tag-high{background:rgba(251,191,36,.15);color:var(--warn)}
+.tag-medium{background:rgba(96,165,250,.15);color:var(--info)}
+.tag-low{background:rgba(107,105,128,.15);color:var(--text3)}
+
+/* Upload zone */
+.upload-zone{border:2px dashed var(--border);border-radius:12px;padding:32px;text-align:center;cursor:pointer;transition:.2s;background:var(--bg3)}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--accent);background:var(--accent-glow)}
+.upload-zone input{display:none}
+.upload-zone-text{color:var(--text2);margin-top:8px;font-size:13px}
+
+/* Step workflow */
+.steps{display:flex;gap:0;margin-bottom:24px;overflow-x:auto}
+.step{flex:1;padding:12px 16px;background:var(--bg3);border:1px solid var(--border);border-right:none;cursor:pointer;font-size:13px;transition:.2s;min-width:120px;text-align:center}
+.step:first-child{border-radius:8px 0 0 8px}
+.step:last-child{border-right:1px solid var(--border);border-radius:0 8px 8px 0}
+.step.active{background:var(--accent-glow);border-color:var(--accent);color:var(--accent)}
+.step.done{background:rgba(52,211,153,.1);border-color:rgba(52,211,153,.3);color:var(--success)}
+.step-num{display:block;font-size:18px;font-weight:700;margin-bottom:2px}
+.step-lbl{font-size:11px;color:inherit}
+
+/* Panel */
+.panel{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px}
+.panel-title{font-size:14px;font-weight:600;margin-bottom:14px;color:var(--accent2)}
+
+/* Toast */
+.toast-container{position:fixed;bottom:24px;right:24px;display:flex;flex-direction:column;gap:8px;z-index:9999}
+.toast{padding:10px 16px;border-radius:8px;font-size:13px;animation:slideIn .2s ease;display:flex;align-items:center;gap:8px;max-width:360px;box-shadow:var(--shadow)}
+.toast-success{background:#064e3b;color:var(--success);border:1px solid rgba(52,211,153,.3)}
+.toast-error{background:#450a0a;color:var(--danger);border:1px solid rgba(248,113,113,.3)}
+.toast-info{background:#1e3a5f;color:var(--info);border:1px solid rgba(96,165,250,.3)}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+
+/* Audit timeline */
+.audit-item{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid rgba(42,42,64,.5)}
+.audit-item:last-child{border-bottom:none}
+.audit-dot{width:8px;height:8px;border-radius:50%;margin-top:5px;flex-shrink:0}
+.audit-dot-applied{background:var(--success)}
+.audit-dot-superseded{background:var(--warn)}
+.audit-dot-repealed,.audit-dot-rejected{background:var(--danger)}
+.audit-dot-extracted{background:var(--info)}
+.audit-dot-classified{background:var(--accent)}
+.audit-dot-recalculation{background:var(--accent2)}
+.audit-dot-default{background:var(--text2)}
+.audit-time{font-size:11px;color:var(--text3)}
+.audit-event{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.audit-detail{font-size:12px;color:var(--text2)}
+
+/* Roadmap */
+.roadmap-item{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:10px;transition:.2s}
+.roadmap-item:hover{border-color:var(--accent)}
+.roadmap-pos{display:inline-block;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;text-align:center;line-height:28px;font-size:12px;font-weight:700;margin-right:10px;flex-shrink:0}
+.roadmap-header{display:flex;align-items:flex-start;gap:8px;margin-bottom:8px}
+.roadmap-action{font-size:13px;font-weight:500;flex:1}
+.roadmap-meta{display:flex;gap:8px;flex-wrap:wrap;font-size:11px;color:var(--text2)}
+.roadmap-conditions{margin-top:8px;font-size:12px;color:var(--text2)}
+.roadmap-preuve{margin-top:6px;font-size:12px;color:var(--success);padding:6px 10px;background:rgba(52,211,153,.08);border-radius:6px}
+
+/* Modal */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;display:flex;align-items:center;justify-content:center}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:24px;min-width:340px;max-width:520px;width:100%;max-height:80vh;overflow-y:auto;box-shadow:var(--shadow)}
+.modal-title{font-size:16px;font-weight:600;margin-bottom:16px}
+.modal-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+
+/* Loading */
+.loading{display:inline-block;width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{color:var(--text2);font-size:13px;display:flex;align-items:center;gap:8px;padding:20px 0}
+
+/* Empty state */
+.empty{text-align:center;padding:40px;color:var(--text3)}
+.empty-icon{font-size:40px;margin-bottom:12px}
+
+/* Misc */
+.divider{border:none;border-top:1px solid var(--border);margin:16px 0}
+.text-muted{color:var(--text2)}
+.text-success{color:var(--success)}
+.text-danger{color:var(--danger)}
+.text-warn{color:var(--warn)}
+.text-info{color:var(--info)}
+.flex{display:flex}.gap-8{gap:8px}.gap-12{gap:12px}.items-center{align-items:center}
+.mt-16{margin-top:16px}.mb-16{margin-bottom:16px}
+.w-full{width:100%}
+pre{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:11px;overflow-x:auto;white-space:pre-wrap;color:var(--text2)}
+
+/* Pagination */
+.pagination{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:16px;padding:8px 0}
+.pagination .btn{min-width:36px;justify-content:center}
+.pagination .page-info{font-size:12px;color:var(--text2)}
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <span>⚖️</span>
+    <span>Daleel Admin</span>
+  </div>
+  <div class="nav" id="nav">
+    <div class="nav-item active" data-section="dashboard"><span class="icon">📊</span> Dashboard</div>
+    <div class="nav-item" data-section="documents"><span class="icon">📄</span> Documents</div>
+    <div class="nav-item" data-section="lois"><span class="icon">⚖️</span> Lois & Articles</div>
+    <div class="nav-item" data-section="amendements"><span class="icon">📝</span> Amendements</div>
+    <div class="nav-item" data-section="conformite"><span class="icon">✅</span> Conformité</div>
+    <div class="nav-item" data-section="cases"><span class="icon">📂</span> Dossiers</div>
+    <div class="nav-item" data-section="posture"><span class="icon">🛡️</span> Posture</div>
+    <div class="nav-item" data-section="assessments"><span class="icon">📊</span> Évaluations</div>
+    <div class="nav-item" data-section="controls"><span class="icon">🔒</span> Contrôles</div>
+    <div class="nav-item" data-section="exceptions"><span class="icon">⚠️</span> Exceptions</div>
+    <div class="nav-item" data-section="audit"><span class="icon">📋</span> Audit Log</div>
+    <div class="nav-item" data-section="recherche"><span class="icon">🔍</span> Recherche</div>
+    <div class="nav-item" data-section="vecteur"><span class="icon">⚡</span> Vecteurs</div>
+  </div>
+  <div class="sidebar-footer">
+    <a href="/" class="chatbot-btn" target="_blank">💬 Assistant Juridique</a>
+  </div>
+</nav>
+
+<!-- Main -->
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-title" id="topbar-title">Dashboard</div>
+    <div class="topbar-right">
+      <span class="badge badge-info" id="api-status">⏳ Connexion…</span>
+      <a href="/docs" target="_blank" class="btn btn-secondary btn-sm">API Docs</a>
+    </div>
+  </div>
+  <div class="content" id="content">
+    <div class="loading-text"><span class="loading"></span> Chargement…</div>
+  </div>
+</div>
+
+<div class="toast-container" id="toasts"></div>
+
+<script>
+const API = '/api/v1';
+let currentSection = 'dashboard';
+const PAGE_SIZE = 25;
+
+// ── Pagination helper ─────────────────────────────────────────────────
+function paginationHtml(total, skip, pageSize, onPageFn) {
+  const page = Math.floor(skip / pageSize) + 1;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const hasPrev = page > 1;
+  const hasNext = page < totalPages;
+  return `<div class="pagination">
+    <button class="btn btn-secondary btn-sm" ${hasPrev ? `onclick="${onPageFn}(${(page-2)*pageSize})"` : 'disabled'}>&laquo; Préc.</button>
+    <span class="page-info">Page ${page} / ${totalPages} (${total} total)</span>
+    <button class="btn btn-secondary btn-sm" ${hasNext ? `onclick="${onPageFn}(${page*pageSize})"` : 'disabled'}>Suiv. &raquo;</button>
+  </div>`;
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────
+function toast(msg, type='info', dur=4000) {
+  const t = document.getElementById('toasts');
+  const d = document.createElement('div');
+  d.className = `toast toast-${type}`;
+  const icons = {success:'✅', error:'❌', info:'ℹ️'};
+  d.innerHTML = `<span>${icons[type]||'•'}</span><span>${msg}</span>`;
+  t.appendChild(d);
+  setTimeout(() => d.remove(), dur);
+}
+
+// ── API layer ──────────────────────────────────────────────────────────
+async function apiFetch(path, opts={}) {
+  try {
+    const r = await fetch(API + path, {
+      headers: {'Content-Type':'application/json', ...opts.headers},
+      ...opts
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({detail: r.statusText}));
+      throw new Error(err.detail || r.statusText);
+    }
+    if (r.status === 204) return null;
+    return r.json();
+  } catch(e) {
+    throw e;
+  }
+}
+const api = {
+  get: (p) => apiFetch(p),
+  post: (p, b) => apiFetch(p, {method:'POST', body: b !== undefined ? JSON.stringify(b) : undefined}),
+  patch: (p, b) => apiFetch(p, {method:'PATCH', body: JSON.stringify(b)}),
+  del: (p) => apiFetch(p, {method:'DELETE'}),
+};
+
+async function uploadFile(path, file, extra={}) {
+  const fd = new FormData();
+  fd.append('file', file);
+  Object.entries(extra).forEach(([k,v]) => fd.append(k, v));
+  const r = await fetch(API + path, {method:'POST', body: fd});
+  if (!r.ok) { const e = await r.json().catch(()=>({detail:r.statusText})); throw new Error(e.detail); }
+  return r.json();
+}
+
+// ── Navigation ─────────────────────────────────────────────────────────
+function navigate(section) {
+  currentSection = section;
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.section === section);
+  });
+  const titles = {
+    dashboard:'Dashboard', documents:'Documents', lois:'Lois & Articles',
+    amendements:'Amendements', conformite:'Conformité & Roadmap',
+    cases:'Dossiers de Conformité', posture:'Posture de Conformité',
+    assessments:'Évaluations', controls:'Contrôles & Preuves',
+    exceptions:'Registre d\'Exceptions', audit:'Journal d\'Audit', recherche:'Recherche Sémantique', vecteur:'Moteur Vectoriel'
+  };
+  document.getElementById('topbar-title').textContent = titles[section] || section;
+  render(section);
+}
+
+document.getElementById('nav').addEventListener('click', e => {
+  const item = e.target.closest('.nav-item');
+  if (item) navigate(item.dataset.section);
+});
+
+async function render(section) {
+  const c = document.getElementById('content');
+  c.innerHTML = '<div class="loading-text"><span class="loading"></span> Chargement…</div>';
+  try {
+    const renders = {
+      dashboard: renderDashboard, documents: renderDocuments, lois: renderLois,
+      amendements: renderAmendements, conformite: renderConformite,
+      cases: renderCases, posture: renderPosture,
+      assessments: renderAssessments, controls: renderControls,
+      exceptions: renderExceptions, audit: renderAudit, recherche: renderRecherche, vecteur: renderVecteur
+    };
+    if (renders[section]) await renders[section](c);
+  } catch(e) {
+    c.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div><p>${e.message}</p></div>`;
+  }
+}
+
+// ── Helper renderers ───────────────────────────────────────────────────
+function tag(text, cls='') { return `<span class="tag tag-${cls||text.toLowerCase()}">${text}</span>`; }
+function btn(label, onclick, cls='secondary', sm=false) {
+  return `<button class="btn btn-${cls}${sm?' btn-sm':''}" onclick="${onclick}">${label}</button>`;
+}
+function fmt(v) { return v ?? '—'; }
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleString('fr-FR', {day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});
+}
+function escapeHtml(t) {
+  const d = document.createElement('div');
+  d.textContent = t;
+  return d.innerHTML;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// DASHBOARD
+// ══════════════════════════════════════════════════════════════════════
+async function renderDashboard(c) {
+  const [stats, logs, vec, caseSummary, controlsData] = await Promise.all([
+    api.get('/admin/stats'),
+    api.get('/audit-logs?limit=6'),
+    api.get('/admin/vector-stats').catch(() => null),
+    api.get('/cases/summary').catch(() => ({total_cases:0, by_status:{}, by_priority:{}})),
+    api.get('/compliance/controls?limit=1').catch(() => ({total:0})),
+  ]);
+
+  const s = stats;
+  const cs = caseSummary;
+  const cards = [
+    {icon:'📁', value: cs.total_cases,          label:'Dossiers',    sub: `${cs.by_status?.open||0} ouverts · ${cs.by_status?.in_progress||0} en cours`},
+    {icon:'🔴', value: cs.by_priority?.critical||0, label:'Critiques', sub: `${cs.by_status?.resolved||0} résolus`},
+    {icon:'📄', value: s.documents.total,        label:'Documents',   sub: `${s.chunks.total} chunks`},
+    {icon:'⚖️', value: s.lois.total,             label:'Lois',        sub: `${s.articles.total} articles`},
+    {icon:'🔍', value: s.exigences.total,         label:'Exigences',   sub: Object.entries(s.exigences.by_type||{}).map(([k,v])=>`${k}:${v}`).join(' ')},
+    {icon:'✅', value: s.actions.total,           label:'Actions',     sub: `${s.actions.criticalities.total} avec criticité`},
+    {icon:'👥', value: s.profiles.total,          label:'Profils',     sub: ''},
+    {icon:'📝', value: s.amendments.total,        label:'Amendements', sub: `${s.amendments.by_status.pending||0} en attente`},
+    {icon:'📜', value: s.audit_logs.total,        label:'Événements',  sub: 'journal d\'audit'},
+    {icon:'🔒', value: controlsData.total,         label:'Contrôles',   sub: 'compliance steering'},
+  ];
+
+  const statsHtml = cards.map(cd =>
+    `<div class="stat-card">
+      <div class="stat-icon">${cd.icon}</div>
+      <div class="stat-value">${cd.value??0}</div>
+      <div class="stat-label">${cd.label}</div>
+      ${cd.sub ? `<div style="font-size:11px;color:var(--text3);margin-top:2px">${cd.sub}</div>` : ''}
+    </div>`
+  ).join('');
+
+  const auditHtml = (logs.logs||[]).map(l => `
+    <div class="audit-item">
+      <div class="audit-dot audit-dot-${l.event_type.split('_')[0]}"></div>
+      <div>
+        <div class="flex gap-8 items-center">
+          <span class="audit-event">${l.event_type}</span>
+          <span class="audit-time">${fmtDate(l.created_at)}</span>
+        </div>
+        <div class="audit-detail">${l.details ? JSON.stringify(l.details).slice(0,80)+'…' : ''}</div>
+      </div>
+    </div>`).join('') || '<div class="empty">Aucun événement</div>';
+
+  const vecHtml = vec ? `
+    <div class="flex gap-8 items-center" style="flex-wrap:wrap">
+      <span>Backend: ${tag(vec.active_backend || 'python-cosine', 'active')}</span>
+      <span class="text-muted">${vec.total_vectors.toLocaleString()} vecteurs</span>
+      <span class="text-muted">Recherche cosinus côté application</span>
+    </div>` : '<span class="text-muted">Non disponible</span>';
+
+  c.innerHTML = `
+    <div class="stats-grid">${statsHtml}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div>
+        <div class="section-header"><span class="section-title">Activité récente</span></div>
+        <div class="panel"><div>${auditHtml}</div></div>
+      </div>
+      <div>
+        <div class="section-header"><span class="section-title">Moteur vectoriel</span></div>
+        <div class="panel">
+          ${vecHtml}
+          <div class="mt-16 text-muted" style="font-size:12px">Aucun index pgvector requis dans le mode MongoDB actuel.</div>
+        </div>
+        <div class="section-header mt-16"><span class="section-title">Criticité des actions</span></div>
+        <div class="panel">
+          ${['critique','importante','secondaire'].map(l =>
+            `<div class="flex gap-8 items-center mb-16">
+              ${tag(l,l)}
+              <span style="font-size:20px;font-weight:700">${s.actions.criticalities.by_level[l]||0}</span>
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:20px">
+      <div class="panel">
+        <div class="panel-title">Questions / jour (30j)</div>
+        <canvas id="chart-qa" height="180"></canvas>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Satisfaction moyenne (30j)</div>
+        <canvas id="chart-satisfaction" height="180"></canvas>
+      </div>
+    </div>
+    <div class="panel" style="margin-top:16px">
+      <div class="panel-title">Couverture de conformité par profil</div>
+      <canvas id="chart-coverage" height="140"></canvas>
+    </div>
+    <div class="panel" style="margin-top:16px">
+      <div class="section-header"><span class="section-title">Notifications</span></div>
+      <div id="dash-notifs"><span class="text-muted">Chargement…</span></div>
+    </div>`;
+
+  document.getElementById('api-status').textContent = '🟢 Connecté';
+  document.getElementById('api-status').className = 'badge badge-success';
+
+  // Load analytics charts
+  renderAnalyticsCharts();
+  loadDashNotifications();
+}
+
+const _chartDefaults = { color: '#9896a8', borderColor: '#2a2a40' };
+
+async function renderAnalyticsCharts() {
+  const analytics = await api.get('/admin/analytics?days=30').catch(() => null);
+  if (!analytics) return;
+
+  const chartOpts = (label, color) => ({
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { color: '#6b6980', font: { size: 10 } }, grid: { color: '#1a1a2e' } },
+      y: { beginAtZero: true, ticks: { color: '#6b6980' }, grid: { color: '#1a1a2e' } }
+    }
+  });
+
+  // Q&A daily
+  const qaCtx = document.getElementById('chart-qa');
+  if (qaCtx && analytics.qa_daily.length) {
+    new Chart(qaCtx, {
+      type: 'bar',
+      data: {
+        labels: analytics.qa_daily.map(d => d.date.slice(5)),
+        datasets: [{ label: 'Questions', data: analytics.qa_daily.map(d => d.count), backgroundColor: '#7c5cfc88', borderColor: '#7c5cfc', borderWidth: 1 }]
+      },
+      options: chartOpts('Questions', '#7c5cfc')
+    });
+  }
+
+  // Satisfaction
+  const satCtx = document.getElementById('chart-satisfaction');
+  if (satCtx && analytics.satisfaction.length) {
+    new Chart(satCtx, {
+      type: 'line',
+      data: {
+        labels: analytics.satisfaction.map(d => d.date.slice(5)),
+        datasets: [{ label: 'Note moy.', data: analytics.satisfaction.map(d => d.avg_rating), borderColor: '#34d399', backgroundColor: '#34d39922', tension: .3, fill: true }]
+      },
+      options: { ...chartOpts('Satisfaction', '#34d399'), scales: { ...chartOpts().scales, y: { min: 0, max: 5, ticks: { color: '#6b6980' }, grid: { color: '#1a1a2e' } } } }
+    });
+  }
+
+  // Coverage bar
+  const covCtx = document.getElementById('chart-coverage');
+  if (covCtx && analytics.coverage.length) {
+    new Chart(covCtx, {
+      type: 'bar',
+      data: {
+        labels: analytics.coverage.map(d => d.profile_name),
+        datasets: [{ label: 'Couverture %', data: analytics.coverage.map(d => d.coverage_pct), backgroundColor: '#60a5fa88', borderColor: '#60a5fa', borderWidth: 1 }]
+      },
+      options: { ...chartOpts('Couverture', '#60a5fa'), indexAxis: 'y', scales: { x: { max: 100, ticks: { color: '#6b6980' }, grid: { color: '#1a1a2e' } }, y: { ticks: { color: '#6b6980' }, grid: { color: '#1a1a2e' } } } }
+    });
+  }
+}
+
+async function loadDashNotifications() {
+  const container = document.getElementById('dash-notifs');
+  if (!container) return;
+  const data = await api.get('/admin/notifications?limit=5').catch(() => ({notifications:[], total:0}));
+  if (!data.notifications.length) { container.innerHTML = '<span class="text-muted">Aucune notification</span>'; return; }
+  container.innerHTML = data.notifications.map(n => `
+    <div class="audit-item">
+      <div class="audit-dot audit-dot-${n.alert_type === 'amendment_impact' ? 'applied' : 'default'}"></div>
+      <div>
+        <div class="flex gap-8 items-center">
+          <span class="audit-event">${n.title}</span>
+          <span class="audit-time">${fmtDate(n.created_at)}</span>
+          ${n.read ? '' : '<span class="tag tag-pending">Non lu</span>'}
+        </div>
+        <div class="audit-detail">${n.message.slice(0, 120)}</div>
+      </div>
+    </div>`).join('');
+}
+
+async function createVectorIndex(type) {
+  try {
+    const r = await api.post(`/admin/create-vector-index?index_type=${type}`);
+    toast(r.message || 'Configuration vectorielle mise à jour', 'success');
+    navigate('vecteur');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// DOCUMENTS
+// ══════════════════════════════════════════════════════════════════════
+async function renderDocuments(c, skip=0) {
+  const docs = await api.get(`/documents?skip=${skip}&limit=${PAGE_SIZE}`);
+
+  c.innerHTML = `
+    <div class="section-header">
+      <span class="section-title">Documents</span>
+      <button class="btn btn-primary" onclick="showUploadModal()">📤 Uploader</button>
+    </div>
+    <p class="section-sub">${docs.total} document(s) dans la base</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Fichier</th><th>Type</th><th>Langue</th><th>Pages</th><th>Chunks</th><th>Statut</th><th>Actions</th>
+        </tr></thead>
+        <tbody>
+          ${docs.documents.map(d => `<tr>
+            <td><span title="${d.id}" style="font-family:monospace;font-size:12px">${d.filename}</span></td>
+            <td>${tag(d.file_type)}</td>
+            <td>${fmt(d.language)}</td>
+            <td>${fmt(d.total_pages)}</td>
+            <td>${d.total_chunks||0}</td>
+            <td>${tag(d.status, d.status)}</td>
+            <td>
+              <div class="flex gap-8">
+                ${btn('🏷 Classifier', `classifyDoc('${d.id}','${d.filename}')`, 'secondary', true)}
+                ${btn('🗑', `deleteDoc('${d.id}')`, 'danger', true)}
+              </div>
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    ${paginationHtml(docs.total, skip, PAGE_SIZE, 'docPage')}
+  `;
+}
+function docPage(skip) { renderDocuments(document.getElementById('content'), skip); }
+
+function showUploadModal() {
+  const m = document.createElement('div');
+  m.className = 'modal-bg';
+  m.innerHTML = `<div class="modal">
+    <div class="modal-title">📤 Uploader un document</div>
+    <div class="upload-zone" id="uz" onclick="document.getElementById('ufile').click()">
+      <div style="font-size:40px">📄</div>
+      <div class="upload-zone-text">Cliquez ou glissez un fichier (PDF, DOCX, TXT)</div>
+      <input type="file" id="ufile" accept=".pdf,.docx,.txt,.json,.jsonl" onchange="handleFileSelect(this)">
+    </div>
+    <div id="ufile-name" style="margin-top:8px;font-size:12px;color:var(--text2)"></div>
+    <div class="modal-footer">
+      ${btn('Annuler', 'closeModal()', 'secondary')}
+      <button class="btn btn-primary" id="upload-btn" onclick="doUpload()" disabled>Uploader</button>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+}
+
+function handleFileSelect(inp) {
+  if (inp.files[0]) {
+    document.getElementById('ufile-name').textContent = '📎 ' + inp.files[0].name;
+    document.getElementById('upload-btn').disabled = false;
+  }
+}
+
+async function doUpload() {
+  const f = document.getElementById('ufile').files[0];
+  if (!f) return;
+  closeModal();
+  try {
+    const r = await uploadFile('/documents/upload', f);
+    toast(`✅ "${r.filename}" uploadé (${r.total_chunks} chunks)`, 'success');
+    navigate('documents');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function deleteDoc(id) {
+  if (!confirm('Supprimer ce document ?')) return;
+  try {
+    await api.del('/documents/' + id);
+    toast('Document supprimé', 'success');
+    navigate('documents');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function classifyDoc(id, name) {
+  const lois = await api.get('/lois').catch(() => ({lois:[]}));
+  const m = document.createElement('div');
+  m.className = 'modal-bg';
+  m.innerHTML = `<div class="modal">
+    <div class="modal-title">🏷 Classifier "${name}"</div>
+    <div class="form-group">
+      <label>Type de document</label>
+      <select id="dtype">
+        <option value="loi_principale">Loi principale</option>
+        <option value="modificatif">Texte modificatif</option>
+        <option value="autre">Autre</option>
+      </select>
+    </div>
+    <div class="form-group mt-16">
+      <label>Loi associée (requis pour modificatif)</label>
+      <select id="dloi">
+        <option value="">— Sélectionner une loi —</option>
+        ${lois.lois.map(l => `<option value="${l.id}">${l.code} — ${l.name}</option>`).join('')}
+      </select>
+    </div>
+    <div class="modal-footer">
+      ${btn('Annuler', 'closeModal()', 'secondary')}
+      <button class="btn btn-primary" onclick="doClassify('${id}')">Classifier</button>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+}
+
+async function doClassify(id) {
+  const dtype = document.getElementById('dtype').value;
+  const loi_id = document.getElementById('dloi').value || null;
+  if (dtype === 'modificatif' && !loi_id) { toast('Sélectionnez une loi pour un texte modificatif', 'error'); return; }
+  try {
+    await api.patch('/documents/' + id + '/classify', {document_type: dtype, loi_id});
+    closeModal();
+    toast(`Document classifié comme "${dtype}"`, 'success');
+    navigate('documents');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// LOIS & ARTICLES
+// ══════════════════════════════════════════════════════════════════════
+async function renderLois(c) {
+  const lois = await api.get('/lois');
+
+  c.innerHTML = `
+    <div class="section-header">
+      <span class="section-title">Lois & Articles</span>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Créer une Loi</div>
+      <div class="form-grid">
+        <div class="form-group"><label>Code *</label><input id="lcode" placeholder="CT, CS, LP63…"></div>
+        <div class="form-group"><label>Nom *</label><input id="lname" placeholder="Code du Travail…"></div>
+        <div class="form-group"><label>Langue</label>
+          <select id="llang"><option value="fr">Français</option><option value="ar">Arabe</option><option value="fr+ar">Bilingue</option></select>
+        </div>
+        <div class="form-group"><label>Description</label><input id="ldesc" placeholder="Optionnel…"></div>
+      </div>
+      <button class="btn btn-primary" onclick="createLoi()">➕ Créer la Loi</button>
+    </div>
+
+    <div class="section-header"><span class="section-title">${lois.total} Loi(s)</span></div>
+    <div id="lois-list">
+      ${lois.lois.map(l => `
+        <div class="panel" style="margin-bottom:12px">
+          <div class="flex gap-12 items-center" style="justify-content:space-between">
+            <div>
+              <span class="badge badge-info" style="margin-right:8px">${l.code}</span>
+              <strong>${l.name}</strong>
+              <span class="text-muted" style="margin-left:8px;font-size:12px">${l.total_articles||0} articles · ${l.language}</span>
+            </div>
+            <div class="flex gap-8">
+              ${btn('📄 Articles', `showArticles('${l.id}','${l.code}')`, 'secondary', true)}
+              ${btn('✂️ Segmenter', `showSegment('${l.id}','${l.code}')`, 'warn', true)}
+              ${btn('⚡ Criticité', `computeCriticality('${l.id}')`, 'success', true)}
+              ${btn('🗑', `deleteLoi('${l.id}')`, 'danger', true)}
+            </div>
+          </div>
+        </div>`).join('')}
+    </div>
+    <div id="articles-panel"></div>`;
+}
+
+async function createLoi() {
+  const code = document.getElementById('lcode').value.trim();
+  const name = document.getElementById('lname').value.trim();
+  const language = document.getElementById('llang').value;
+  const description = document.getElementById('ldesc').value.trim();
+  if (!code || !name) { toast('Code et nom requis', 'error'); return; }
+  try {
+    await api.post('/lois', {code, name, language, description: description||null});
+    toast(`Loi "${code}" créée`, 'success');
+    navigate('lois');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function deleteLoi(id) {
+  if (!confirm('Supprimer cette loi et tous ses articles ?')) return;
+  try {
+    await api.del('/lois/' + id);
+    toast('Loi supprimée', 'success');
+    navigate('lois');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function showArticles(loiId, code, skip=0) {
+  const panel = document.getElementById('articles-panel');
+  panel.innerHTML = '<div class="loading-text"><span class="loading"></span></div>';
+  const data = await api.get(`/lois/${loiId}/articles?limit=${PAGE_SIZE}&skip=${skip}`).catch(e => ({articles:[],total:0}));
+  panel.innerHTML = `
+    <hr class="divider">
+    <div class="section-header"><span class="section-title">Articles — ${code} (${data.total})</span></div>
+    <div class="table-wrap">
+      <table><thead><tr><th>Clé</th><th>Titre</th><th>Hiérarchie</th><th>Versions</th><th>Version active</th></tr></thead>
+      <tbody>
+        ${data.articles.map(a => `<tr>
+          <td><code style="font-size:12px">${a.article_key}</code></td>
+          <td>${a.article_heading.slice(0,60)}</td>
+          <td style="font-size:11px;color:var(--text2)">${[a.hierarchy.titre,a.hierarchy.chapitre,a.hierarchy.section].filter(Boolean).join(' › ').slice(0,50)||'—'}</td>
+          <td>${a.total_versions||1}</td>
+          <td><code style="font-size:10px">${a.active_version_id ? a.active_version_id.slice(0,8)+'…' : '—'}</code></td>
+        </tr>`).join('')}
+      </tbody></table>
+    </div>
+    ${paginationHtml(data.total, skip, PAGE_SIZE, `artPage_${loiId.replace(/-/g,'_')}`)}`;
+  window[`artPage_${loiId.replace(/-/g,'_')}`] = (s) => showArticles(loiId, code, s);
+}
+
+async function showSegment(loiId, code) {
+  const docs = await api.get(`/documents?limit=${PAGE_SIZE}`);
+  const m = document.createElement('div');
+  m.className = 'modal-bg';
+  m.innerHTML = `<div class="modal">
+    <div class="modal-title">✂️ Segmenter un document — ${code}</div>
+    <div class="form-group">
+      <label>Document source</label>
+      <select id="seg-doc">
+        <option value="">— Sélectionner —</option>
+        ${docs.documents.filter(d=>d.status==='ready').map(d=>`<option value="${d.id}">${d.filename}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group mt-16"><label>Langue (optionnel)</label>
+      <select id="seg-lang"><option value="">Auto</option><option value="fr">Français</option><option value="ar">Arabe</option></select>
+    </div>
+    <div class="modal-footer">
+      ${btn('Annuler', 'closeModal()', 'secondary')}
+      <button class="btn btn-primary" onclick="doSegment('${loiId}')">✂️ Segmenter</button>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+}
+
+async function doSegment(loiId) {
+  const doc_id = document.getElementById('seg-doc').value;
+  const lang = document.getElementById('seg-lang').value || undefined;
+  if (!doc_id) { toast('Sélectionnez un document', 'error'); return; }
+  closeModal();
+  toast('Segmentation en cours…', 'info', 10000);
+  try {
+    const r = await api.post(`/lois/${loiId}/segment-document`, {document_id: doc_id, language_override: lang||null});
+    toast(`✅ ${r.articles_created} articles créés, ${r.articles_updated} mis à jour`, 'success', 6000);
+    navigate('lois');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function computeCriticality(loiId) {
+  toast('Calcul criticité en cours…', 'info', 8000);
+  try {
+    const r = await api.post(`/lois/${loiId}/compute-criticality`, {recompute: false});
+    toast(`✅ ${r.computed} criticités calculées (critique:${r.by_level.critique||0} importante:${r.by_level.importante||0})`, 'success', 6000);
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// AMENDEMENTS
+// ══════════════════════════════════════════════════════════════════════
+let aState = {step: 1, docId: null, loiId: null, ops: []};
+
+async function renderAmendements(c) {
+  const [docs, lois] = await Promise.all([api.get('/documents?limit=100'), api.get('/lois')]);
+
+  c.innerHTML = `
+    <div class="section-header"><span class="section-title">Workflow Amendements</span></div>
+    <p class="section-sub">Pipeline en 5 étapes : Classification → Extraction → Revue → Application → Recalcul</p>
+    <div class="steps" id="amend-steps">
+      ${['1 Classifier','2 Extraire','3 Réviser','4 Appliquer','5 Recalculer'].map((s,i) =>
+        `<div class="step${i+1===aState.step?' active':i+1<aState.step?' done':''}" data-step="${i+1}">
+          <span class="step-num">${i+1}</span><span class="step-lbl">${s.slice(2)}</span>
+        </div>`).join('')}
+    </div>
+    <div id="amend-content"></div>`;
+
+  renderAmendStep(c.querySelector('#amend-content'), docs, lois);
+}
+
+function renderAmendStep(container, docs, lois) {
+  const readyDocs = (docs?.documents||[]).filter(d => d.status==='ready');
+
+  if (aState.step === 1) {
+    container.innerHTML = `
+      <div class="panel"><div class="panel-title">Étape 1 — Classifier le document modificatif</div>
+        <div class="form-grid">
+          <div class="form-group"><label>Document modificatif</label>
+            <select id="a-doc">
+              <option value="">— Sélectionner —</option>
+              ${readyDocs.map(d=>`<option value="${d.id}">${d.filename}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group"><label>Loi cible</label>
+            <select id="a-loi">
+              <option value="">— Sélectionner —</option>
+              ${(lois?.lois||[]).map(l=>`<option value="${l.id}">${l.code} — ${l.name}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="amendStep1()">Classifier & Continuer →</button>
+      </div>`;
+  } else if (aState.step === 2) {
+    container.innerHTML = `
+      <div class="panel"><div class="panel-title">Étape 2 — Extraction LLM des opérations</div>
+        <p class="text-muted mb-16">Document: <code>${aState.docId}</code> · Loi: <code>${aState.loiId}</code></p>
+        <button class="btn btn-primary" onclick="amendStep2()">🤖 Extraire les opérations</button>
+        ${btn('← Retour', 'aState.step=1;navigate("amendements")', 'secondary')}
+      </div>`;
+  } else if (aState.step === 3) {
+    const opsHtml = aState.ops.length ? `
+      <div class="table-wrap"><table>
+        <thead><tr><th>Type</th><th>Article</th><th>Texte (aperçu)</th><th>Preuve</th><th>Conf.</th><th>Statut</th></tr></thead>
+        <tbody>
+          ${aState.ops.map(op => `<tr>
+            <td>${tag(op.operation_type, 'active')}</td>
+            <td><code>${op.target_article_key}</code></td>
+            <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(op.new_text||'—').slice(0,80)}</td>
+            <td style="max-width:160px;font-size:11px;color:var(--text2)">${op.proof_extract.slice(0,60)}…</td>
+            <td>${(op.confidence*100).toFixed(0)}%</td>
+            <td>${tag(op.status, op.status)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div>
+      <div class="btn-group mt-16">
+        <button class="btn btn-primary" onclick="amendStep4()">✅ Appliquer tout →</button>
+        ${btn('← Retour', 'aState.step=2;navigate("amendements")', 'secondary')}
+      </div>` : `<div class="empty"><div class="empty-icon">😕</div><p>Aucune opération extraite</p>${btn('← Retour','aState.step=2;navigate("amendements")','secondary')}</div>`;
+
+    container.innerHTML = `<div class="panel"><div class="panel-title">Étape 3 — Révision des opérations (${aState.ops.length})</div>${opsHtml}</div>`;
+  } else if (aState.step === 4) {
+    container.innerHTML = `
+      <div class="panel"><div class="panel-title">Étape 4 — Application des amendements</div>
+        <p class="text-muted mb-16">Cliquez pour appliquer les ${aState.ops.filter(o=>o.status==='pending').length} opération(s) en attente.</p>
+        <button class="btn btn-primary" onclick="amendStep4Apply()">⚡ Appliquer tous</button>
+        ${btn('← Retour', 'aState.step=3;navigate("amendements")', 'secondary')}
+      </div>`;
+  } else if (aState.step === 5) {
+    container.innerHTML = `
+      <div class="panel"><div class="panel-title">Étape 5 — Recalcul automatique</div>
+        <p class="text-muted mb-16">Recalculez les exigences, actions et criticités pour les articles mis à jour.</p>
+        <button class="btn btn-primary" onclick="amendStep5()">🔄 Recalculer</button>
+        <button class="btn btn-success" style="margin-left:8px" onclick="aState={step:1,docId:null,loiId:null,ops:[]};navigate('amendements')">✅ Nouveau workflow</button>
+      </div>`;
+  }
+}
+
+async function amendStep1() {
+  aState.docId = document.getElementById('a-doc').value;
+  aState.loiId = document.getElementById('a-loi').value;
+  if (!aState.docId || !aState.loiId) { toast('Sélectionnez document et loi', 'error'); return; }
+  try {
+    await api.patch('/documents/' + aState.docId + '/classify', {document_type:'modificatif', loi_id: aState.loiId});
+    toast('Document classifié comme modificatif', 'success');
+    aState.step = 2;
+    navigate('amendements');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function amendStep2() {
+  toast('Extraction LLM en cours…', 'info', 15000);
+  try {
+    const r = await api.post('/documents/' + aState.docId + '/extract-amendments', {loi_id: aState.loiId});
+    toast(`✅ ${r.operations_extracted} opérations extraites`, 'success');
+    const opsData = await api.get('/documents/' + aState.docId + '/amendments');
+    aState.ops = opsData.operations || [];
+    aState.step = 3;
+    navigate('amendements');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function amendStep4() { aState.step = 4; navigate('amendements'); }
+
+async function amendStep4Apply() {
+  toast('Application des amendements…', 'info', 10000);
+  try {
+    const r = await api.post('/documents/' + aState.docId + '/apply-amendments');
+    toast(`✅ ${r.applied} appliqués, ${r.failed} échoués`, r.failed?'warn':'success', 6000);
+    aState.step = 5;
+    navigate('amendements');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function amendStep5() {
+  toast('Recalcul en cours…', 'info', 20000);
+  try {
+    const r = await api.post('/lois/' + aState.loiId + '/recalculate');
+    toast(`✅ ${r.versions_processed} versions · ${r.exigences_extracted} exigences · ${r.actions_extracted} actions`, 'success', 8000);
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// CONFORMITÉ & ROADMAP
+// ══════════════════════════════════════════════════════════════════════
+async function renderConformite(c) {
+  const profiles = await api.get('/company-profiles');
+  c.innerHTML = `
+    <div style="display:grid;grid-template-columns:360px 1fr;gap:20px">
+      <div>
+        <div class="panel">
+          <div class="panel-title">Créer un profil</div>
+          <div class="form-group"><label>Nom *</label><input id="pname" placeholder="ACME Tunisie"></div>
+          <div class="form-group mt-16"><label>Secteur</label><input id="psect" placeholder="technologie, industrie…"></div>
+          <div class="form-group mt-16"><label>Taille</label>
+            <select id="psize"><option value="">—</option><option>micro</option><option>small</option><option>medium</option><option>large</option></select>
+          </div>
+          <div class="form-group mt-16"><label>Employés</label><input id="pemp" type="number" placeholder="50"></div>
+          <div class="form-group mt-16"><label>Activités</label><input id="pact" placeholder="développement logiciel, conseil…"></div>
+          <button class="btn btn-primary w-full mt-16" onclick="createProfile()">➕ Créer</button>
+        </div>
+
+        <div class="section-header mt-16"><span class="section-title">${profiles.total} Profil(s)</span></div>
+        ${profiles.profiles.map(p => `
+          <div class="panel" style="margin-bottom:10px;cursor:pointer" onclick="loadProfile('${p.id}')">
+            <div class="flex gap-8 items-center" style="justify-content:space-between">
+              <div>
+                <strong>${p.name}</strong><br>
+                <span class="text-muted" style="font-size:12px">${p.sector||'—'} · ${p.size||'—'} · ${p.employees||'?'} emp.</span>
+              </div>
+              <div class="flex gap-8">
+                ${btn('📊', `loadProfile('${p.id}')`, 'secondary', true)}
+                ${btn('🗑', `deleteProfile('${p.id}')`, 'danger', true)}
+              </div>
+            </div>
+          </div>`).join('')}
+      </div>
+      <div id="profile-detail"><div class="empty"><div class="empty-icon">👈</div><p>Sélectionnez un profil</p></div></div>
+    </div>`;
+}
+
+async function createProfile() {
+  const name = document.getElementById('pname').value.trim();
+  if (!name) { toast('Nom requis', 'error'); return; }
+  try {
+    await api.post('/company-profiles', {
+      name, sector: document.getElementById('psect').value||null,
+      size: document.getElementById('psize').value||null,
+      employees: parseInt(document.getElementById('pemp').value)||null,
+      activities: document.getElementById('pact').value||null,
+      jurisdiction: 'tunisia'
+    });
+    toast('Profil créé', 'success');
+    navigate('conformite');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function deleteProfile(id) {
+  if (!confirm('Supprimer ce profil ?')) return;
+  try { await api.del('/company-profiles/'+id); toast('Profil supprimé','success'); navigate('conformite'); }
+  catch(e) { toast(e.message,'error'); }
+}
+
+async function loadProfile(id) {
+  const d = document.getElementById('profile-detail');
+  d.innerHTML = '<div class="loading-text"><span class="loading"></span></div>';
+  try {
+    const [profile, summary, roadmap] = await Promise.all([
+      api.get('/company-profiles/'+id),
+      api.get('/company-profiles/'+id+'/applicabilities/summary').catch(()=>null),
+      api.get('/company-profiles/'+id+'/roadmap').catch(()=>null),
+    ]);
+
+    const summaryHtml = summary ? `
+      <div class="flex gap-12" style="flex-wrap:wrap;margin-bottom:16px">
+        ${['applicable','not_applicable'].map(k => `
+          <div class="stat-card" style="min-width:120px;flex:1">
+            <div class="stat-value" style="font-size:22px">${summary[k]||0}</div>
+            <div class="stat-label">${k==='applicable'?'Applicable':'Non applicable'}</div>
+          </div>`).join('')}
+      </div>` : '';
+
+    const evalBtn = `<div class="btn-group mb-16">
+      ${btn('🔍 Évaluer applicabilité', `evalApplicability('${id}')`, 'primary')}
+      ${btn('🗺 Actualiser roadmap', `loadProfile('${id}')`, 'secondary')}
+    </div>`;
+
+    let roadmapHtml = '<div class="empty">Aucune action disponible. Évaluez d\'abord l\'applicabilité.</div>';
+    if (roadmap && roadmap.ordered_plan && roadmap.ordered_plan.length) {
+      const byLevel = { critique:[], importante:[], secondaire:[] };
+      roadmap.ordered_plan.forEach(a => { if(byLevel[a.criticality_level]) byLevel[a.criticality_level].push(a); });
+
+      roadmapHtml = Object.entries(byLevel).filter(([,v])=>v.length).map(([level, actions]) => `
+        <div style="margin-bottom:20px">
+          <div style="font-size:13px;font-weight:600;margin-bottom:10px">${tag(level,level)} ${actions.length} action(s)</div>
+          ${actions.map(a => `<div class="roadmap-item">
+            <div class="roadmap-header">
+              <span class="roadmap-pos">${a.position}</span>
+              <div style="flex:1">
+                <div class="roadmap-action">${a.action_precise}</div>
+                <div class="roadmap-meta">
+                  <span>${tag(a.modalite)}</span>
+                  ${a.article_key?`<code style="font-size:10px">${a.article_key}</code>`:''}
+                  ${a.loi_code?`<span class="badge badge-info" style="font-size:10px">${a.loi_code}</span>`:''}
+                  <span>${(a.criticality_score*100).toFixed(0)}%</span>
+                </div>
+              </div>
+            </div>
+            ${a.conditions&&a.conditions.length?`<div class="roadmap-conditions">📋 ${a.conditions.join(' · ')}</div>`:''}
+            ${a.preuve?`<div class="roadmap-preuve">📎 ${a.preuve}</div>`:''}
+          </div>`).join('')}
+        </div>`).join('');
+    }
+
+    d.innerHTML = `
+      <div>
+        <div class="panel-title" style="font-size:16px;margin-bottom:16px">${profile.name}
+          <span class="text-muted" style="font-weight:400;font-size:13px"> — ${profile.sector||'—'} · ${profile.size||'—'}</span>
+        </div>
+        ${evalBtn}
+        ${summaryHtml}
+        <div class="section-header"><span class="section-title">Plan d'action (${roadmap?.total_actions||0} actions)</span></div>
+        ${roadmapHtml}
+      </div>`;
+  } catch(e) { d.innerHTML = `<div class="empty"><p>${e.message}</p></div>`; }
+}
+
+async function evalApplicability(profileId) {
+  const docs = await api.get('/documents?limit=100');
+  const m = document.createElement('div');
+  m.className = 'modal-bg';
+  m.innerHTML = `<div class="modal">
+    <div class="modal-title">🔍 Évaluer l'applicabilité</div>
+    <div class="form-group"><label>Filtrer par document (optionnel)</label>
+      <select id="eval-doc"><option value="">Tous les documents</option>
+        ${docs.documents.filter(d=>d.status==='ready').map(d=>`<option value="${d.id}">${d.filename}</option>`).join('')}
+      </select>
+    </div>
+    <div class="modal-footer">
+      ${btn('Annuler','closeModal()','secondary')}
+      <button class="btn btn-primary" onclick="doEvalApplicability('${profileId}')">Évaluer</button>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+}
+
+async function doEvalApplicability(profileId) {
+  const docId = document.getElementById('eval-doc').value || null;
+  closeModal();
+  toast('Évaluation en cours (LLM)…', 'info', 30000);
+  try {
+    const r = await api.post(`/company-profiles/${profileId}/evaluate-applicabilities`, {
+      profile_id: profileId, document_id: docId
+    });
+    toast(`✅ ${r.evaluated_exigences} évaluées · ${r.applicable} applicables`, 'success', 8000);
+    loadProfile(profileId);
+  } catch(e) { toast(e.message,'error'); }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// AUDIT LOG
+// ══════════════════════════════════════════════════════════════════════
+async function renderAudit(c) {
+  const lois = await api.get('/lois').catch(()=>({lois:[]}));
+  c.innerHTML = `
+    <div class="section-header"><span class="section-title">Journal d'Audit</span></div>
+    <div class="panel" style="margin-bottom:16px">
+      <div class="flex gap-12 items-center" style="flex-wrap:wrap">
+        <div class="form-group" style="flex:1;min-width:160px">
+          <label>Loi</label>
+          <select id="audit-loi" onchange="loadAuditLogs()">
+            <option value="">Toutes</option>
+            ${lois.lois.map(l=>`<option value="${l.id}">${l.code} — ${l.name}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group" style="flex:1;min-width:160px">
+          <label>Type d'événement</label>
+          <select id="audit-type" onchange="loadAuditLogs()">
+            <option value="">Tous</option>
+            ${['document_classified','amendment_extracted','amendment_applied','version_superseded','article_repealed','recalculation_done'].map(e=>`<option value="${e}">${e}</option>`).join('')}
+          </select>
+        </div>
+        ${btn('🔄 Actualiser', 'loadAuditLogs()', 'secondary', true)}
+      </div>
+    </div>
+    <div id="audit-list"><div class="loading-text"><span class="loading"></span></div></div>`;
+  await loadAuditLogs();
+}
+
+async function loadAuditLogs() {
+  const loiId = document.getElementById('audit-loi')?.value || '';
+  const evtType = document.getElementById('audit-type')?.value || '';
+  let path = `/audit-logs?limit=${PAGE_SIZE}&skip=0`;
+  if (loiId) path += '&loi_id=' + loiId;
+  if (evtType) path += '&event_type=' + evtType;
+  const list = document.getElementById('audit-list');
+  if (!list) return;
+  list.innerHTML = '<div class="loading-text"><span class="loading"></span></div>';
+  try {
+    const data = await api.get(path);
+    const dotClass = e => {
+      if (e.includes('applied')) return 'applied';
+      if (e.includes('superseded')) return 'superseded';
+      if (e.includes('repealed')) return 'repealed';
+      if (e.includes('extracted')) return 'extracted';
+      if (e.includes('classified')) return 'classified';
+      if (e.includes('recalculation')) return 'recalculation';
+      return 'default';
+    };
+    list.innerHTML = `<div class="panel">
+      ${data.logs.map(l => `<div class="audit-item">
+        <div class="audit-dot audit-dot-${dotClass(l.event_type)}" style="margin-top:5px"></div>
+        <div style="flex:1">
+          <div class="flex gap-8 items-center" style="justify-content:space-between">
+            <span class="audit-event">${l.event_type.replace(/_/g,' ')}</span>
+            <span class="audit-time">${fmtDate(l.created_at)}</span>
+          </div>
+          ${l.loi_id?`<div class="audit-detail">Loi: <code style="font-size:11px">${l.loi_id.slice(0,8)}</code></div>`:''}
+          ${l.old_version_id?`<div class="audit-detail" style="font-size:11px">Ancien: ${l.old_version_id.slice(0,8)} → Nouveau: ${(l.new_version_id||'—').slice(0,8)}</div>`:''}
+          ${l.proof_extract?`<div class="audit-detail" style="font-size:11px;color:var(--text3)">${l.proof_extract.slice(0,100)}…</div>`:''}
+        </div>
+      </div>`).join('')||'<div class="empty">Aucun événement</div>'}
+    </div>`;
+  } catch(e) { list.innerHTML = `<div class="empty">${e.message}</div>`; }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// RECHERCHE
+// ══════════════════════════════════════════════════════════════════════
+async function renderRecherche(c) {
+  c.innerHTML = `
+    <div class="section-header"><span class="section-title">Q/R Juridique</span></div>
+    <div class="panel">
+      <div class="form-group mb-16">
+        <label>Question utilisateur</label>
+        <textarea id="ask-input" placeholder="Ex: Quelle est la solution pratique pour se conformer aux obligations de tenue des registres ?" onkeydown="if(event.key==='Enter' && (event.ctrlKey || event.metaKey))doAsk()"></textarea>
+      </div>
+      <div class="flex gap-12" style="flex-wrap:wrap">
+        <select id="ask-mode" style="min-width:180px">
+          <option value="auto">Mode auto (choix intelligent)</option>
+          <option value="classic">Mode classique (/ask)</option>
+          <option value="agentic">Mode agentic (/ask-agentic)</option>
+        </select>
+        <select id="ask-lang" style="min-width:150px"><option value="">Toutes langues</option><option value="fr">Français</option><option value="ar">Arabe</option><option value="en">Anglais</option></select>
+        <input id="ask-topk" type="number" min="1" max="20" value="5" style="width:90px" title="Top K">
+        <button class="btn btn-primary" onclick="doAsk()">💬 Poser la question</button>
+        <button class="btn btn-warn" onclick="doCompareAsk()">⚖️ Comparer classique vs agentic</button>
+      </div>
+      <div class="text-muted" style="margin-top:8px;font-size:11px">Astuce: Ctrl+Entrée pour lancer rapidement.</div>
+    </div>
+
+    <div id="ask-results"></div>
+    <div id="ask-compare"></div>
+
+    <div class="section-header mt-16"><span class="section-title">Recherche Sémantique</span></div>
+    <div class="panel">
+      <div class="flex gap-12">
+        <input id="q-input" class="w-full" placeholder="Rechercher dans les documents juridiques… (FR ou AR)" onkeydown="if(event.key==='Enter')doSearch()">
+        <select id="q-lang" style="min-width:120px"><option value="">Toutes langues</option><option value="fr">Français</option><option value="ar">Arabe</option></select>
+        <button class="btn btn-secondary" onclick="doSearch()">🔍 Rechercher</button>
+      </div>
+    </div>
+    <div id="search-results"></div>`;
+}
+
+function renderAskSources(sources=[]) {
+  if (!sources.length) return '<div class="text-muted">Aucune source retournée</div>';
+  return `<table>
+    <thead><tr><th>Document</th><th>Page</th><th>Section</th><th>Langue</th><th>Score</th></tr></thead>
+    <tbody>
+      ${sources.map(s => `<tr>
+        <td>${fmt(s.filename)}</td>
+        <td>${fmt(s.page_number)}</td>
+        <td>${fmt(s.section)}</td>
+        <td>${fmt(s.language)}</td>
+        <td>${(s.relevance_score ?? 0).toFixed ? s.relevance_score.toFixed(3) : fmt(s.relevance_score)}</td>
+      </tr>`).join('')}
+    </tbody>
+  </table>`;
+}
+
+function renderAgenticMeta(r) {
+  if (!r || !r.route_decision) return '';
+  const timings = r.timings_ms || {};
+  const steps = (r.reasoning_steps || []).map(s => `<li style="margin-bottom:4px">${s}</li>`).join('');
+  return `
+    <div class="panel" style="margin-top:12px">
+      <div class="panel-title">Observabilité Agentic</div>
+      <div class="stats-grid" style="margin-bottom:12px">
+        <div class="stat-card"><div class="stat-label">Route</div><div class="stat-value" style="font-size:18px">${r.route_decision}</div></div>
+        <div class="stat-card"><div class="stat-label">Intent</div><div class="stat-value" style="font-size:18px">${r.intent || 'analysis'}</div></div>
+        <div class="stat-card"><div class="stat-label">Tentatives</div><div class="stat-value" style="font-size:18px">${r.retrieval_attempts ?? 0}</div></div>
+        <div class="stat-card"><div class="stat-label">Retrieval</div><div class="stat-value" style="font-size:18px">${(timings.retrieval ?? 0).toFixed ? timings.retrieval.toFixed(1) : timings.retrieval} ms</div></div>
+        <div class="stat-card"><div class="stat-label">Generation</div><div class="stat-value" style="font-size:18px">${(timings.generation ?? 0).toFixed ? timings.generation.toFixed(1) : timings.generation} ms</div></div>
+        <div class="stat-card"><div class="stat-label">Total</div><div class="stat-value" style="font-size:18px">${(timings.total ?? 0).toFixed ? timings.total.toFixed(1) : timings.total} ms</div></div>
+      </div>
+      ${r.rewritten_query ? `<div class="mb-16"><span class="text-muted">Requête reformulée:</span><pre>${r.rewritten_query}</pre></div>` : ''}
+      <div>
+        <div class="text-muted mb-16">Reasoning steps</div>
+        <ol style="padding-left:18px">${steps || '<li>Aucune étape</li>'}</ol>
+      </div>
+    </div>`;
+}
+
+function chooseModeAutomatically(question='') {
+  const q = (question || '').toLowerCase();
+
+  const agenticHints = [
+    'conseil','conseils','advice','solution','plan','plan d\'action','etapes','étapes',
+    'comment faire','priorité','priorite','exigence','exigences','conformité','conformite',
+    'applicable','obligation','obligations','risque','audit','roadmap','recommandation',
+    'نصيحة','حل','خطة','متطلبات','امتثال','قابل للتطبيق','واجب'
+  ];
+
+  const shouldUseAgentic =
+    q.length > 220 ||
+    agenticHints.some(h => q.includes(h)) ||
+    q.includes('?') && (q.includes('comment') || q.includes('how'));
+
+  return shouldUseAgentic ? 'agentic' : 'classic';
+}
+
+async function doAsk() {
+  const q = document.getElementById('ask-input').value.trim();
+  if (!q) return;
+
+  const mode = document.getElementById('ask-mode').value;
+  const effectiveMode = mode === 'auto' ? 'auto' : mode;
+  const lang = document.getElementById('ask-lang').value || null;
+  const topK = Math.max(1, Math.min(20, parseInt(document.getElementById('ask-topk').value || '5', 10)));
+  const target = document.getElementById('ask-results');
+  const compareTarget = document.getElementById('ask-compare');
+  compareTarget.innerHTML = '';
+
+  target.innerHTML = '<div class="loading-text"><span class="loading"></span> Génération de la reponse…</div>';
+
+  try {
+    const endpoint = effectiveMode === 'auto' ? '/ask-auto' : (effectiveMode === 'agentic' ? '/ask-agentic' : '/ask');
+    const payload = {
+      question: q,
+      top_k: topK,
+      language_filter: lang,
+      document_id: null,
+      temperature: 0.3,
+      history: []
+    };
+    const r = await api.post(endpoint, payload);
+
+    if (mode === 'auto') {
+      const modeLabel = (r.selected_mode || 'classic') === 'agentic' ? 'agentic' : 'classique';
+      const reason = r.auto_reason ? ` (${r.auto_reason})` : '';
+      toast(`Mode auto: ${modeLabel} sélectionné${reason}`, 'info', 2800);
+    }
+
+    const usedMode = mode === 'auto' ? (r.selected_mode || 'classic') : effectiveMode;
+
+    target.innerHTML = `
+      <div class="panel">
+        <div class="panel-title">reponse (${usedMode === 'agentic' ? 'Agentic' : 'Classique'})</div>
+        <div style="line-height:1.7;font-size:13px;white-space:pre-wrap">${r.answer || ''}</div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Sources (${r.chunks_used || 0} chunks)</div>
+        ${renderAskSources(r.sources || [])}
+      </div>
+      ${usedMode === 'agentic' ? renderAgenticMeta(r) : ''}
+    `;
+  } catch (e) {
+    target.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div><p>${e.message}</p></div>`;
+  }
+}
+
+async function doCompareAsk() {
+  const q = document.getElementById('ask-input').value.trim();
+  if (!q) return;
+
+  const lang = document.getElementById('ask-lang').value || null;
+  const topK = Math.max(1, Math.min(20, parseInt(document.getElementById('ask-topk').value || '5', 10)));
+  const target = document.getElementById('ask-compare');
+  const askTarget = document.getElementById('ask-results');
+  askTarget.innerHTML = '';
+
+  const payload = {
+    question: q,
+    top_k: topK,
+    language_filter: lang,
+    document_id: null,
+    temperature: 0.3,
+    history: []
+  };
+
+  target.innerHTML = '<div class="loading-text"><span class="loading"></span> Comparaison en cours…</div>';
+
+  const tClassic = performance.now();
+  const classicPromise = api.post('/ask', payload).then(r => ({ok:true, data:r, elapsed:performance.now()-tClassic})).catch(e => ({ok:false, error:e.message, elapsed:performance.now()-tClassic}));
+
+  const tAgentic = performance.now();
+  const agenticPromise = api.post('/ask-agentic', payload).then(r => ({ok:true, data:r, elapsed:performance.now()-tAgentic})).catch(e => ({ok:false, error:e.message, elapsed:performance.now()-tAgentic}));
+
+  const [classic, agentic] = await Promise.all([classicPromise, agenticPromise]);
+
+  const classicSummary = classic.ok
+    ? `<div class="panel-title">Classique</div>
+       <div class="text-muted" style="font-size:12px;margin-bottom:8px">Latence: ${classic.elapsed.toFixed(1)} ms · Chunks: ${classic.data.chunks_used || 0}</div>
+       <div style="line-height:1.6;font-size:13px;white-space:pre-wrap;max-height:260px;overflow:auto">${classic.data.answer || ''}</div>`
+    : `<div class="panel-title">Classique</div><div class="text-danger">Erreur: ${classic.error}</div>`;
+
+  const agenticSummary = agentic.ok
+    ? `<div class="panel-title">Agentic</div>
+       <div class="text-muted" style="font-size:12px;margin-bottom:8px">Latence API: ${agentic.elapsed.toFixed(1)} ms · Route: ${agentic.data.route_decision || '—'} · Tentatives: ${agentic.data.retrieval_attempts ?? 0}</div>
+       <div class="text-muted" style="font-size:12px;margin-bottom:8px">Timing interne: total ${(agentic.data.timings_ms?.total ?? 0).toFixed ? agentic.data.timings_ms.total.toFixed(1) : (agentic.data.timings_ms?.total ?? 0)} ms</div>
+       <div style="line-height:1.6;font-size:13px;white-space:pre-wrap;max-height:260px;overflow:auto">${agentic.data.answer || ''}</div>`
+    : `<div class="panel-title">Agentic</div><div class="text-danger">Erreur: ${agentic.error}</div>`;
+
+  const delta = (agentic.elapsed - classic.elapsed).toFixed(1);
+  const deltaLabel = Number(delta) >= 0 ? `+${delta}` : `${delta}`;
+
+  target.innerHTML = `
+    <div class="panel" style="margin-top:12px">
+      <div class="panel-title">Comparateur Classique vs Agentic</div>
+      <div class="text-muted" style="font-size:12px;margin-bottom:12px">Delta latence (agentic - classique): ${deltaLabel} ms</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="panel" style="margin:0">${classicSummary}</div>
+        <div class="panel" style="margin:0">${agenticSummary}</div>
+      </div>
+    </div>
+    ${agentic.ok ? renderAgenticMeta(agentic.data) : ''}
+  `;
+}
+
+async function doSearch() {
+  const q = document.getElementById('q-input').value.trim();
+  if (!q) return;
+  const lang = document.getElementById('q-lang').value || null;
+  const results = document.getElementById('search-results');
+  results.innerHTML = '<div class="loading-text"><span class="loading"></span></div>';
+  try {
+    const r = await api.post('/search', {query: q, top_k: 10, language_filter: lang||null});
+    if (!r.results.length) { results.innerHTML = '<div class="empty"><div class="empty-icon">🔍</div><p>Aucun résultat</p></div>'; return; }
+    results.innerHTML = r.results.map(res => `
+      <div class="panel" style="margin-bottom:10px">
+        <div class="flex gap-8 items-center" style="justify-content:space-between;margin-bottom:8px">
+          <div class="flex gap-8 items-center">
+            ${tag(res.language||'?')} ${tag(res.score.toFixed(2),'info')}
+          </div>
+          <div class="text-muted" style="font-size:11px">${res.filename} · p.${res.page_number||'?'}</div>
+        </div>
+        ${res.section?`<div style="font-size:11px;color:var(--accent2);margin-bottom:6px">📌 ${res.section}</div>`:''}
+        <div style="font-size:13px;line-height:1.6">${res.text.slice(0,400)}${res.text.length>400?'…':''}</div>
+      </div>`).join('');
+  } catch(e) { results.innerHTML = `<div class="empty">${e.message}</div>`; }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// VECTEUR
+// ══════════════════════════════════════════════════════════════════════
+async function renderVecteur(c) {
+  const stats = await api.get('/admin/vector-stats');
+  c.innerHTML = `
+    <div class="section-header"><span class="section-title">Moteur Vectoriel (MongoDB)</span></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="panel">
+        <div class="panel-title">Statut</div>
+        <table style="width:100%">
+          <tr><td class="text-muted">Backend actif</td><td>${tag(stats.active_backend || 'python-cosine','active')}</td></tr>
+          <tr><td class="text-muted">Vecteurs stockés</td><td><strong>${(stats.total_vectors||0).toLocaleString()}</strong></td></tr>
+          <tr><td class="text-muted">Total chunks</td><td><strong>${(stats.total_chunks||0).toLocaleString()}</strong></td></tr>
+          <tr><td class="text-muted">Dim. modèle (config)</td><td>${stats.embedding_dimension_primary_model ?? stats.embedding_dimension}</td></tr>
+          <tr><td class="text-muted">Dim. dominante (chunks)</td><td>${stats.embedding_dimension_stored_dominant != null ? stats.embedding_dimension_stored_dominant : '—'}</td></tr>
+          <tr><td class="text-muted">Index ANN</td><td><span class="text-muted">Non utilisé</span></td></tr>
+          <tr><td class="text-muted">Type d'index</td><td>${tag('python-cosine','info')}</td></tr>
+        </table>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Configuration</div>
+        <p class="text-muted mb-16" style="font-size:13px">La recherche vectorielle fonctionne en cosine similarity côté application avec des embeddings stockés dans MongoDB.</p>
+        <div class="btn-group">
+          ${btn('🔄 Rafraîchir les stats', "navigate('vecteur')", 'secondary')}
+        </div>
+        <hr class="divider">
+        <p class="text-muted" style="font-size:12px">Aucune création d'index pgvector n'est nécessaire dans cette architecture.</p>
+      </div>
+    </div>
+    <div class="panel mt-16">
+      <div class="panel-title">Comparaison des backends</div>
+      <table>
+        <thead><tr><th>Critère</th><th>MongoDB + Python Cosine (actuel)</th><th>pgvector SQL (legacy)</th><th>pgvector + Index HNSW (legacy)</th></tr></thead>
+        <tbody>
+          <tr><td>Scalabilité</td><td class="text-warn">~10k vecteurs</td><td class="text-info">~100k vecteurs</td><td class="text-success">Millions</td></tr>
+          <tr><td>Latence (10k vecteurs)</td><td class="text-warn">~500ms</td><td class="text-info">~50ms</td><td class="text-success">~5ms</td></tr>
+          <tr><td>Rappel</td><td class="text-success">100% exact</td><td class="text-success">100% exact</td><td class="text-warn">~99% approx.</td></tr>
+          <tr><td>Mémoire RAM</td><td class="text-danger">Élevée</td><td class="text-success">DB uniquement</td><td class="text-success">DB uniquement</td></tr>
+          <tr><td>Migration DB</td><td class="text-success">Aucune</td><td class="text-success">Aucune (cast)</td><td class="text-warn">Index à créer</td></tr>
+        </tbody>
+      </table>
+    </div>`;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// CASES
+// ══════════════════════════════════════════════════════════════════════
+let activeCaseId = null;
+
+async function renderCases(c, skip=0, filterStatus='', filterPriority=''){
+  let path = `/cases?skip=${skip}&limit=25`;
+  if(filterStatus) path += '&status='+filterStatus;
+  if(filterPriority) path += '&priority='+filterPriority;
+  const [cases, summary] = await Promise.all([api.get(path), api.get('/cases/summary').catch(()=>({}))]);
+  const stats = [
+    {label:'Ouverts', value:summary.by_status?.open||0, key:'open'},
+    {label:'En cours', value:summary.by_status?.in_progress||0, key:'in_progress'},
+    {label:'En revue', value:summary.by_status?.under_review||0, key:'under_review'},
+    {label:'Résolus', value:summary.by_status?.resolved||0, key:'resolved'},
+    {label:'Critiques', value:summary.by_priority?.critical||0, key:'critical'},
+  ];
+  const statusFilters = [{k:'',l:'Tous'},{k:'open',l:'Ouvert'},{k:'in_progress',l:'En cours'},{k:'under_review',l:'Revue'},{k:'resolved',l:'Résolu'},{k:'closed',l:'Fermé'}];
+  const priorityFilters = [{k:'',l:'Toutes prio'},{k:'critical',l:'Critique'},{k:'high',l:'Haute'},{k:'medium',l:'Moyenne'},{k:'low',l:'Faible'}];
+  c.innerHTML = `<div class="section-header"><span class="section-title">Dossiers de conformité</span><button class="btn btn-primary" onclick="showCreateCaseModal()">➕ Nouveau dossier</button></div>
+    <div class="stats-grid" style="grid-template-columns:repeat(5,1fr)">${stats.map(s=>`<div class="stat-card" style="text-align:center;cursor:pointer" onclick="filterCasesList('${s.key}', '')"><div class="stat-value" style="font-size:22px">${s.value}</div><div class="stat-label">${s.label}</div></div>`).join('')}</div>
+    <div class="btn-group">
+      ${statusFilters.map(f=>`<button class="btn btn-sm ${filterStatus===f.k?'btn-primary':'btn-secondary'}" onclick="filterCasesList('${f.k}','${filterPriority}')">${f.l}</button>`).join('')}
+      <span style="border-left:1px solid var(--border);margin:0 4px"></span>
+      ${priorityFilters.map(f=>`<button class="btn btn-sm ${filterPriority===f.k?'btn-primary':'btn-secondary'}" onclick="filterCasesList('${filterStatus}','${f.k}')">${f.l}</button>`).join('')}
+    </div>
+    <div class="table-wrap"><table><thead><tr><th>Titre</th><th>Statut</th><th>Priorité</th><th>Assigné</th><th>MàJ</th><th>Actions</th></tr></thead><tbody>
+      ${cases.cases.map(cs=>`<tr><td><strong>${escapeHtml(cs.title)}</strong><br><span style="font-size:11px;color:var(--text3)">${cs.id}</span></td><td>${tag(cs.status, cs.status)}</td><td>${tag(cs.priority, cs.priority)}</td><td>${fmt(cs.assigned_to)}</td><td>${fmtDate(cs.updated_at)}</td><td><div class="flex gap-8">${btn('🔍',`openCase('${cs.id}')`,'secondary',true)}${btn('✏️',`showEditCaseModal('${cs.id}')`,'secondary',true)}${btn('🗑',`deleteCase('${cs.id}')`,'danger',true)}</div></td></tr>`).join('')}
+    </tbody></table></div>
+    ${paginationHtml(cases.total, skip, 25, `casesPage_${filterStatus}_${filterPriority}`)}`;
+}
+function casesPage(skip){ renderCases(document.getElementById('content'), skip, '', ''); }
+function filterCasesList(st, pr){ renderCases(document.getElementById('content'), 0, st, pr); }
+
+async function deleteCase(id){
+  if(!confirm('Supprimer ce dossier ?')) return;
+  try{ await api.del('/cases/'+id); toast('Dossier supprimé','success'); navigate('cases'); }
+  catch(e){ toast(e.message,'error'); }
+}
+
+async function showCreateCaseModal(){
+  const profiles = await api.get('/company-profiles?limit=100').catch(()=>({profiles:[]}));
+  const m = document.createElement('div'); m.className = 'modal-bg';
+  m.innerHTML = `<div class="modal"><div class="modal-title">➕ Nouveau dossier</div>
+    <div class="form-group"><label>Titre *</label><input id="nc-title" placeholder="Ex: Audit social 2025"></div>
+    <div class="form-group mt-16"><label>Description</label><textarea id="nc-desc" rows="2"></textarea></div>
+    <div class="form-group mt-16"><label>Profil entreprise</label><select id="nc-profile"><option value="">—</option>${profiles.profiles.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}</select></div>
+    <div class="form-group mt-16"><label>Priorité</label><select id="nc-priority"><option value="low">Faible</option><option value="medium" selected>Moyenne</option><option value="high">Élevée</option><option value="critical">Critique</option></select></div>
+    <div class="modal-footer">${btn('Annuler','closeModal()','secondary')}<button class="btn btn-primary" onclick="doCreateCase()">Créer</button></div></div>`;
+  document.body.appendChild(m);
+}
+async function doCreateCase(){
+  const title = document.getElementById('nc-title').value.trim();
+  if(!title){ toast('Titre requis','error'); return; }
+  try{
+    await api.post('/cases',{title, description:document.getElementById('nc-desc').value||null, company_profile_id:document.getElementById('nc-profile').value||null, priority:document.getElementById('nc-priority').value, assigned_to:null, tags:[], created_by:'admin'});
+    closeModal(); toast('Dossier créé','success'); navigate('cases');
+  }catch(e){ toast(e.message,'error'); }
+}
+
+function openCase(id){ activeCaseId=id; currentSection='case-detail'; renderCaseDetail(document.getElementById('content'), id); }
+
+async function renderCaseDetail(c, caseId){
+  const [cs, msgs, docs, findings, actions, orchStatus] = await Promise.all([
+    api.get(`/cases/${caseId}`),
+    api.get(`/cases/${caseId}/messages?limit=200`).catch(()=>({messages:[]})),
+    api.get(`/cases/${caseId}/documents`).catch(()=>({documents:[]})),
+    api.get(`/cases/${caseId}/findings`).catch(()=>({findings:[]})),
+    api.get(`/cases/${caseId}/actions`).catch(()=>({actions:[]})),
+    api.get(`/cases/${caseId}/orchestrate/status`).catch(()=>null)
+  ]);
+  c.innerHTML = `<div class="section-header"><span class="section-title">${escapeHtml(cs.title)}</span><div class="flex gap-8">${tag(cs.status, cs.status)}${tag(cs.priority, cs.priority)}${btn('✏️ Éditer',`showEditCaseModal('${cs.id}')`,'secondary',true)}<button class="btn btn-secondary btn-sm" onclick="navigate('cases')">← Retour</button></div></div>
+    <div class="panel" style="margin-bottom:16px"><div style="display:flex;gap:24px;flex-wrap:wrap;font-size:13px;color:var(--text2)"><span>Créé: ${fmtDate(cs.created_at)}</span><span>MàJ: ${fmtDate(cs.updated_at)}</span><span>Assigné: ${fmt(cs.assigned_to)}</span><span>Profil: ${fmt(cs.company_profile_id)}</span>${cs.tags&&cs.tags.length?`<span>Tags: ${cs.tags.map(t=>tag(t)).join(' ')}</span>`:''}${orchStatus?`<span>Orchestration: ${orchStatus.ready_for_orchestration?'🟢 Prêt':'🟡 Incomplet'}</span>`:''}</div></div>
+    <div class="btn-group" id="case-tabs">
+      <button class="btn btn-sm btn-primary" onclick="showCaseTab('conversation')">💬 Conversation</button>
+      <button class="btn btn-sm btn-secondary" onclick="showCaseTab('documents')">📎 Documents</button>
+      <button class="btn btn-sm btn-secondary" onclick="showCaseTab('findings')">⚠️ Constats</button>
+      <button class="btn btn-sm btn-secondary" onclick="showCaseTab('actions')">🔧 Actions</button>
+      <button class="btn btn-sm btn-secondary" onclick="showCaseTab('orchestrate')">🤖 Orchestration</button>
+    </div>
+    <div id="case-tab-content"></div>`;
+  showCaseTab('conversation');
+}
+
+function showCaseTab(tab){
+  const container = document.getElementById('case-tab-content');
+  document.querySelectorAll('#case-tabs button').forEach(b=>{
+    const isActive = b.textContent.toLowerCase().includes(tab);
+    b.className = `btn btn-sm ${isActive?'btn-primary':'btn-secondary'}`;
+  });
+  if(tab==='conversation') renderCaseConversation(container);
+  else if(tab==='documents') renderCaseDocuments(container);
+  else if(tab==='findings') renderCaseFindings(container);
+  else if(tab==='actions') renderCaseActions(container);
+  else if(tab==='orchestrate') renderCaseOrchestrate(container);
+}
+
+async function renderCaseConversation(c){
+  const [msgs, summary] = await Promise.all([
+    api.get(`/cases/${activeCaseId}/messages?limit=200`),
+    api.get(`/cases/${activeCaseId}/summary`).catch(()=>null)
+  ]);
+  const msgHtml = msgs.messages.map(m=>{
+    const isUser = m.role==='user';
+    return `<div style="margin-bottom:12px;display:flex;${isUser?'justify-content:flex-end':''}">
+      <div style="max-width:80%;background:${isUser?'var(--bg-user-msg, var(--bg3))':'var(--card)'};border:1px solid var(--border);border-radius:12px;padding:12px 14px;">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.04em">${m.role} · ${fmtDate(m.created_at)}</div>
+        <div style="font-size:13px;line-height:1.6;white-space:pre-wrap">${escapeHtml(m.content)}</div>
+      </div>
+    </div>`;
+  }).join('')||'<div class="empty">Aucun message</div>';
+  c.innerHTML = `<div style="display:grid;grid-template-columns:2fr 1fr;gap:16px">
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div class="panel" style="flex:1;min-height:300px;max-height:520px;overflow-y:auto" id="case-conv-scroll">${msgHtml}</div>
+      <div class="panel" style="padding:12px">
+        <div class="form-group" style="margin-bottom:8px"><textarea id="case-msg-input" rows="2" placeholder="Envoyer un message..."></textarea></div>
+        <button class="btn btn-primary" onclick="sendCaseMessage()">Envoyer</button>
+      </div>
+    </div>
+    <div>${summary?`<div class="panel"><div class="panel-title">Faits connus (${(summary.known_facts||[]).length})</div><ul style="font-size:12px;color:var(--text2);padding-left:16px">${(summary.known_facts||[]).map(f=>`<li>${escapeHtml(f)}</li>`).join('')||'<li>—</li>'}</ul></div><div class="panel"><div class="panel-title">Faits manquants (${(summary.missing_facts||[]).length})</div><ul style="font-size:12px;color:var(--warn);padding-left:16px">${(summary.missing_facts||[]).map(f=>`<li>${escapeHtml(f)}</li>`).join('')||'<li>—</li>'}</ul></div>${summary.matter_type?`<div class="panel"><div class="panel-title">Type</div><div style="font-size:12px;color:var(--text2)">${tag(summary.matter_type)}</div></div>`:''}${summary.urgency?`<div class="panel"><div class="panel-title">Urgence</div><div style="font-size:12px;color:var(--text2)">${tag(summary.urgency, summary.urgency==='critical'?'critique':summary.urgency)}</div></div>`:''}`:''}</div>
+  </div>`;
+  const scroll = document.getElementById('case-conv-scroll');
+  if(scroll) scroll.scrollTop = scroll.scrollHeight;
+}
+async function sendCaseMessage(){
+  const input = document.getElementById('case-msg-input');
+  if(!input.value.trim()) return;
+  const btn = input.parentElement.querySelector('button');
+  if(btn){ btn.disabled=true; btn.textContent='Envoi…'; }
+  try{
+    await api.post(`/cases/${activeCaseId}/converse`, {content: input.value});
+    input.value = ''; showCaseTab('conversation'); toast('Message envoyé','success');
+  }catch(e){ toast(e.message,'error'); }
+  finally{ if(btn){ btn.disabled=false; btn.textContent='Envoyer'; } }
+}
+
+async function renderCaseDocuments(c){
+  const docs = await api.get(`/cases/${activeCaseId}/documents`).catch(()=>({documents:[]}));
+  const docRows = docs.documents.map(d=>{
+    const hasAnalysis = d.analysis && d.analysis.summary;
+    const analysisPreview = hasAnalysis ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">📄 ${escapeHtml(d.analysis.summary.slice(0,80))}${d.analysis.summary.length>80?'…':''} · Conf: ${(d.analysis.confidence*100).toFixed(0)}%</div>` : '';
+    const typeTag = d.analysis && d.analysis.document_type ? tag(d.analysis.document_type) : tag('non analysé','pending');
+    return `<tr><td><strong>${escapeHtml(d.label||d.document?.filename||d.document_id)}</strong>${analysisPreview}</td><td>${tag(d.role)}</td><td>${typeTag}</td><td><div class="flex gap-8">${hasAnalysis?btn('📖',`showDocAnalysis('${d.id}')`,'secondary',true):''}${btn('🔍',`analyzeCaseDoc('${d.id}')`,'secondary',true)}${btn('🗑',`detachCaseDoc('${d.id}')`,'danger',true)}</div></td></tr>`;
+  }).join('')||'<tr><td colspan="4" class="empty">Aucun document</td></tr>';
+  c.innerHTML = `<div class="section-header"><span class="section-title">Documents (${docs.total||0})</span><button class="btn btn-primary" onclick="showCaseUploadModal()">📤 Uploader</button></div>
+    <div class="table-wrap"><table><thead><tr><th>Fichier</th><th>Rôle</th><th>Type analysé</th><th>Actions</th></tr></thead><tbody>${docRows}</tbody></table></div>
+    <div id="doc-analysis-detail"></div>`;
+}
+async function showDocAnalysis(cdId){
+  const el = document.getElementById('doc-analysis-detail');
+  el.innerHTML = '<div class="loading-text"><span class="loading"></span></div>';
+  try{
+    const d = await api.get(`/cases/${activeCaseId}/documents/${cdId}`);
+    const a = d.analysis || {};
+    const entities = a.entities || {};
+    const html = `<div class="panel" style="margin-top:12px"><div class="panel-title">Analyse du document</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div><span class="text-muted">Type:</span> ${fmt(a.document_type)}</div>
+        <div><span class="text-muted">Langue:</span> ${fmt(a.language)}</div>
+        <div><span class="text-muted">Confiance:</span> ${a.confidence?((a.confidence*100).toFixed(1)+'%'):'—'}</div>
+        <div><span class="text-muted">OCR:</span> ${a.ocr_used?'Oui':'Non'}</div>
+      </div>
+      <div style="margin-bottom:12px"><span class="text-muted">Résumé:</span><div style="font-size:13px;line-height:1.6;margin-top:4px">${escapeHtml(a.summary||'—')}</div></div>
+      ${entities.deadlines&&entities.deadlines.length?`<div style="margin-bottom:12px"><span class="text-muted">Échéances:</span><ul style="font-size:12px;padding-left:16px;margin-top:4px">${entities.deadlines.map(dl=>`<li>${escapeHtml(dl.description)}${dl.date?` → ${dl.date}`:''}${dl.urgent?' (URGENT)':''}</li>`).join('')}</ul></div>`:''}
+      ${entities.obligations&&entities.obligations.length?`<div style="margin-bottom:12px"><span class="text-muted">Obligations:</span><ul style="font-size:12px;padding-left:16px;margin-top:4px">${entities.obligations.map(o=>`<li>${escapeHtml(o.description)}${o.deadline?` → ${o.deadline}`:''}</li>`).join('')}</ul></div>`:''}
+      ${entities.legal_references&&entities.legal_references.length?`<div style="margin-bottom:12px"><span class="text-muted">Références:</span><div style="font-size:12px;margin-top:4px">${entities.legal_references.map(r=>`<code style="margin-right:6px">${r.type} ${r.number||''}${r.law?' ('+r.law+')':''}</code>`).join('')}</div></div>`:''}
+      ${entities.parties&&entities.parties.length?`<div style="margin-bottom:12px"><span class="text-muted">Parties:</span><div style="font-size:12px;margin-top:4px">${entities.parties.map(p=>`<span style="margin-right:6px">${escapeHtml(p)}</span>`).join('')}</div></div>`:''}
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('doc-analysis-detail').innerHTML=''">Fermer</button>
+    </div>`;
+    el.innerHTML = html;
+  }catch(e){ el.innerHTML = `<div class="text-danger">Erreur chargement analyse: ${escapeHtml(e.message)}</div>`; }
+}
+async function showCaseUploadModal(){
+  const m = document.createElement('div'); m.className = 'modal-bg';
+  m.innerHTML = `<div class="modal"><div class="modal-title">📤 Ajouter un document</div>
+    <div class="upload-zone" onclick="document.getElementById('cuf').click()"><div style="font-size:40px">📄</div><div class="upload-zone-text">Cliquez ou glissez un fichier PDF</div><input type="file" id="cuf" accept=".pdf" onchange="handleCaseFile(this)"></div>
+    <div id="cuf-name" style="margin-top:8px;font-size:12px;color:var(--text2)"></div>
+    <div class="form-group mt-16"><label>Rôle</label><select id="cuf-role"><option value="evidence">Preuve</option><option value="incoming_request">Demande reçue</option><option value="policy">Politique</option><option value="contract">Contrat</option><option value="authority_notice">Notification autorité</option><option value="other">Autre</option></select></div>
+    <div class="modal-footer">${btn('Annuler','closeModal()','secondary')}<button class="btn btn-primary" id="cuf-btn" onclick="doCaseUpload()" disabled>Uploader</button></div></div>`;
+  document.body.appendChild(m);
+}
+function handleCaseFile(inp){ if(inp.files[0]){ document.getElementById('cuf-name').textContent='📎 '+inp.files[0].name; document.getElementById('cuf-btn').disabled=false; }}
+async function doCaseUpload(){
+  const f = document.getElementById('cuf').files[0]; if(!f) return;
+  const role = document.getElementById('cuf-role').value;
+  closeModal(); toast('Upload en cours…','info',5000);
+  try{
+    const fd = new FormData(); fd.append('file',f); fd.append('role',role); fd.append('run_analysis','true');
+    await fetch(API+`/cases/${activeCaseId}/documents/upload`, {method:'POST', body:fd});
+    toast('Document attaché','success'); showCaseTab('documents');
+  }catch(e){ toast(e.message,'error'); }
+}
+async function analyzeCaseDoc(cdId){
+  toast('Analyse en cours…','info',8000);
+  try{ await api.post(`/cases/${activeCaseId}/documents/${cdId}/analyze`); toast('Analyse terminée','success'); showCaseTab('documents'); }
+  catch(e){ toast(e.message,'error'); }
+}
+async function detachCaseDoc(cdId){
+  if(!confirm('Détacher ce document ?')) return;
+  try{ await api.del(`/cases/${activeCaseId}/documents/${cdId}`); toast('Document détaché','success'); showCaseTab('documents'); }
+  catch(e){ toast(e.message,'error'); }
+}
+
+async function renderCaseFindings(c){
+  const findings = await api.get(`/cases/${activeCaseId}/findings`).catch(()=>({findings:[]}));
+  c.innerHTML = `<div class="section-header"><span class="section-title">Constats (${findings.total||0})</span><button class="btn btn-primary btn-sm" onclick="showAddFindingModal()">➕ Ajouter</button></div>
+    <div class="panel">${findings.findings.map(f=>`<div class="audit-item"><div class="audit-dot audit-dot-${f.severity}"></div><div><div class="flex gap-8 items-center"><span class="audit-event">${escapeHtml(f.title)}</span>${tag(f.severity,f.severity)}${tag(f.status,f.status)}</div><div class="audit-detail">${escapeHtml(f.description||'').slice(0,200)}</div>${f.article_references&&f.article_references.length?`<div style="font-size:11px;color:var(--info);margin-top:4px">📑 ${f.article_references.map(r=>`<code>${escapeHtml(r)}</code>`).join(' ')}</div>`:''}</div></div>`).join('')||'<div class="empty">Aucun constat</div>'}</div>`;
+}
+async function renderCaseActions(c){
+  const actions = await api.get(`/cases/${activeCaseId}/actions`).catch(()=>({actions:[]}));
+  const byStatus = {pending:0,in_progress:0,completed:0,cancelled:0};
+  (actions.actions||[]).forEach(a=>{ if(byStatus[a.status]!==undefined) byStatus[a.status]++; });
+  c.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div>
+      <div class="section-header"><span class="section-title">Actions (${actions.total||0})</span><button class="btn btn-primary btn-sm" onclick="showAddActionModal()">➕ Ajouter</button></div>
+      <div class="panel">${actions.actions.map(a=>`<div class="audit-item"><div class="audit-dot audit-dot-${a.priority}"></div><div><div class="flex gap-8 items-center"><span class="audit-event">${escapeHtml(a.title)}</span>${tag(a.priority,a.priority)}${tag(a.status,a.status)}</div><div class="audit-detail">${escapeHtml(a.description||'').slice(0,120)}</div><div style="font-size:11px;color:var(--text3);margin-top:4px">Échéance: ${fmtDate(a.due_date)} · Assigné: ${fmt(a.assigned_to)}${a.completed_at?` · Terminé: ${fmtDate(a.completed_at)}`:''}</div></div></div>`).join('')||'<div class="empty">Aucune action</div>'}</div>
+    </div>
+    <div>
+      <div class="section-header"><span class="section-title">Répartition</span></div>
+      <div class="panel"><div style="font-size:13px;color:var(--text2);margin-bottom:12px">Par statut</div>
+        ${Object.entries(byStatus).filter(([,v])=>v>0).map(([k,v])=>`<div class="flex gap-8 items-center mb-16"><span class="text-muted" style="text-transform:capitalize;width:80px">${k.replace(/_/g,' ')}</span><div style="flex:1;height:8px;background:var(--bg3);border-radius:4px;overflow:hidden"><div style="width:${(v/actions.total*100)||0}%;background:var(--accent);height:100%"></div></div><span style="font-weight:600;min-width:24px;text-align:right">${v}</span></div>`).join('')||'<div class="empty">Aucune action</div>'}
+      </div>
+    </div>
+  </div>`;
+}
+async function showAddFindingModal(){
+  const m = document.createElement('div'); m.className = 'modal-bg';
+  m.innerHTML = `<div class="modal"><div class="modal-title">➕ Nouveau constat</div>
+    <div class="form-group"><label>Titre *</label><input id="nf-title"></div>
+    <div class="form-group mt-16"><label>Description</label><textarea id="nf-desc" rows="2"></textarea></div>
+    <div class="form-group mt-16"><label>Sévérité</label><select id="nf-sev"><option value="observation">Observation</option><option value="minor">Mineur</option><option value="major">Majeur</option><option value="critical">Critique</option></select></div>
+    <div class="modal-footer">${btn('Annuler','closeModal()','secondary')}<button class="btn btn-primary" onclick="doAddFinding()">Ajouter</button></div></div>`;
+  document.body.appendChild(m);
+}
+async function doAddFinding(){
+  try{ await api.post(`/cases/${activeCaseId}/findings`,{title:document.getElementById('nf-title').value, description:document.getElementById('nf-desc').value, severity:document.getElementById('nf-sev').value}); closeModal(); toast('Constat ajouté','success'); showCaseTab('findings'); }
+  catch(e){ toast(e.message,'error'); }
+}
+async function showAddActionModal(){
+  const m = document.createElement('div'); m.className = 'modal-bg';
+  m.innerHTML = `<div class="modal"><div class="modal-title">➕ Nouvelle action</div>
+    <div class="form-group"><label>Titre *</label><input id="na-title"></div>
+    <div class="form-group mt-16"><label>Description</label><textarea id="na-desc" rows="2"></textarea></div>
+    <div class="form-group mt-16"><label>Priorité</label><select id="na-priority"><option value="low">Faible</option><option value="medium" selected>Moyenne</option><option value="high">Élevée</option><option value="critical">Critique</option></select></div>
+    <div class="form-group mt-16"><label>Échéance</label><input id="na-due" type="date"></div>
+    <div class="modal-footer">${btn('Annuler','closeModal()','secondary')}<button class="btn btn-primary" onclick="doAddAction()">Ajouter</button></div></div>`;
+  document.body.appendChild(m);
+}
+async function doAddAction(){
+  const due = document.getElementById('na-due').value || null;
+  try{ await api.post(`/cases/${activeCaseId}/actions`,{title:document.getElementById('na-title').value, description:document.getElementById('na-desc').value, priority:document.getElementById('na-priority').value, due_date:due}); closeModal(); toast('Action ajoutée','success'); showCaseTab('actions'); }
+  catch(e){ toast(e.message,'error'); }
+}
+
+async function showEditCaseModal(caseId){
+  try{
+    const cs = await api.get(`/cases/${caseId}`);
+    const m = document.createElement('div'); m.className = 'modal-bg';
+    m.innerHTML = `<div class="modal"><div class="modal-title">✏️ Éditer le dossier</div>
+      <div class="form-group"><label>Titre</label><input id="ec-title" value="${escapeHtml(cs.title)}"></div>
+      <div class="form-group mt-16"><label>Description</label><textarea id="ec-desc" rows="2">${escapeHtml(cs.description||'')}</textarea></div>
+      <div class="form-group mt-16"><label>Statut</label><select id="ec-status"><option value="open" ${cs.status==='open'?'selected':''}>Ouvert</option><option value="in_progress" ${cs.status==='in_progress'?'selected':''}>En cours</option><option value="under_review" ${cs.status==='under_review'?'selected':''}>En revue</option><option value="resolved" ${cs.status==='resolved'?'selected':''}>Résolu</option><option value="closed" ${cs.status==='closed'?'selected':''}>Fermé</option></select></div>
+      <div class="form-group mt-16"><label>Priorité</label><select id="ec-priority"><option value="low" ${cs.priority==='low'?'selected':''}>Faible</option><option value="medium" ${cs.priority==='medium'?'selected':''}>Moyenne</option><option value="high" ${cs.priority==='high'?'selected':''}>Élevée</option><option value="critical" ${cs.priority==='critical'?'selected':''}>Critique</option></select></div>
+      <div class="form-group mt-16"><label>Assigné à</label><input id="ec-assign" value="${escapeHtml(cs.assigned_to||'')}" placeholder="Email ou nom"></div>
+      <div class="modal-footer">${btn('Annuler','closeModal()','secondary')}<button class="btn btn-primary" onclick="doUpdateCase('${caseId}')">Sauvegarder</button></div></div>`;
+    document.body.appendChild(m);
+  }catch(e){ toast(e.message,'error'); }
+}
+async function doUpdateCase(caseId){
+  const payload = {
+    title: document.getElementById('ec-title').value,
+    description: document.getElementById('ec-desc').value || null,
+    status: document.getElementById('ec-status').value,
+    priority: document.getElementById('ec-priority').value,
+    assigned_to: document.getElementById('ec-assign').value || null
+  };
+  try{ await api.patch(`/cases/${caseId}`, payload); closeModal(); toast('Dossier mis à jour','success'); renderCaseDetail(document.getElementById('content'), caseId); }
+  catch(e){ toast(e.message,'error'); }
+}
+
+async function renderCaseOrchestrate(c){
+  const [status, assess] = await Promise.all([
+    api.get(`/cases/${activeCaseId}/orchestrate/status`).catch(()=>null),
+    api.get(`/cases/${activeCaseId}/orchestrate/assess`).catch(()=>null)
+  ]);
+  c.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div class="panel"><div class="panel-title">État de préparation</div>
+      <div class="flex gap-8 items-center mb-16">${status?(status.ready_for_orchestration?'<span class="tag tag-active">Prêt</span>':'<span class="tag tag-pending">Incomplet</span>'):'<span class="tag tag-error">Erreur</span>'}</div>
+      ${status?`<div style="font-size:12px;color:var(--text2)"><div>Facts connus: ${status.facts_known_count}</div><div>Facts manquants: ${status.facts_missing_count}</div><div>Constats existants: ${status.findings_count}</div><div>Actions existantes: ${status.actions_count}</div></div>`:''}
+      <button class="btn btn-primary mt-16" onclick="runOrchestration()">🤖 Lancer l'analyse</button></div>
+    <div class="panel"><div class="panel-title">Évaluation rapide</div>
+      ${assess?`<div class="stat-value" style="font-size:32px">${(assess.readiness_score*100).toFixed(0)}%</div><div class="stat-label">${assess.readiness_level}</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:8px">${assess.suggestions.map(s=>`<div>• ${escapeHtml(s)}</div>`).join('')}</div>`:'<span class="text-muted">Non disponible</span>'}</div>
+  </div>
+  <div id="orch-results"></div>`;
+}
+async function runOrchestration(){
+  const out = document.getElementById('orch-results');
+  out.innerHTML = '<div class="loading-text"><span class="loading"></span> Analyse en cours…</div>';
+  try{
+    const r = await api.post(`/cases/${activeCaseId}/orchestrate`, {auto_create_findings:true, auto_create_actions:true});
+    out.innerHTML = `<div class="panel"><div class="panel-title">Résultats — ${r.decision}</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:12px">${escapeHtml(r.decision_reason||'')}</div>
+      ${r.proposed_findings.length?`<div style="font-weight:600;margin-bottom:8px">Constats proposés (${r.proposed_findings.length})</div>`+r.proposed_findings.map(f=>`<div class="roadmap-item"><div class="roadmap-header"><span class="roadmap-pos">⚠️</span><div style="flex:1"><div class="roadmap-action">${escapeHtml(f.title)}</div><div class="roadmap-meta">${tag(f.severity,f.severity)}</div></div></div></div>`).join(''):''}
+      ${r.proposed_actions.length?`<div style="font-weight:600;margin:12px 0 8px">Actions proposées (${r.proposed_actions.length})</div>`+r.proposed_actions.map(a=>`<div class="roadmap-item"><div class="roadmap-header"><span class="roadmap-pos">🔧</span><div style="flex:1"><div class="roadmap-action">${escapeHtml(a.title)}</div><div class="roadmap-meta">${tag(a.priority,a.priority)} Échéance: ${fmtDate(a.due_date)}</div></div></div></div>`).join(''):''}
+    </div>`;
+    if(r.decision==='needs_clarification'){
+      const qs = await api.get(`/cases/${activeCaseId}/orchestrate/questions`);
+      out.innerHTML += `<div class="panel"><div class="panel-title">Questions de clarification</div>${qs.questions.map(q=>`<div style="margin-bottom:6px">• ${escapeHtml(q)}</div>`).join('')}</div>`;
+    }
+    const adv = await api.post(`/cases/${activeCaseId}/orchestrate/advise`,{}).catch(()=>null);
+    if(adv){
+      out.innerHTML += `<div class="panel"><div class="panel-title">Conseil structuré</div>
+        <div style="font-size:13px;line-height:1.6;white-space:pre-wrap">${escapeHtml(adv.markdown_response||'')}</div>
+      </div>`;
+    }
+  }catch(e){ out.innerHTML = `<div class="panel text-danger">Erreur: ${escapeHtml(e.message)}</div>`; }
+}
+
+async function renderPosture(c){
+  const profiles = await api.get('/company-profiles?limit=100').catch(()=>({profiles:[]}));
+  c.innerHTML = `<div class="section-header"><span class="section-title">Posture de conformité</span>
+    <select id="posture-profile" onchange="loadPosture()"><option value="">Choisir un profil…</option>${profiles.profiles.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}</select></div>
+    <div id="posture-content"></div>`;
+  if(profiles.profiles.length===1) loadPosture(profiles.profiles[0].id);
+}
+async function loadPosture(profileId){
+  const pid = profileId || document.getElementById('posture-profile').value;
+  if(!pid) return;
+  const container = document.getElementById('posture-content');
+  container.innerHTML = '<div class="loading-text"><span class="loading"></span></div>';
+  try{
+    const [posture, gaps, roadmap] = await Promise.all([
+      api.get(`/compliance/posture/${pid}`).catch(()=>null),
+      api.get(`/compliance/gaps/${pid}`).catch(()=>({gaps:[]})),
+      api.get(`/company-profiles/${pid}/roadmap`).catch(()=>null)
+    ]);
+    if(!posture){ container.innerHTML = '<div class="empty">Impossible de charger la posture</div>'; return; }
+    const pct = posture.overall_coverage_score||0;
+    const chartId = 'posture-chart-'+pid.replace(/[^a-z0-9]/gi,'');
+    container.innerHTML = `
+      <div class="stats-grid" style="grid-template-columns:repeat(4,1fr)">
+        <div class="stat-card" style="text-align:center"><div class="stat-value" style="font-size:32px;color:${pct>=0.8?'var(--success)':pct>=0.5?'var(--warn)':'var(--danger)'}">${(pct*100).toFixed(0)}%</div><div class="stat-label">Couverture globale</div></div>
+        <div class="stat-card" style="text-align:center"><div class="stat-value" style="font-size:32px">${posture.total_applicable||0}</div><div class="stat-label">Exigences applicables</div></div>
+        <div class="stat-card" style="text-align:center"><div class="stat-value" style="font-size:32px">${posture.fully_covered||0}</div><div class="stat-label">Couvertes</div></div>
+        <div class="stat-card" style="text-align:center"><div class="stat-value" style="font-size:32px">${posture.not_covered||0}</div><div class="stat-label">Non couvertes</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 2fr;gap:16px;margin-top:16px">
+        <div class="panel"><div class="panel-title">Répartition</div><canvas id="${chartId}" height="200"></canvas></div>
+        <div class="panel"><div class="panel-title">Écarts (${posture.gaps?.length||0})</div>
+          ${posture.gaps?.length?posture.gaps.slice(0,10).map(g=>`<div class="audit-item"><div class="audit-dot audit-dot-${g.coverage_status}"></div><div><div class="flex gap-8 items-center"><span class="audit-event">${escapeHtml(g.exigence_title||g.exigence_id||'Exigence')}</span>${tag(g.coverage_status,g.coverage_status)}</div><div class="audit-detail">Score: ${(g.best_coverage_score*100).toFixed(0)}% · Contrôles liés: ${g.linked_controls}${g.has_exception?' · Exception':''}</div></div></div>`).join(''):'<div class="empty">Aucun écart majeur</div>'}
+        </div>
+      </div>
+      <div class="panel" style="margin-top:16px"><div class="panel-title">Feuille de route (${roadmap?roadmap.roadmap.length:0})</div>
+        ${roadmap?roadmap.roadmap.slice(0,8).map((step,i)=>`<div class="roadmap-item"><div class="roadmap-header"><span class="roadmap-pos">${i+1}</span><div style="flex:1"><div class="roadmap-action">${escapeHtml(step.action_summary||step.action_id)}</div><div class="roadmap-meta">${tag(step.criticality_level||'—',step.criticality_level||'—')} ${fmtDate(step.suggested_due_date)}</div></div></div></div>`).join(''):'<div class="empty">Aucune roadmap</div>'}
+      </div>`;
+    setTimeout(()=>{
+      const ctx = document.getElementById(chartId);
+      if(ctx && Chart){
+        new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: ['Couvertes','Partielles','Non couvertes','Exceptions'],
+            datasets: [{ data: [posture.fully_covered||0, posture.partially_covered||0, posture.not_covered||0, posture.excepted||0], backgroundColor: ['#34d399','#fbbf24','#f87171','#60a5fa'], borderWidth:0 }]
+          },
+          options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom',labels:{color:'#9896a8',font:{size:11}}}}, cutout:'65%' }
+        });
+      }
+    }, 50);
+  }catch(e){ container.innerHTML = `<div class="empty">${e.message}</div>`; }
+}
+
+async function renderAssessments(c){
+  const data = await api.get('/compliance/assessments?limit=100').catch(()=>({assessments:[]}));
+  c.innerHTML = `<div class="section-header"><span class="section-title">Évaluations de conformité</span></div>
+    <div class="table-wrap"><table><thead><tr><th>Titre</th><th>Profil</th><th>Score</th><th>Statut</th><th>Fréquence</th><th>MàJ</th><th>Actions</th></tr></thead><tbody>
+      ${data.assessments.map(a=>`<tr><td><strong>${escapeHtml(a.title)}</strong></td><td>${fmt(a.company_profile_id)}</td><td>${(a.overall_coverage_score*100).toFixed(0)}%</td><td>${tag(a.status,a.status)}</td><td>${fmt(a.review_frequency)}</td><td>${fmtDate(a.updated_at)}</td><td><button class="btn btn-sm btn-secondary" onclick="showAssessmentDetail('${a.id}')">Détail</button></td></tr>`).join('')}
+    </tbody></table></div>
+    <div id="assessment-detail-panel"></div>`;
+}
+async function showAssessmentDetail(aid){
+  const el = document.getElementById('assessment-detail-panel');
+  el.innerHTML = '<div class="loading-text"><span class="loading"></span></div>';
+  try{
+    const a = await api.get(`/compliance/assessments/${aid}`);
+    el.innerHTML = `<div class="panel" style="margin-top:12px"><div class="panel-title">Détail évaluation</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;font-size:13px">
+        <div><span class="text-muted">Titre:</span> ${escapeHtml(a.title)}</div>
+        <div><span class="text-muted">Statut:</span> ${tag(a.status,a.status)}</div>
+        <div><span class="text-muted">Risk:</span> ${tag(a.risk_level,a.risk_level)}</div>
+        <div><span class="text-muted">Fréquence:</span> ${fmt(a.review_frequency)}</div>
+        <div><span class="text-muted">Owner:</span> ${fmt(a.owner)}</div>
+        <div><span class="text-muted">Due:</span> ${fmtDate(a.due_date)}</div>
+      </div>
+      <div style="font-size:13px;line-height:1.6">${escapeHtml(a.description||'—')}</div>
+      <button class="btn btn-secondary btn-sm mt-16" onclick="document.getElementById('assessment-detail-panel').innerHTML=''">Fermer</button>
+    </div>`;
+  }catch(e){ el.innerHTML = `<div class="text-danger">Erreur: ${escapeHtml(e.message)}</div>`; }
+}
+
+async function renderControls(c){
+  const data = await api.get('/compliance/controls?limit=200').catch(()=>({controls:[]}));
+  c.innerHTML = `<div class="section-header"><span class="section-title">Contrôles & Preuves</span></div>
+    <div class="table-wrap"><table><thead><tr><th>Nom</th><th>Type</th><th>Fréquence</th><th>Statut</th><th>Eff.</th><th>Preuves</th><th>Actions</th></tr></thead><tbody>
+      ${data.controls.map(ctrl=>`<tr><td><strong>${escapeHtml(ctrl.title)}</strong><br><span style="font-size:11px;color:var(--text3)">${escapeHtml(ctrl.description||'').slice(0,60)}</span></td><td>${fmt(ctrl.control_type)}</td><td>${fmt(ctrl.review_frequency)}</td><td>${tag(ctrl.implementation_status,ctrl.implementation_status)}</td><td>${(ctrl.effectiveness_score*100).toFixed(0)}%</td><td><button class="btn btn-sm btn-secondary" onclick="loadEvidences('${ctrl.id}')">Voir (${ctrl.evidence_count||0})</button></td><td><button class="btn btn-sm btn-secondary" onclick="showControlDetail('${ctrl.id}')">Détail</button></td></tr>`).join('')}
+    </tbody></table></div>
+    <div id="ctrl-evidences"></div>
+    <div id="ctrl-detail-panel"></div>`;
+}
+async function showControlDetail(ctrlId){
+  const el = document.getElementById('ctrl-detail-panel');
+  el.innerHTML = '<div class="loading-text"><span class="loading"></span></div>';
+  try{
+    const ctrl = await api.get(`/compliance/controls/${ctrlId}`);
+    el.innerHTML = `<div class="panel" style="margin-top:12px"><div class="panel-title">Détail contrôle</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;font-size:13px">
+        <div><span class="text-muted">Titre:</span> ${escapeHtml(ctrl.title)}</div>
+        <div><span class="text-muted">Type:</span> ${fmt(ctrl.control_type)}</div>
+        <div><span class="text-muted">Statut:</span> ${tag(ctrl.implementation_status,ctrl.implementation_status)}</div>
+        <div><span class="text-muted">Risk:</span> ${tag(ctrl.risk_level,ctrl.risk_level)}</div>
+        <div><span class="text-muted">Owner:</span> ${fmt(ctrl.owner)}</div>
+        <div><span class="text-muted">Prochaine revue:</span> ${fmtDate(ctrl.next_review_date)}</div>
+      </div>
+      <div style="font-size:13px;line-height:1.6;margin-bottom:12px">${escapeHtml(ctrl.description||'—')}</div>
+      <div style="font-size:13px;color:var(--text2)">Efficacité: <strong>${(ctrl.effectiveness_score*100).toFixed(1)}%</strong></div>
+      <button class="btn btn-secondary btn-sm mt-16" onclick="document.getElementById('ctrl-detail-panel').innerHTML=''">Fermer</button>
+    </div>`;
+  }catch(e){ el.innerHTML = `<div class="text-danger">Erreur: ${escapeHtml(e.message)}</div>`; }
+}
+async function loadEvidences(ctrlId){
+  const el = document.getElementById('ctrl-evidences');
+  el.innerHTML = '<div class="loading-text"><span class="loading"></span></div>';
+  try{
+    const data = await api.get(`/compliance/controls/${ctrlId}/evidences`);
+    el.innerHTML = `<div class="panel" style="margin-top:12px"><div class="panel-title">Preuves (${data.evidences.length})</div>
+      ${data.evidences.map(e=>`<div class="audit-item"><div class="audit-dot audit-dot-applied"></div><div><div class="flex gap-8 items-center"><span class="audit-event">${escapeHtml(e.title||'Preuve')}</span>${tag(e.status,e.status)}</div><div class="audit-detail">${escapeHtml(e.description||'').slice(0,120)} · ${fmtDate(e.valid_from)} → ${fmtDate(e.valid_until)}</div></div></div>`).join('')||'<div class="empty">Aucune preuve</div>'}
+      <button class="btn btn-secondary btn-sm mt-16" onclick="document.getElementById('ctrl-evidences').innerHTML=''">Fermer</button>
+    </div>`;
+  }catch(e){ el.innerHTML = `<div class="empty">${e.message}</div>`; }
+}
+
+async function renderExceptions(c){
+  const data = await api.get('/compliance/exceptions?limit=100').catch(()=>({exceptions:[]}));
+  c.innerHTML = `<div class="section-header"><span class="section-title">Registre d'Exceptions (${data.total||0})</span></div>
+    <div class="table-wrap"><table><thead><tr><th>Titre</th><th>Type</th><th>Statut</th><th>Risk</th><th>Expiry</th><th>Justification</th></tr></thead><tbody>
+      ${data.exceptions.map(ex=>`<tr><td><strong>${escapeHtml(ex.title)}</strong></td><td>${fmt(ex.exception_type)}</td><td>${tag(ex.status,ex.status)}</td><td>${tag(ex.risk_level,ex.risk_level)}</td><td>${fmtDate(ex.expiry_date)}</td><td style="max-width:200px;font-size:12px;color:var(--text3)">${escapeHtml(ex.justification||'').slice(0,80)}</td></tr>`).join('')}
+    </tbody></table></div>`;
+}
+
+// ── Modal close ────────────────────────────────────────────────────────
+function closeModal() {
+  document.querySelectorAll('.modal-bg').forEach(m => m.remove());
+}
+document.addEventListener('keydown', e => { if (e.key==='Escape') closeModal(); });
+
+// ── Init ───────────────────────────────────────────────────────────────
+(async () => {
+  try {
+    await api.get('/admin/stats');
+    document.getElementById('api-status').textContent = '🟢 Connecté';
+    document.getElementById('api-status').className = 'badge badge-success';
+  } catch(e) {
+    document.getElementById('api-status').textContent = '🔴 Hors ligne';
+    document.getElementById('api-status').className = 'badge badge-warn';
+  }
+  await render('dashboard');
+})();
+</script>
+</body>
+</html>

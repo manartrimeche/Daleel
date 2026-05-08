@@ -1,0 +1,12 @@
+{"task":"classify","text":"Un employé a été licencié sans préavis après 5 ans de service dans une entreprise à Tunis.","language":"fr","labels":{"domain":"labor","case_type":"complaint","risk":"high"}}
+{"task":"classify","text":"Notre société souhaite savoir si les heures supplémentaires doivent être payées à 150% pour le travail de nuit.","language":"fr","labels":{"domain":"labor","case_type":"question","risk":"low"}}
+{"task":"classify","text":"Un salarié réclame des indemnités de congés non payés depuis mars 2024. Le montant estimé est de 3500 TND.","language":"fr","labels":{"domain":"labor","case_type":"complaint","risk":"medium"}}
+{"task":"classify","text":"L'inspection du travail a constaté des infractions aux conditions d'hygiène et de sécurité dans notre usine à Sousse.","language":"fr","labels":{"domain":"labor","case_type":"incident","risk":"high"}}
+{"task":"classify","text":"Nous devons mettre en place un règlement intérieur conforme au Code du travail pour nos 200 employés.","language":"fr","labels":{"domain":"labor","case_type":"question","risk":"medium"}}
+{"task":"classify","text":"Une employée enceinte a été mutée à un poste de nuit en violation de l'article 66 du Code du travail.","language":"fr","labels":{"domain":"labor","case_type":"complaint","risk":"high"}}
+{"task":"classify","text":"Quelles sont les obligations de l'employeur en matière de formation professionnelle continue ?","language":"fr","labels":{"domain":"labor","case_type":"question","risk":"low"}}
+{"task":"classify","text":"Un accident de travail a eu lieu sur le chantier de Sfax. L'ouvrier est hospitalisé depuis deux semaines.","language":"fr","labels":{"domain":"labor","case_type":"incident","risk":"high"}}
+{"task":"classify","text":"عامل تم فصله تعسفيا بعد 10 سنوات من العمل دون اشعار مسبق","language":"ar","labels":{"domain":"labor","case_type":"complaint","risk":"high"}}
+{"task":"classify","text":"ما هي حقوق العمال في حالة الاغلاق المؤقت للمؤسسة؟","language":"ar","labels":{"domain":"labor","case_type":"question","risk":"medium"}}
+{"task":"classify","text":"L'audit annuel a révélé que 30% des contrats de travail ne respectent pas les clauses minimales prévues par la convention collective.","language":"fr","labels":{"domain":"labor","case_type":"audit","risk":"high"}}
+{"task":"classify","text":"Nous souhaitons convertir des CDD en CDI pour 15 employés. Quelles sont les conditions légales ?","language":"fr","labels":{"domain":"labor","case_type":"question","risk":"low"}}

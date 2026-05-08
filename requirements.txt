@@ -1,0 +1,97 @@
+# ─────────────────────────────────────────────────────────────
+# Core extraction libraries
+# ─────────────────────────────────────────────────────────────
+
+# PDF — digital text extraction + page rendering for OCR
+pymupdf>=1.24.0
+
+# PDF — fallback extractor with better Arabic CMap/font handling
+pdfminer.six>=20231228
+
+# Word / DOCX
+python-docx>=1.1.0
+
+# ─────────────────────────────────────────────────────────────
+# OCR  (for scanned PDFs and images)
+# ─────────────────────────────────────────────────────────────
+
+# Tesseract OCR — primary OCR engine (fast, ~1s/page)
+# Requires Tesseract 5.x installed system-wide with ara, fra, eng languages
+pytesseract>=0.3.10
+
+# Pillow — image processing for OCR pipeline
+Pillow>=10.0.0
+
+# EasyOCR — fallback OCR (slower, ~65s/page on CPU)
+# Requires PyTorch (CPU version installed automatically)
+easyocr>=1.7.1
+
+# NumPy is needed to bridge PyMuPDF pixel buffers → EasyOCR
+numpy>=1.24.0
+
+# ─────────────────────────────────────────────────────────────
+# Arabic text correctness
+# ─────────────────────────────────────────────────────────────
+
+# Fixes Arabic letter joining in text extracted from PDFs/images
+arabic-reshaper>=3.0.0
+
+# Fixes right-to-left / left-to-right mixed text ordering
+python-bidi>=0.4.2
+
+# ─────────────────────────────────────────────────────────────
+# API & Database
+# ─────────────────────────────────────────────────────────────
+
+# FastAPI web framework
+fastapi>=0.115.0
+
+# Rate limiting
+slowapi>=0.1.8
+
+# ASGI server
+uvicorn[standard]>=0.30.0
+
+# File upload support
+python-multipart>=0.0.9
+
+# Settings / env management
+pydantic-settings>=2.4.0
+
+# Async MongoDB driver
+motor>=3.6.0
+
+# MongoDB client utilities
+pymongo>=4.10.0
+
+# ─────────────────────────────────────────────────────────────
+# Embeddings & Vector Search
+# ─────────────────────────────────────────────────────────────
+
+# Multilingual embedding model
+sentence-transformers>=3.0.0
+
+# FAISS — fast approximate nearest-neighbour search (CPU build)
+faiss-cpu>=1.7.4
+
+# Progress bars
+tqdm>=4.66.0
+
+# ─────────────────────────────────────────────────────────────
+# LLM (Ollama native API)
+# ─────────────────────────────────────────────────────────────
+
+# HTTP client for async calls to Ollama
+httpx>=0.27.0
+
+# ─────────────────────────────────────────────────────────────
+# Export (Excel)
+# ─────────────────────────────────────────────────────────────
+
+# Excel export for compliance roadmap (optional — falls back to CSV)
+openpyxl>=3.1.0
+
+# ─────────────────────────────────────────────────────────────
+# Testing
+# ─────────────────────────────────────────────────────────────
+pytest-asyncio>=0.21

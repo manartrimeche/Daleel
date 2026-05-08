@@ -1,0 +1,8 @@
+{"task":"classify","text":"Les statuts de notre SARL n'ont pas été mis à jour depuis la création en 2018. Quels sont les risques ?","language":"fr","labels":{"domain":"corporate","case_type":"question","risk":"medium"}}
+{"task":"classify","text":"Un associé minoritaire conteste une décision d'augmentation de capital votée en assemblée générale extraordinaire.","language":"fr","labels":{"domain":"corporate","case_type":"complaint","risk":"high"}}
+{"task":"classify","text":"Nous souhaitons transformer notre SA en SARL. Quelles sont les étapes prévues par le Code des sociétés commerciales ?","language":"fr","labels":{"domain":"corporate","case_type":"question","risk":"low"}}
+{"task":"classify","text":"Le commissaire aux comptes a relevé des irrégularités dans la tenue des registres de PV du conseil d'administration.","language":"fr","labels":{"domain":"corporate","case_type":"audit","risk":"high"}}
+{"task":"classify","text":"Notre gérant a signé un contrat dépassant les pouvoirs qui lui sont conférés par les statuts.","language":"fr","labels":{"domain":"corporate","case_type":"incident","risk":"high"}}
+{"task":"classify","text":"Quelles sont les obligations de publication au JORT lors de la dissolution d'une société ?","language":"fr","labels":{"domain":"corporate","case_type":"question","risk":"low"}}
+{"task":"classify","text":"ما هي الاجراءات القانونية لتاسيس شركة ذات مسؤولية محدودة في تونس؟","language":"ar","labels":{"domain":"corporate","case_type":"question","risk":"low"}}
+{"task":"classify","text":"Le rapport du CAC met en évidence un abus de biens sociaux par le PDG sur l'exercice 2024.","language":"fr","labels":{"domain":"corporate","case_type":"incident","risk":"high"}}
