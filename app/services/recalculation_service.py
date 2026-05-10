@@ -16,14 +16,11 @@ import logging
 import uuid
 from datetime import datetime, timezone
 
-from app.database import mongo_db
+from app.database import get_collection
 from app.services import audit_service, criticality_service
 
 logger = logging.getLogger(__name__)
 
-
-def _collection(name: str):
-    return mongo_db[name]
 
 
 async def recalculate_after_amendment(

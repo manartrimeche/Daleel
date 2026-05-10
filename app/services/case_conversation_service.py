@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from app.config import get_settings
-from app.database import mongo_db
+from app.database import get_collection
 from app.services import audit_service, case_service
 from app.services.llm_service import call_ollama, _detect_query_language
 
@@ -31,9 +31,6 @@ logger = logging.getLogger(__name__)
 # ─────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────
-
-def _collection(name: str):
-    return mongo_db[name]
 
 
 def _now() -> datetime:

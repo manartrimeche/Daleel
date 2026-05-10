@@ -11,6 +11,7 @@ When disabled (default), org_id is None and all data is shared.
 from __future__ import annotations
 
 import logging
+import re
 from typing import Optional
 
 from fastapi import Request, status
@@ -22,6 +23,7 @@ from app.config import get_settings
 logger = logging.getLogger(__name__)
 
 _ORG_HEADER = "X-Org-Id"
+_ORG_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 
 
 class TenantMiddleware(BaseHTTPMiddleware):
@@ -39,7 +41,6 @@ class TenantMiddleware(BaseHTTPMiddleware):
             request.state.org_id = None
             return await call_next(request)
 
-        # Skip for docs / static
         path = request.url.path
         if path in ("/docs", "/redoc", "/openapi.json", "/", "/admin") or path.startswith("/static"):
             request.state.org_id = None
@@ -53,7 +54,16 @@ class TenantMiddleware(BaseHTTPMiddleware):
                 media_type="application/json",
             )
 
-        request.state.org_id = org_id.strip()
+        org_id = org_id.strip()
+        if not _ORG_ID_PATTERN.match(org_id):
+            logger.warning("Rejected invalid org_id format: %r", org_id[:80])
+            return Response(
+                content='{"detail":"Invalid X-Org-Id format (alphanumeric, hyphens, underscores; max 64 chars)"}',
+                status_code=status.HTTP_400_BAD_REQUEST,
+                media_type="application/json",
+            )
+
+        request.state.org_id = org_id
         return await call_next(request)
 
 

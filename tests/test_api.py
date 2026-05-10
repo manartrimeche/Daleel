@@ -5,6 +5,7 @@ These tests use the FastAPI TestClient and mock MongoDB + external services
 to validate request/response contracts without needing live infrastructure.
 """
 
+import os
 import unittest
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
@@ -185,6 +186,77 @@ class TestCompanyProfileEndpoints(unittest.TestCase):
             "size": "PME",
         })
         self.assertEqual(r.status_code, 422)
+
+
+def _make_client_with_auth(api_key="test-secret"):
+    """Create a TestClient with auth enabled."""
+    with patch("app.database.init_db", new_callable=AsyncMock), \
+         patch("app.database.close_db", new_callable=AsyncMock), \
+         patch("app.services.faiss_index.faiss_manager") as mock_faiss:
+        mock_faiss.rebuild = AsyncMock()
+        mock_faiss.size = 0
+        import app.config
+        app.config.get_settings.cache_clear()
+        with patch.dict("os.environ", {"DALEEL_API_KEY": api_key, "DALEEL_ADMIN_API_KEY": api_key}):
+            app.config.get_settings.cache_clear()
+            from app.main import app
+            client = TestClient(app, raise_server_exceptions=False)
+            app.config.get_settings.cache_clear()
+            return client, api_key
+
+
+class TestAuthEnforcement(unittest.TestCase):
+    """Verify that protected endpoints reject unauthenticated requests."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.client, cls.api_key = _make_client_with_auth()
+
+    @classmethod
+    def tearDownClass(cls):
+        import app.config
+        app.config.get_settings.cache_clear()
+
+    def _headers(self):
+        return {"X-API-Key": self.api_key}
+
+    def test_upload_requires_auth(self):
+        r = self.client.post("/api/v1/documents/upload")
+        self.assertIn(r.status_code, (401, 422))
+
+    @patch("app.services.applicability_service.create_company_profile", new_callable=AsyncMock)
+    def test_create_profile_rejected_without_key(self, mock_create):
+        r = self.client.post("/api/v1/company-profiles", json={
+            "name": "Test", "sector": "tech", "size": "medium",
+        })
+        self.assertEqual(r.status_code, 401)
+
+    @patch("app.services.applicability_service.create_company_profile", new_callable=AsyncMock)
+    def test_create_profile_accepted_with_key(self, mock_create):
+        now = datetime.now(timezone.utc)
+        mock_create.return_value = {
+            "id": "id", "name": "T", "sector": "tech", "size": "medium",
+            "employees": 1, "activities": "", "jurisdiction": "", "notes": None,
+            "created_at": now, "updated_at": now,
+        }
+        r = self.client.post(
+            "/api/v1/company-profiles",
+            json={"name": "T", "sector": "tech", "size": "medium"},
+            headers=self._headers(),
+        )
+        self.assertEqual(r.status_code, 201)
+
+    def test_admin_stats_rejected_without_key(self):
+        r = self.client.get("/api/v1/admin/stats")
+        self.assertEqual(r.status_code, 401)
+
+    def test_wrong_key_returns_403(self):
+        r = self.client.post(
+            "/api/v1/company-profiles",
+            json={"name": "T", "sector": "tech", "size": "medium"},
+            headers={"X-API-Key": "wrong-key"},
+        )
+        self.assertEqual(r.status_code, 403)
 
 
 if __name__ == "__main__":

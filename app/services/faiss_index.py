@@ -21,7 +21,7 @@ from typing import Optional
 
 import numpy as np
 
-from app.database import mongo_db
+from app.database import get_collection
 
 logger = logging.getLogger(__name__)
 
@@ -44,9 +44,6 @@ except ImportError:
 
 FAISS_READY = True
 
-
-def _collection(name: str):
-    return mongo_db[name]
 
 
 @dataclass

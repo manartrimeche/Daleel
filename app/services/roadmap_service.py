@@ -15,16 +15,13 @@ import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
 
-from app.database import mongo_db
+from app.database import get_collection
 from app.services import criticality_service
 
 logger = logging.getLogger(__name__)
 
 _LEVEL_ORDER = {"critique": 0, "importante": 1, "secondaire": 2, "unknown": 3}
 
-
-def _collection(name: str):
-    return mongo_db[name]
 
 
 def _action_to_dict(action: dict) -> dict:

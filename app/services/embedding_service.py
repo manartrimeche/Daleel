@@ -5,13 +5,18 @@ Includes an LRU cache for search queries so repeated / popular questions
 skip the model entirely.
 """
 
+import asyncio
 import hashlib
 import logging
 from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
 from typing import List
 
 
 from app.config import get_settings
+
+_executor = ThreadPoolExecutor(max_workers=2)
 
 logger = logging.getLogger(__name__)
 
@@ -112,10 +117,16 @@ def _get_model_dim_384():
 
 
 def embed_text(text: str) -> List[float]:
-    """Embed a single text with the primary configured model."""
+    """Embed a single text with the primary configured model (sync)."""
     model = _get_model()
     vec = model.encode(text, normalize_embeddings=True)
     return vec.tolist()
+
+
+async def embed_text_async(text: str) -> List[float]:
+    """Non-blocking version of embed_text for use in async handlers."""
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(_executor, embed_text, text)
 
 
 def embed_text_for_search(text: str, stored_vector_dim: int) -> List[float]:
@@ -151,9 +162,25 @@ def embed_text_for_search(text: str, stored_vector_dim: int) -> List[float]:
     return vec
 
 
+async def embed_text_for_search_async(text: str, stored_vector_dim: int) -> List[float]:
+    """Non-blocking version of embed_text_for_search."""
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(
+        _executor, partial(embed_text_for_search, text, stored_vector_dim)
+    )
+
+
 def embed_texts(texts: List[str], batch_size: int = 64) -> List[List[float]]:
-    """Embed multiple texts → list of float vectors."""
+    """Embed multiple texts → list of float vectors (sync)."""
     model = _get_model()
     vecs = model.encode(texts, normalize_embeddings=True,
                         batch_size=batch_size, show_progress_bar=False)
     return [v.tolist() for v in vecs]
+
+
+async def embed_texts_async(texts: List[str], batch_size: int = 64) -> List[List[float]]:
+    """Non-blocking version of embed_texts for use in async handlers."""
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(
+        _executor, partial(embed_texts, texts, batch_size=batch_size)
+    )

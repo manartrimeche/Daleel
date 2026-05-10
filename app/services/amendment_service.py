@@ -15,15 +15,12 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from app.config import get_settings
-from app.database import mongo_db
+from app.database import get_collection
 from app.services import audit_service, llm_service
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
-
-def _collection(name: str):
-    return mongo_db[name]
 
 
 # ─────────────────────────────────────────────────────────────

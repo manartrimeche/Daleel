@@ -21,7 +21,7 @@ import logging
 import re
 import uuid
 from datetime import datetime, timezone
-from app.database import mongo_db
+from app.database import get_collection
 
 logger = logging.getLogger(__name__)
 

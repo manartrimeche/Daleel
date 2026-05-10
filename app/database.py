@@ -162,6 +162,11 @@ _BASELINE_LOIS = [
 ]
 
 
+def get_collection(name: str):
+    """Return a Motor collection handle by name."""
+    return mongo_db[name]
+
+
 async def get_db() -> AsyncIterator[Any]:
     """Yield the shared MongoDB database handle."""
     yield mongo_db

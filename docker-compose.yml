@@ -24,11 +24,14 @@ services:
     container_name: daleel-mongodb
     restart: unless-stopped
     ports:
-      - "27017:27017"
+      - "127.0.0.1:27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-daleel}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-changeme-in-production}
     volumes:
       - mongodb_data:/data/db
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.runCommand({ping:1}).ok"]
+      test: ["CMD", "mongosh", "-u", "${MONGO_ROOT_USER:-daleel}", "-p", "${MONGO_ROOT_PASSWORD:-changeme-in-production}", "--eval", "db.runCommand({ping:1}).ok"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -42,9 +45,9 @@ services:
     container_name: daleel-api
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     environment:
-      DALEEL_MONGODB_URL: mongodb://mongodb:27017
+      DALEEL_MONGODB_URL: mongodb://${MONGO_ROOT_USER:-daleel}:${MONGO_ROOT_PASSWORD:-changeme-in-production}@mongodb:27017
       DALEEL_MONGODB_DB_NAME: manar
       DALEEL_LLM_BASE_URL: http://ollama:11434
       DALEEL_LLM_MODEL: qwen2.5:7b

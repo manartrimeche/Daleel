@@ -13,7 +13,7 @@ import uuid
 from datetime import datetime, timezone
 
 from app.config import get_settings
-from app.database import mongo_db
+from app.database import get_collection
 from app.services import llm_service
 
 logger = logging.getLogger(__name__)
@@ -67,9 +67,6 @@ Determine if this exigence applies to the company based on:
 - Return ONLY valid JSON, no markdown, no extra text
 """
 
-
-def _collection(name: str):
-    return mongo_db[name]
 
 
 def _format_applicability_prompt(company_profile: dict, exigence: dict) -> str:

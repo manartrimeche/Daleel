@@ -17,7 +17,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from app.database import mongo_db
+from app.database import get_collection
 from app.services import audit_service
 
 logger = logging.getLogger(__name__)
@@ -26,9 +26,6 @@ logger = logging.getLogger(__name__)
 # ─────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────
-
-def _collection(name: str):
-    return mongo_db[name]
 
 
 def _now() -> datetime:

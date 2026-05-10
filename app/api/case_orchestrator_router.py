@@ -155,7 +155,7 @@ async def run_orchestration(
         raise HTTPException(404, str(e))
     except Exception as e:
         logger.error("Orchestration failed for case %s: %s", case_id, e)
-        raise HTTPException(500, f"Orchestration analysis failed: {str(e)}")
+        raise HTTPException(500, "Internal error during orchestration analysis")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -322,4 +322,4 @@ async def compose_advisor_response(
         raise HTTPException(404, str(e))
     except Exception as e:
         logger.error("Advisor response composition failed for case %s: %s", case_id, e)
-        raise HTTPException(500, f"Advisor response composition failed: {str(e)}")
+        raise HTTPException(500, "Internal error during advisor response composition")

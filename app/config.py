@@ -124,6 +124,29 @@ class Settings(BaseSettings):
     model_config = {"env_prefix": "DALEEL_", "env_file": ".env", "extra": "ignore"}
 
 
+def _validate_production_settings(s: Settings) -> None:
+    import os
+    env = os.getenv("DALEEL_ENV", "dev").lower()
+    if env in ("production", "prod", "staging"):
+        if not s.api_key:
+            raise RuntimeError(
+                "DALEEL_API_KEY must be set in production/staging. "
+                "Set DALEEL_ENV=dev to disable this check."
+            )
+        if not s.admin_api_key:
+            raise RuntimeError(
+                "DALEEL_ADMIN_API_KEY must be set in production/staging. "
+                "Set DALEEL_ENV=dev to disable this check."
+            )
+        if s.cors_origins.strip() == "*":
+            raise RuntimeError(
+                "CORS wildcard '*' is not allowed in production/staging. "
+                "Set DALEEL_CORS_ORIGINS to specific origins."
+            )
+
+
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    s = Settings()
+    _validate_production_settings(s)
+    return s

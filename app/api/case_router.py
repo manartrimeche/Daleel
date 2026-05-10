@@ -149,6 +149,7 @@ async def add_message(
     case_id: str,
     body: CaseMessageCreate,
     db: Any = Depends(get_db),
+    _key: str | None = Depends(require_api_key),
 ):
     """Add a message to the case conversation thread."""
     try:

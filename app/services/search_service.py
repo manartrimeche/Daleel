@@ -16,9 +16,9 @@ import numpy as np
 from fastapi import HTTPException
 
 from app.config import get_settings
-from app.database import mongo_db
+from app.database import get_collection
 from app.services.embedding_service import (
-    embed_text_for_search,
+    embed_text_for_search_async,
     get_primary_embedding_dimension,
 )
 from app.services.faiss_index import FAISS_AVAILABLE, FAISS_READY, faiss_manager
@@ -80,9 +80,6 @@ async def get_effective_query_embedding_dimension() -> int:
     _effective_stored_dim_cache = dim
     return dim
 
-
-def _collection(name: str):
-    return mongo_db[name]
 
 
 def _parse_language_filter(language_filter: Optional[str]) -> list[str]:
@@ -190,7 +187,7 @@ async def semantic_search(
     post-hoc when FAISS is active (best-effort).
     """
     stored_dim = await get_effective_query_embedding_dimension()
-    query_vec = embed_text_for_search(query, stored_dim)
+    query_vec = await embed_text_for_search_async(query, stored_dim)
 
     if _use_faiss():
         await faiss_manager.ensure_ready()

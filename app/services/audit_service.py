@@ -19,13 +19,10 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from app.database import mongo_db
+from app.database import get_collection
 
 logger = logging.getLogger(__name__)
 
-
-def _collection(name: str):
-    return mongo_db[name]
 
 
 # ─────────────────────────────────────────────────────────────

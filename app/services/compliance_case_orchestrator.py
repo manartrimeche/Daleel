@@ -62,7 +62,7 @@ from enum import Enum
 from typing import Optional
 
 from app.config import get_settings
-from app.database import mongo_db
+from app.database import get_collection
 from app.services import (
     action_service,
     applicability_service,
@@ -180,9 +180,6 @@ class OrchestrationResult:
 # ═══════════════════════════════════════════════════════════════════════════════
 # Helpers
 # ═══════════════════════════════════════════════════════════════════════════════
-
-def _collection(name: str):
-    return mongo_db[name]
 
 
 def _now() -> datetime:

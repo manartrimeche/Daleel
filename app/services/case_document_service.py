@@ -23,7 +23,7 @@ from datetime import datetime, timezone, date
 from typing import Optional
 from pathlib import Path
 
-from app.database import mongo_db
+from app.database import get_collection
 from app.config import get_settings
 from app.services import document_service, llm_service, audit_service
 
@@ -65,9 +65,6 @@ DOCUMENT_TYPES = (
 # ─────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────
-
-def _collection(name: str):
-    return mongo_db[name]
 
 
 def _now() -> datetime:

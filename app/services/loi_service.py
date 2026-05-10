@@ -16,14 +16,11 @@ import logging
 import uuid
 from datetime import datetime, timezone
 
-from app.database import mongo_db
+from app.database import get_collection
 from app.processing.article_segmenter import build_page_map, segment_text_into_articles
 
 logger = logging.getLogger(__name__)
 
-
-def _collection(name: str):
-    return mongo_db[name]
 
 
 # ─────────────────────────────────────────────────────────────

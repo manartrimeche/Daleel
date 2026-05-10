@@ -20,11 +20,11 @@ from pymongo.errors import DuplicateKeyError
 from tqdm import tqdm
 
 from app.config import get_settings
-from app.database import mongo_db
+from app.database import get_collection
 from app.processing.chunker import build_records
 from app.processing.extractor import EXTRACTORS
 from app.services import llm_service
-from app.services.embedding_service import embed_texts
+from app.services.embedding_service import embed_texts_async
 from app.services.faiss_index import faiss_manager
 from app.services.search_service import invalidate_embedding_dimension_cache
 
@@ -37,9 +37,6 @@ SUPPORTED_EXTENSIONS = set(EXTRACTORS.keys())
 _UPLOAD_LOCKS: WeakValueDictionary[str, asyncio.Lock] = WeakValueDictionary()
 _UPLOAD_LOCKS_GUARD = asyncio.Lock()
 
-
-def _collection(name: str):
-    return mongo_db[name]
 
 
 async def _get_upload_lock(file_hash: str) -> asyncio.Lock:
@@ -431,7 +428,7 @@ async def upload_document(
 
                 pbar.set_postfix_str(f"embedding {len(records)} chunks")
                 texts = [r["text"] for r in records]
-                embeddings = embed_texts(texts)
+                embeddings = await embed_texts_async(texts)
                 pbar.update(1)
 
                 pbar.set_postfix_str("storing in DB")
@@ -830,7 +827,7 @@ async def reindex_all_documents(
         if not records:
             continue
 
-        embeddings = embed_texts([r["text"] for r in records])
+        embeddings = await embed_texts_async([r["text"] for r in records])
 
         any_ocr = False
         languages_seen: set[str] = set()

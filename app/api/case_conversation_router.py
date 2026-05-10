@@ -74,6 +74,7 @@ async def send_conversation_message(
     case_id: str,
     body: ConversationMessageIn,
     db: Any = Depends(get_db),
+    _key: str | None = Depends(require_api_key),
 ):
     """
     Process a user follow-up message: extract new facts, update the case

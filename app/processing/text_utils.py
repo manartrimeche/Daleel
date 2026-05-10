@@ -164,6 +164,42 @@ def detect_language(text: str) -> str:
     return "ar+fr"
 
 
+_FRENCH_ACCENT_RE = re.compile(r"[àâäéèêëïîôùûüÿçœæ]", re.IGNORECASE)
+_FRENCH_MARKERS = [
+    "quelles", "quelle", "quel", "quels", "comment", "pourquoi",
+    "est-ce", "dans", "pour", "les", "des", "une", "que", "qui",
+    "sont", "cette", "avec", "sur", "selon", "droit", "loi",
+    "article", "société", "societe", "juridique", "contrat",
+    "tribunal", "code", "conditions", "obligations",
+]
+
+
+def detect_query_language(text: str) -> str:
+    """
+    Detect the dominant language of a user query or short text.
+
+    More nuanced than detect_language() — uses French word markers and accent
+    detection for better accuracy on short legal queries.
+
+    Returns: 'ar', 'fr', or 'en'
+    """
+    if not text:
+        return "en"
+    # Arabic characters → Arabic
+    arabic_chars = len(_ARABIC_BLOCK_RE.findall(text))
+    if arabic_chars >= 2:
+        return "ar"
+    # French accented characters → French
+    if _FRENCH_ACCENT_RE.search(text):
+        return "fr"
+    # Check French word markers
+    lower = text.lower()
+    french_count = sum(1 for w in _FRENCH_MARKERS if w in lower)
+    if french_count >= 2:
+        return "fr"
+    return "en"
+
+
 def is_text_garbled(
     text: str,
     expect_arabic: bool = False,

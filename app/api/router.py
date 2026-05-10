@@ -138,9 +138,17 @@ async def upload_document(
         raise HTTPException(400, "No filename provided")
 
     max_bytes = settings.max_upload_mb * 1024 * 1024
-    content = await file.read()
-    if len(content) > max_bytes:
-        raise HTTPException(413, f"File exceeds {settings.max_upload_mb} MB limit")
+    chunks = []
+    total_size = 0
+    while True:
+        chunk = await file.read(1024 * 1024)
+        if not chunk:
+            break
+        total_size += len(chunk)
+        if total_size > max_bytes:
+            raise HTTPException(413, f"File exceeds {settings.max_upload_mb} MB limit")
+        chunks.append(chunk)
+    content = b"".join(chunks)
 
     doc = await document_service.upload_document(
         db,
@@ -310,7 +318,7 @@ async def get_exigences(
     )
 
 
-@router.post("/documents/{doc_id}/extract-exigences")
+@router.post("/documents/{doc_id}/extract-exigences", dependencies=[Depends(require_api_key)])
 async def extract_exigences_endpoint(
     doc_id: str,
     db: Any = Depends(get_db),
@@ -417,7 +425,8 @@ async def ask_question(
 
 
 @router.post("/ask-agentic", response_model=AgenticAskResponse)
-async def ask_question_agentic(body: AskRequest, db: Any = Depends(get_db)):
+@limiter.limit("10/minute")
+async def ask_question_agentic(request: Request, body: AskRequest, db: Any = Depends(get_db)):
     """Ask a legal question using an agentic retrieval loop (non-breaking mode)."""
     result = await llm_service.ask_agentic(
         db,
@@ -435,7 +444,8 @@ async def ask_question_agentic(body: AskRequest, db: Any = Depends(get_db)):
 
 
 @router.post("/ask-auto", response_model=AgenticAskResponse)
-async def ask_question_auto(body: AskRequest, db: Any = Depends(get_db)):
+@limiter.limit("10/minute")
+async def ask_question_auto(request: Request, body: AskRequest, db: Any = Depends(get_db)):
     """Ask a legal question with automatic backend mode selection (classic vs agentic)."""
     result = await llm_service.ask_auto(
         db,
@@ -453,7 +463,8 @@ async def ask_question_auto(body: AskRequest, db: Any = Depends(get_db)):
 
 
 @router.post("/ask-stream")
-async def ask_question_stream(body: AskRequest, db: Any = Depends(get_db)):
+@limiter.limit("10/minute")
+async def ask_question_stream(request: Request, body: AskRequest, db: Any = Depends(get_db)):
     """
     Streaming RAG Q&A via Server-Sent Events (SSE).
 
@@ -492,7 +503,8 @@ async def ask_question_stream(body: AskRequest, db: Any = Depends(get_db)):
 
 
 @router.post("/feedback", response_model=FeedbackOut, status_code=201)
-async def create_feedback_entry(body: FeedbackCreate, db: Any = Depends(get_db)):
+@limiter.limit("20/minute")
+async def create_feedback_entry(request: Request, body: FeedbackCreate, db: Any = Depends(get_db)):
     """Store a user-corrected answer to improve future responses."""
     item = await feedback_service.create_feedback(
         db,
@@ -568,7 +580,7 @@ async def get_company_profile(
     return profile
 
 
-@router.put("/company-profiles/{profile_id}", response_model=CompanyProfileOut)
+@router.put("/company-profiles/{profile_id}", response_model=CompanyProfileOut, dependencies=[Depends(require_api_key)])
 async def update_company_profile(
     profile_id: str,
     body: CompanyProfileCreate,
@@ -605,7 +617,7 @@ async def delete_company_profile(
 # ── Applicability Evaluation ──
 
 
-@router.post("/company-profiles/{profile_id}/evaluate-applicabilities")
+@router.post("/company-profiles/{profile_id}/evaluate-applicabilities", dependencies=[Depends(require_api_key)])
 async def evaluate_applicabilities(
     profile_id: str,
     db: Any = Depends(get_db),
@@ -635,7 +647,7 @@ async def evaluate_applicabilities(
         )
     except Exception as e:
         logger.error(f"Error evaluating applicabilities: {e}")
-        raise HTTPException(500, f"Evaluation error: {str(e)}")
+        raise HTTPException(500, "Internal error during applicability evaluation")
 
     if count == 0:
         raise HTTPException(422, "No exigences found to evaluate with given filters")
@@ -762,7 +774,7 @@ async def get_loi(
     return loi
 
 
-@router.patch("/lois/{loi_id}", response_model=LoiOut)
+@router.patch("/lois/{loi_id}", response_model=LoiOut, dependencies=[Depends(require_api_key)])
 async def update_loi(
     loi_id: str,
     body: LoiUpdate,
@@ -793,6 +805,7 @@ async def delete_loi(
     "/lois/{loi_id}/segment-document",
     response_model=SegmentDocumentResponse,
     status_code=201,
+    dependencies=[Depends(require_api_key)],
 )
 async def segment_document(
     loi_id: str,
@@ -951,6 +964,7 @@ async def get_version_exigences(
     "/article-versions/{version_id}/extract-actions",
     response_model=ExtractActionsResponse,
     status_code=201,
+    dependencies=[Depends(require_api_key)],
 )
 async def extract_actions(
     version_id: str,
@@ -1016,7 +1030,7 @@ async def get_action(
     return action
 
 
-@router.delete("/article-versions/{version_id}/actions", status_code=204)
+@router.delete("/article-versions/{version_id}/actions", status_code=204, dependencies=[Depends(require_api_key)])
 async def delete_version_actions(
     version_id: str,
     db: Any = Depends(get_db),
@@ -1042,6 +1056,7 @@ async def delete_version_actions(
     "/lois/{loi_id}/compute-criticality",
     response_model=ComputeCriticalityResponse,
     status_code=201,
+    dependencies=[Depends(require_api_key)],
 )
 async def compute_criticality_for_loi(
     loi_id: str,
@@ -1068,13 +1083,14 @@ async def compute_criticality_for_loi(
         return result
     except Exception as e:
         logger.error(f"Criticality computation error: {e}")
-        raise HTTPException(500, f"Computation error: {str(e)}")
+        raise HTTPException(500, "Internal computation error")
 
 
 @router.post(
     "/article-versions/{version_id}/compute-criticality",
     response_model=ComputeCriticalityResponse,
     status_code=201,
+    dependencies=[Depends(require_api_key)],
 )
 async def compute_criticality_for_version(
     version_id: str,
@@ -1099,7 +1115,7 @@ async def compute_criticality_for_version(
         return result
     except Exception as e:
         logger.error(f"Criticality computation error: {e}")
-        raise HTTPException(500, f"Computation error: {str(e)}")
+        raise HTTPException(500, "Internal computation error")
 
 
 @router.get("/actions/{action_id}/criticality", response_model=ActionCriticalityOut)
@@ -1130,7 +1146,8 @@ async def get_action_criticality(
 
 
 @router.post(
-    "/action-dependencies", response_model=ActionDependencyOut, status_code=201
+    "/action-dependencies", response_model=ActionDependencyOut, status_code=201,
+    dependencies=[Depends(require_api_key)],
 )
 async def add_action_dependency(
     body: ActionDependencyCreate,
@@ -1175,7 +1192,7 @@ async def list_action_dependencies(
     return await roadmap_service.list_dependencies(db, action_id)
 
 
-@router.delete("/action-dependencies/{dep_id}", status_code=204)
+@router.delete("/action-dependencies/{dep_id}", status_code=204, dependencies=[Depends(require_api_key)])
 async def delete_action_dependency(
     dep_id: str,
     db: Any = Depends(get_db),
@@ -1225,13 +1242,14 @@ async def get_roadmap(
         raise HTTPException(422, str(e))
     except Exception as e:
         logger.error(f"Roadmap generation error for profile {profile_id}: {e}")
-        raise HTTPException(500, f"Roadmap generation failed: {str(e)}")
+        raise HTTPException(500, "Internal error during roadmap generation")
 
 
 @router.post(
     "/company-profiles/{profile_id}/roadmap/refresh",
     response_model=RoadmapOut,
     status_code=201,
+    dependencies=[Depends(require_api_key)],
 )
 async def refresh_roadmap(
     profile_id: str,
@@ -1253,7 +1271,7 @@ async def refresh_roadmap(
         raise HTTPException(422, str(e))
     except Exception as e:
         logger.error(f"Roadmap refresh error for profile {profile_id}: {e}")
-        raise HTTPException(500, f"Roadmap refresh failed: {str(e)}")
+        raise HTTPException(500, "Internal error during roadmap refresh")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1263,7 +1281,7 @@ async def refresh_roadmap(
 # ── Step 10 : Classification de document ──────────────────────────────────────
 
 
-@router.patch("/documents/{doc_id}/classify")
+@router.patch("/documents/{doc_id}/classify", dependencies=[Depends(require_api_key)])
 async def classify_document(
     doc_id: str,
     body: ClassifyDocumentRequest,
@@ -1299,6 +1317,7 @@ async def classify_document(
     "/documents/{doc_id}/extract-amendments",
     response_model=ExtractAmendmentsResponse,
     status_code=201,
+    dependencies=[Depends(require_api_key)],
 )
 async def extract_amendments(
     doc_id: str,
@@ -1327,7 +1346,7 @@ async def extract_amendments(
         raise HTTPException(422, str(e))
     except Exception as e:
         logger.error(f"Amendment extraction error: {e}")
-        raise HTTPException(500, f"Extraction error: {str(e)}")
+        raise HTTPException(500, "Internal error during amendment extraction")
 
 
 @router.get("/documents/{doc_id}/amendments", response_model=AmendmentOperationListOut)
@@ -1362,6 +1381,7 @@ async def list_amendments(
     "/amendment-operations/{op_id}/apply",
     response_model=ApplyAmendmentResponse,
     status_code=201,
+    dependencies=[Depends(require_api_key)],
 )
 async def apply_amendment(
     op_id: str,
@@ -1427,13 +1447,14 @@ async def apply_amendment(
         raise HTTPException(422, str(e))
     except Exception as e:
         logger.error(f"Amendment application error: {e}")
-        raise HTTPException(500, f"Application error: {str(e)}")
+        raise HTTPException(500, "Internal error during amendment application")
 
 
 @router.post(
     "/documents/{doc_id}/apply-amendments",
     response_model=ApplyAllAmendmentsResponse,
     status_code=201,
+    dependencies=[Depends(require_api_key)],
 )
 async def apply_all_amendments(
     doc_id: str,
@@ -1490,7 +1511,7 @@ async def apply_all_amendments(
         return result
     except Exception as e:
         logger.error(f"Batch amendment error: {e}")
-        raise HTTPException(500, f"Batch error: {str(e)}")
+        raise HTTPException(500, "Internal error during batch amendment processing")
 
 
 # ── Step 13 : Journal d'audit ─────────────────────────────────────────────────
@@ -1564,6 +1585,7 @@ async def get_article_audit_logs(
     "/lois/{loi_id}/recalculate",
     response_model=RecalculationResponse,
     status_code=201,
+    dependencies=[Depends(require_api_key)],
 )
 async def recalculate_loi(
     loi_id: str,
@@ -1588,13 +1610,14 @@ async def recalculate_loi(
         return result
     except Exception as e:
         logger.error(f"Recalculation error for loi {loi_id}: {e}")
-        raise HTTPException(500, f"Recalculation error: {str(e)}")
+        raise HTTPException(500, "Internal error during recalculation")
 
 
 @router.post(
     "/lois/{loi_id}/recalculate-versions",
     response_model=RecalculationResponse,
     status_code=201,
+    dependencies=[Depends(require_api_key)],
 )
 async def recalculate_versions(
     loi_id: str,
@@ -1619,7 +1642,7 @@ async def recalculate_versions(
         return result
     except Exception as e:
         logger.error(f"Targeted recalculation error: {e}")
-        raise HTTPException(500, f"Recalculation error: {str(e)}")
+        raise HTTPException(500, "Internal error during recalculation")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
