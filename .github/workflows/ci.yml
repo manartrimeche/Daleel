@@ -48,10 +48,19 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest
+          pip install pytest pytest-cov
 
-      - name: Run unit tests
-        run: python -m pytest tests/ -v --tb=short -x
+      - name: Run unit tests with coverage
+        run: |
+          python -m pytest tests/ -v --tb=short -x \
+            --cov=app --cov-report=term-missing --cov-fail-under=30
+
+      - name: Upload coverage report
+        if: matrix.python-version == '3.12'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: .coverage
 
   lint:
     runs-on: ubuntu-latest
@@ -63,8 +72,11 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install ruff
-        run: pip install ruff
+      - name: Install ruff and bandit
+        run: pip install ruff bandit
 
       - name: Lint
         run: ruff check app/ tests/ --select E,W,F --ignore E501
+
+      - name: Security scan (bandit)
+        run: bandit -r app/ -ll --exclude app/tests

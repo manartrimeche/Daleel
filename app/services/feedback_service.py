@@ -12,23 +12,11 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+from app.processing.text_utils import detect_query_language as _detect_language
+
 _TOKEN_RE = re.compile(r"[\u0600-\u06FF\w]+", re.UNICODE)
-_ARABIC_RE = re.compile(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]")
-_FRENCH_RE = re.compile(r"[àâäéèêëïîôùûüÿçœæ]", re.IGNORECASE)
 
 
-def _detect_language(text: str) -> str:
-    arabic_count = len(_ARABIC_RE.findall(text or ""))
-    if arabic_count >= 2:
-        return "ar"
-    if _FRENCH_RE.search(text or ""):
-        return "fr"
-
-    lowered = (text or "").lower()
-    fr_markers = ["quelles", "quelle", "comment", "pourquoi", "sont", "article", "société", "societe", "loi"]
-    if sum(1 for marker in fr_markers if marker in lowered) >= 2:
-        return "fr"
-    return "en"
 
 
 def _tokenize(text: str) -> set[str]:

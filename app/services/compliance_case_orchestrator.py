@@ -53,6 +53,7 @@ Integrates with:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import uuid
@@ -63,6 +64,7 @@ from typing import Optional
 
 from app.config import get_settings
 from app.database import get_collection
+from app.processing.text_utils import detect_query_language as _detect_language
 from app.services import (
     action_service,
     applicability_service,
@@ -210,21 +212,6 @@ def _severity_from_gap(gap: dict) -> str:
     return "observation"
 
 
-def _detect_language(text: str) -> str:
-    """Detect dominant language for prompts."""
-    arabic_chars = len([c for c in text if "\u0600" <= c <= "\u06FF"])
-    if arabic_chars >= 2:
-        return "ar"
-    # French-specific accented characters are strong indicators
-    french_accents = set("àâãäæçèéêëîïôœùûüÿ")
-    if any(c.lower() in french_accents for c in text):
-        return "fr"
-    french_markers = ["le", "la", "les", "des", "une", "est", "sont", "avec", "pour", "que", "qui"]
-    lower = text.lower()
-    french_count = sum(1 for m in french_markers if f" {m} " in f" {lower} ")
-    if french_count >= 2:
-        return "fr"
-    return "en"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1083,19 +1070,24 @@ async def analyze_and_orchestrate(
         actions = []
         evidences = []
 
-        for i, finding in enumerate(proposed_findings):
-            # Propose controls
-            finding_controls = await _propose_controls(finding, ctx)
-            controls.extend(finding_controls)
-
-            # Generate remediation actions
-            finding_actions = await _generate_remediation_actions(finding, ctx)
+        async def _process_finding(i: int, finding):
+            """Run the three LLM calls for a single finding concurrently."""
+            finding_controls, finding_actions, finding_evidences = await asyncio.gather(
+                _propose_controls(finding, ctx),
+                _generate_remediation_actions(finding, ctx),
+                _map_evidences(finding, ctx),
+            )
             for act in finding_actions:
                 act.finding_idx = i
-            actions.extend(finding_actions)
+            return finding_controls, finding_actions, finding_evidences
 
-            # Map evidences
-            finding_evidences = await _map_evidences(finding, ctx)
+        # Parallelize across all findings
+        per_finding_results = await asyncio.gather(
+            *[_process_finding(i, f) for i, f in enumerate(proposed_findings)]
+        )
+        for finding_controls, finding_actions, finding_evidences in per_finding_results:
+            controls.extend(finding_controls)
+            actions.extend(finding_actions)
             evidences.extend(finding_evidences)
 
         result.controls_proposed = controls

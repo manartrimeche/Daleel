@@ -17,6 +17,7 @@ import unicodedata
 from typing import Any, Optional
 
 from app.config import get_settings
+from app.processing.text_utils import detect_query_language as _detect_query_language
 from app.services import feedback_service, search_service
 from app.services.domain_router import route_question
 from app.services.llm_cache import llm_cache
@@ -41,8 +42,8 @@ def _get_reranking_service():
 # Détection de la langue
 # ─────────────────────────────────────────────────────────────
 
-_ARABIC_RE = re.compile(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]+")
-_FRENCH_RE = re.compile(r"[àâäéèêëïîôùûüÿçœæ]", re.IGNORECASE)
+
+
 
 _LANG_LABELS = {
     "ar": ("Arabic / العربية", "يجب أن تكون إجابتك بالكامل باللغة العربية."),
@@ -263,32 +264,6 @@ async def _resolve_effective_document_id(
     if best_id is None:
         return None, None
     return best_id, "auto_company_corpus"
-
-
-def _detect_query_language(text: str) -> str:
-    """Détecte la langue dominante de la question utilisateur."""
-    arabic_chars = len(_ARABIC_RE.findall(text))
-    has_french = bool(_FRENCH_RE.search(text))
-
-    # If significant Arabic content → Arabic
-    if arabic_chars >= 2:
-        return "ar"
-    # French diacritics detected → French
-    if has_french:
-        return "fr"
-    # Heuristic: check common French words
-    lower = text.lower()
-    french_markers = [
-        "quelles", "quelle", "quel", "quels", "comment", "pourquoi",
-        "est-ce", "dans", "pour", "les", "des", "une", "que", "qui",
-        "sont", "cette", "avec", "sur", "selon", "droit", "loi",
-        "article", "société", "societe", "juridique", "contrat",
-        "tribunal", "code", "conditions", "obligations",
-    ]
-    french_count = sum(1 for w in french_markers if w in lower)
-    if french_count >= 2:
-        return "fr"
-    return "en"
 
 
 def _tokenize_for_rerank(text: str, lang: str) -> list[str]:
