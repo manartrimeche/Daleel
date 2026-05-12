@@ -131,6 +131,7 @@ select option{background:var(--bg3)}
 .toast-success{background:#064e3b;color:var(--success);border:1px solid rgba(52,211,153,.3)}
 .toast-error{background:#450a0a;color:var(--danger);border:1px solid rgba(248,113,113,.3)}
 .toast-info{background:#1e3a5f;color:var(--info);border:1px solid rgba(96,165,250,.3)}
+.toast-warn{background:#4a3207;color:var(--warn);border:1px solid rgba(251,191,36,.3)}
 @keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
 
 /* Audit timeline */
@@ -258,7 +259,7 @@ function toast(msg, type='info', dur=4000) {
   const t = document.getElementById('toasts');
   const d = document.createElement('div');
   d.className = `toast toast-${type}`;
-  const icons = {success:'✅', error:'❌', info:'ℹ️'};
+  const icons = {success:'✅', error:'❌', info:'ℹ️', warn:'⚠️'};
   d.innerHTML = `<span>${icons[type]||'•'}</span><span>${msg}</span>`;
   t.appendChild(d);
   setTimeout(() => d.remove(), dur);
@@ -337,11 +338,24 @@ async function render(section) {
 }
 
 // ── Helper renderers ───────────────────────────────────────────────────
-function tag(text, cls='') { return `<span class="tag tag-${cls||text.toLowerCase()}">${text}</span>`; }
+function tag(text, cls='') {
+  const label = text ?? '—';
+  const className = String(cls || label).toLowerCase().replace(/[^a-z0-9_-]+/g, '_');
+  return `<span class="tag tag-${className}">${escapeHtml(label)}</span>`;
+}
 function btn(label, onclick, cls='secondary', sm=false) {
   return `<button class="btn btn-${cls}${sm?' btn-sm':''}" onclick="${onclick}">${label}</button>`;
 }
 function fmt(v) { return v ?? '—'; }
+function fmtNumber(v, digits=1) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n.toFixed(digits) : fmt(v);
+}
+function fmtScore(v, digits=3) { return fmtNumber(v, digits); }
+function fmtMs(v) { return fmtNumber(v ?? 0, 1); }
+function getSummaryContext(summary) {
+  return summary?.context || summary || {};
+}
 function fmtDate(d) {
   if (!d) return '—';
   return new Date(d).toLocaleString('fr-FR', {day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});
@@ -460,6 +474,7 @@ async function renderDashboard(c) {
 const _chartDefaults = { color: '#9896a8', borderColor: '#2a2a40' };
 
 async function renderAnalyticsCharts() {
+  if (typeof Chart === 'undefined') return;
   const analytics = await api.get('/admin/analytics?days=30').catch(() => null);
   if (!analytics) return;
 
@@ -1083,9 +1098,8 @@ async function doEvalApplicability(profileId) {
   closeModal();
   toast('Évaluation en cours (LLM)…', 'info', 30000);
   try {
-    const r = await api.post(`/company-profiles/${profileId}/evaluate-applicabilities`, {
-      profile_id: profileId, document_id: docId
-    });
+    const query = docId ? `?document_id=${encodeURIComponent(docId)}` : '';
+    const r = await api.post(`/company-profiles/${profileId}/evaluate-applicabilities${query}`);
     toast(`✅ ${r.evaluated_exigences} évaluées · ${r.applicable} applicables`, 'success', 8000);
     loadProfile(profileId);
   } catch(e) { toast(e.message,'error'); }
@@ -1207,7 +1221,7 @@ function renderAskSources(sources=[]) {
         <td>${fmt(s.page_number)}</td>
         <td>${fmt(s.section)}</td>
         <td>${fmt(s.language)}</td>
-        <td>${(s.relevance_score ?? 0).toFixed ? s.relevance_score.toFixed(3) : fmt(s.relevance_score)}</td>
+        <td>${fmtScore(s.relevance_score ?? s.score)}</td>
       </tr>`).join('')}
     </tbody>
   </table>`;
@@ -1224,9 +1238,9 @@ function renderAgenticMeta(r) {
         <div class="stat-card"><div class="stat-label">Route</div><div class="stat-value" style="font-size:18px">${r.route_decision}</div></div>
         <div class="stat-card"><div class="stat-label">Intent</div><div class="stat-value" style="font-size:18px">${r.intent || 'analysis'}</div></div>
         <div class="stat-card"><div class="stat-label">Tentatives</div><div class="stat-value" style="font-size:18px">${r.retrieval_attempts ?? 0}</div></div>
-        <div class="stat-card"><div class="stat-label">Retrieval</div><div class="stat-value" style="font-size:18px">${(timings.retrieval ?? 0).toFixed ? timings.retrieval.toFixed(1) : timings.retrieval} ms</div></div>
-        <div class="stat-card"><div class="stat-label">Generation</div><div class="stat-value" style="font-size:18px">${(timings.generation ?? 0).toFixed ? timings.generation.toFixed(1) : timings.generation} ms</div></div>
-        <div class="stat-card"><div class="stat-label">Total</div><div class="stat-value" style="font-size:18px">${(timings.total ?? 0).toFixed ? timings.total.toFixed(1) : timings.total} ms</div></div>
+        <div class="stat-card"><div class="stat-label">Retrieval</div><div class="stat-value" style="font-size:18px">${fmtMs(timings.retrieval ?? timings.search)} ms</div></div>
+        <div class="stat-card"><div class="stat-label">Generation</div><div class="stat-value" style="font-size:18px">${fmtMs(timings.generation)} ms</div></div>
+        <div class="stat-card"><div class="stat-label">Total</div><div class="stat-value" style="font-size:18px">${fmtMs(timings.total)} ms</div></div>
       </div>
       ${r.rewritten_query ? `<div class="mb-16"><span class="text-muted">Requête reformulée:</span><pre>${r.rewritten_query}</pre></div>` : ''}
       <div>
@@ -1342,7 +1356,7 @@ async function doCompareAsk() {
   const agenticSummary = agentic.ok
     ? `<div class="panel-title">Agentic</div>
        <div class="text-muted" style="font-size:12px;margin-bottom:8px">Latence API: ${agentic.elapsed.toFixed(1)} ms · Route: ${agentic.data.route_decision || '—'} · Tentatives: ${agentic.data.retrieval_attempts ?? 0}</div>
-       <div class="text-muted" style="font-size:12px;margin-bottom:8px">Timing interne: total ${(agentic.data.timings_ms?.total ?? 0).toFixed ? agentic.data.timings_ms.total.toFixed(1) : (agentic.data.timings_ms?.total ?? 0)} ms</div>
+       <div class="text-muted" style="font-size:12px;margin-bottom:8px">Timing interne: total ${fmtMs(agentic.data.timings_ms?.total)} ms</div>
        <div style="line-height:1.6;font-size:13px;white-space:pre-wrap;max-height:260px;overflow:auto">${agentic.data.answer || ''}</div>`
     : `<div class="panel-title">Agentic</div><div class="text-danger">Erreur: ${agentic.error}</div>`;
 
@@ -1434,8 +1448,10 @@ async function renderVecteur(c) {
 // CASES
 // ══════════════════════════════════════════════════════════════════════
 let activeCaseId = null;
+let caseListState = {status: '', priority: ''};
 
 async function renderCases(c, skip=0, filterStatus='', filterPriority=''){
+  caseListState = {status: filterStatus, priority: filterPriority};
   let path = `/cases?skip=${skip}&limit=25`;
   if(filterStatus) path += '&status='+filterStatus;
   if(filterPriority) path += '&priority='+filterPriority;
@@ -1459,9 +1475,9 @@ async function renderCases(c, skip=0, filterStatus='', filterPriority=''){
     <div class="table-wrap"><table><thead><tr><th>Titre</th><th>Statut</th><th>Priorité</th><th>Assigné</th><th>MàJ</th><th>Actions</th></tr></thead><tbody>
       ${cases.cases.map(cs=>`<tr><td><strong>${escapeHtml(cs.title)}</strong><br><span style="font-size:11px;color:var(--text3)">${cs.id}</span></td><td>${tag(cs.status, cs.status)}</td><td>${tag(cs.priority, cs.priority)}</td><td>${fmt(cs.assigned_to)}</td><td>${fmtDate(cs.updated_at)}</td><td><div class="flex gap-8">${btn('🔍',`openCase('${cs.id}')`,'secondary',true)}${btn('✏️',`showEditCaseModal('${cs.id}')`,'secondary',true)}${btn('🗑',`deleteCase('${cs.id}')`,'danger',true)}</div></td></tr>`).join('')}
     </tbody></table></div>
-    ${paginationHtml(cases.total, skip, 25, `casesPage_${filterStatus}_${filterPriority}`)}`;
+    ${paginationHtml(cases.total, skip, 25, 'casesPage')}`;
 }
-function casesPage(skip){ renderCases(document.getElementById('content'), skip, '', ''); }
+function casesPage(skip){ renderCases(document.getElementById('content'), skip, caseListState.status, caseListState.priority); }
 function filterCasesList(st, pr){ renderCases(document.getElementById('content'), 0, st, pr); }
 
 async function deleteCase(id){
@@ -1504,11 +1520,11 @@ async function renderCaseDetail(c, caseId){
   c.innerHTML = `<div class="section-header"><span class="section-title">${escapeHtml(cs.title)}</span><div class="flex gap-8">${tag(cs.status, cs.status)}${tag(cs.priority, cs.priority)}${btn('✏️ Éditer',`showEditCaseModal('${cs.id}')`,'secondary',true)}<button class="btn btn-secondary btn-sm" onclick="navigate('cases')">← Retour</button></div></div>
     <div class="panel" style="margin-bottom:16px"><div style="display:flex;gap:24px;flex-wrap:wrap;font-size:13px;color:var(--text2)"><span>Créé: ${fmtDate(cs.created_at)}</span><span>MàJ: ${fmtDate(cs.updated_at)}</span><span>Assigné: ${fmt(cs.assigned_to)}</span><span>Profil: ${fmt(cs.company_profile_id)}</span>${cs.tags&&cs.tags.length?`<span>Tags: ${cs.tags.map(t=>tag(t)).join(' ')}</span>`:''}${orchStatus?`<span>Orchestration: ${orchStatus.ready_for_orchestration?'🟢 Prêt':'🟡 Incomplet'}</span>`:''}</div></div>
     <div class="btn-group" id="case-tabs">
-      <button class="btn btn-sm btn-primary" onclick="showCaseTab('conversation')">💬 Conversation</button>
-      <button class="btn btn-sm btn-secondary" onclick="showCaseTab('documents')">📎 Documents</button>
-      <button class="btn btn-sm btn-secondary" onclick="showCaseTab('findings')">⚠️ Constats</button>
-      <button class="btn btn-sm btn-secondary" onclick="showCaseTab('actions')">🔧 Actions</button>
-      <button class="btn btn-sm btn-secondary" onclick="showCaseTab('orchestrate')">🤖 Orchestration</button>
+      <button class="btn btn-sm btn-primary" data-tab="conversation" onclick="showCaseTab('conversation')">💬 Conversation</button>
+      <button class="btn btn-sm btn-secondary" data-tab="documents" onclick="showCaseTab('documents')">📎 Documents</button>
+      <button class="btn btn-sm btn-secondary" data-tab="findings" onclick="showCaseTab('findings')">⚠️ Constats</button>
+      <button class="btn btn-sm btn-secondary" data-tab="actions" onclick="showCaseTab('actions')">🔧 Actions</button>
+      <button class="btn btn-sm btn-secondary" data-tab="orchestrate" onclick="showCaseTab('orchestrate')">🤖 Orchestration</button>
     </div>
     <div id="case-tab-content"></div>`;
   showCaseTab('conversation');
@@ -1517,7 +1533,7 @@ async function renderCaseDetail(c, caseId){
 function showCaseTab(tab){
   const container = document.getElementById('case-tab-content');
   document.querySelectorAll('#case-tabs button').forEach(b=>{
-    const isActive = b.textContent.toLowerCase().includes(tab);
+    const isActive = b.dataset.tab === tab;
     b.className = `btn btn-sm ${isActive?'btn-primary':'btn-secondary'}`;
   });
   if(tab==='conversation') renderCaseConversation(container);
@@ -1541,6 +1557,11 @@ async function renderCaseConversation(c){
       </div>
     </div>`;
   }).join('')||'<div class="empty">Aucun message</div>';
+  const context = getSummaryContext(summary);
+  const knownFacts = context.facts_known || context.known_facts || [];
+  const missingFacts = context.facts_missing || context.missing_facts || [];
+  const matterType = context.matter_type;
+  const urgency = context.urgency;
   c.innerHTML = `<div style="display:grid;grid-template-columns:2fr 1fr;gap:16px">
     <div style="display:flex;flex-direction:column;gap:12px">
       <div class="panel" style="flex:1;min-height:300px;max-height:520px;overflow-y:auto" id="case-conv-scroll">${msgHtml}</div>
@@ -1549,7 +1570,7 @@ async function renderCaseConversation(c){
         <button class="btn btn-primary" onclick="sendCaseMessage()">Envoyer</button>
       </div>
     </div>
-    <div>${summary?`<div class="panel"><div class="panel-title">Faits connus (${(summary.known_facts||[]).length})</div><ul style="font-size:12px;color:var(--text2);padding-left:16px">${(summary.known_facts||[]).map(f=>`<li>${escapeHtml(f)}</li>`).join('')||'<li>—</li>'}</ul></div><div class="panel"><div class="panel-title">Faits manquants (${(summary.missing_facts||[]).length})</div><ul style="font-size:12px;color:var(--warn);padding-left:16px">${(summary.missing_facts||[]).map(f=>`<li>${escapeHtml(f)}</li>`).join('')||'<li>—</li>'}</ul></div>${summary.matter_type?`<div class="panel"><div class="panel-title">Type</div><div style="font-size:12px;color:var(--text2)">${tag(summary.matter_type)}</div></div>`:''}${summary.urgency?`<div class="panel"><div class="panel-title">Urgence</div><div style="font-size:12px;color:var(--text2)">${tag(summary.urgency, summary.urgency==='critical'?'critique':summary.urgency)}</div></div>`:''}`:''}</div>
+    <div>${summary?`<div class="panel"><div class="panel-title">Faits connus (${knownFacts.length})</div><ul style="font-size:12px;color:var(--text2);padding-left:16px">${knownFacts.map(f=>`<li>${escapeHtml(f)}</li>`).join('')||'<li>—</li>'}</ul></div><div class="panel"><div class="panel-title">Faits manquants (${missingFacts.length})</div><ul style="font-size:12px;color:var(--warn);padding-left:16px">${missingFacts.map(f=>`<li>${escapeHtml(f)}</li>`).join('')||'<li>—</li>'}</ul></div>${matterType?`<div class="panel"><div class="panel-title">Type</div><div style="font-size:12px;color:var(--text2)">${tag(matterType)}</div></div>`:''}${urgency?`<div class="panel"><div class="panel-title">Urgence</div><div style="font-size:12px;color:var(--text2)">${tag(urgency, urgency==='critical'?'critique':urgency)}</div></div>`:''}`:''}</div>
   </div>`;
   const scroll = document.getElementById('case-conv-scroll');
   if(scroll) scroll.scrollTop = scroll.scrollHeight;
@@ -1617,8 +1638,7 @@ async function doCaseUpload(){
   const role = document.getElementById('cuf-role').value;
   closeModal(); toast('Upload en cours…','info',5000);
   try{
-    const fd = new FormData(); fd.append('file',f); fd.append('role',role); fd.append('run_analysis','true');
-    await fetch(API+`/cases/${activeCaseId}/documents/upload`, {method:'POST', body:fd});
+    await uploadFile(`/cases/${activeCaseId}/documents/upload`, f, {role, run_analysis:'true'});
     toast('Document attaché','success'); showCaseTab('documents');
   }catch(e){ toast(e.message,'error'); }
 }
@@ -1740,10 +1760,23 @@ async function runOrchestration(){
       const qs = await api.get(`/cases/${activeCaseId}/orchestrate/questions`);
       out.innerHTML += `<div class="panel"><div class="panel-title">Questions de clarification</div>${qs.questions.map(q=>`<div style="margin-bottom:6px">• ${escapeHtml(q)}</div>`).join('')}</div>`;
     }
-    const adv = await api.post(`/cases/${activeCaseId}/orchestrate/advise`,{}).catch(()=>null);
+    const [summary, caseDocs] = await Promise.all([
+      api.get(`/cases/${activeCaseId}/summary`).catch(()=>null),
+      api.get(`/cases/${activeCaseId}/documents`).catch(()=>({documents:[]}))
+    ]);
+    const adv = await api.post(`/cases/${activeCaseId}/orchestrate/advise`, {
+      case_id: activeCaseId,
+      orchestration_result: r,
+      conversation_context: getSummaryContext(summary),
+      document_analyses: caseDocs.documents || [],
+      legal_context: [],
+      language: 'fr',
+      tone: 'professional',
+      use_llm_refinement: false
+    }).catch(()=>null);
     if(adv){
       out.innerHTML += `<div class="panel"><div class="panel-title">Conseil structuré</div>
-        <div style="font-size:13px;line-height:1.6;white-space:pre-wrap">${escapeHtml(adv.markdown_response||'')}</div>
+        <div style="font-size:13px;line-height:1.6;white-space:pre-wrap">${escapeHtml(adv.markdown_rendering || adv.markdown_response || '')}</div>
       </div>`;
     }
   }catch(e){ out.innerHTML = `<div class="panel text-danger">Erreur: ${escapeHtml(e.message)}</div>`; }
@@ -1770,6 +1803,7 @@ async function loadPosture(profileId){
     if(!posture){ container.innerHTML = '<div class="empty">Impossible de charger la posture</div>'; return; }
     const pct = posture.overall_coverage_score||0;
     const chartId = 'posture-chart-'+pid.replace(/[^a-z0-9]/gi,'');
+    const plan = roadmap?.ordered_plan || roadmap?.roadmap || [];
     container.innerHTML = `
       <div class="stats-grid" style="grid-template-columns:repeat(4,1fr)">
         <div class="stat-card" style="text-align:center"><div class="stat-value" style="font-size:32px;color:${pct>=0.8?'var(--success)':pct>=0.5?'var(--warn)':'var(--danger)'}">${(pct*100).toFixed(0)}%</div><div class="stat-label">Couverture globale</div></div>
@@ -1783,12 +1817,12 @@ async function loadPosture(profileId){
           ${posture.gaps?.length?posture.gaps.slice(0,10).map(g=>`<div class="audit-item"><div class="audit-dot audit-dot-${g.coverage_status}"></div><div><div class="flex gap-8 items-center"><span class="audit-event">${escapeHtml(g.exigence_title||g.exigence_id||'Exigence')}</span>${tag(g.coverage_status,g.coverage_status)}</div><div class="audit-detail">Score: ${(g.best_coverage_score*100).toFixed(0)}% · Contrôles liés: ${g.linked_controls}${g.has_exception?' · Exception':''}</div></div></div>`).join(''):'<div class="empty">Aucun écart majeur</div>'}
         </div>
       </div>
-      <div class="panel" style="margin-top:16px"><div class="panel-title">Feuille de route (${roadmap?roadmap.roadmap.length:0})</div>
-        ${roadmap?roadmap.roadmap.slice(0,8).map((step,i)=>`<div class="roadmap-item"><div class="roadmap-header"><span class="roadmap-pos">${i+1}</span><div style="flex:1"><div class="roadmap-action">${escapeHtml(step.action_summary||step.action_id)}</div><div class="roadmap-meta">${tag(step.criticality_level||'—',step.criticality_level||'—')} ${fmtDate(step.suggested_due_date)}</div></div></div></div>`).join(''):'<div class="empty">Aucune roadmap</div>'}
+      <div class="panel" style="margin-top:16px"><div class="panel-title">Feuille de route (${plan.length})</div>
+        ${plan.length?plan.slice(0,8).map((step,i)=>`<div class="roadmap-item"><div class="roadmap-header"><span class="roadmap-pos">${step.position||i+1}</span><div style="flex:1"><div class="roadmap-action">${escapeHtml(step.action_precise||step.action_summary||step.action_id)}</div><div class="roadmap-meta">${tag(step.criticality_level||'—',step.criticality_level||'—')} ${step.loi_code?`<span class="badge badge-info" style="font-size:10px">${escapeHtml(step.loi_code)}</span>`:''} ${step.article_key?`<code style="font-size:10px">${escapeHtml(step.article_key)}</code>`:''}</div></div></div></div>`).join(''):'<div class="empty">Aucune roadmap</div>'}
       </div>`;
     setTimeout(()=>{
       const ctx = document.getElementById(chartId);
-      if(ctx && Chart){
+      if(ctx && typeof Chart !== 'undefined'){
         new Chart(ctx, {
           type: 'doughnut',
           data: {
