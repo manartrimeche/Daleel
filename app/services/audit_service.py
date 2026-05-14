@@ -89,7 +89,7 @@ async def log_event(
         "details": details or {},
         "created_at": datetime.now(timezone.utc),
     }
-    await _collection("audit_logs").insert_one(log)
+    await get_collection("audit_logs").insert_one(log)
 
     logger.info(
         f"AuditLog [{event_type}] actor={actor} "
@@ -124,8 +124,8 @@ async def get_audit_logs(
     if event_type:
         query["event_type"] = event_type
 
-    total = await _collection("audit_logs").count_documents(query)
-    cursor = _collection("audit_logs").find(query).sort("created_at", -1).skip(skip).limit(limit)
+    total = await get_collection("audit_logs").count_documents(query)
+    cursor = get_collection("audit_logs").find(query).sort("created_at", -1).skip(skip).limit(limit)
     logs = [_log_to_dict(log) async for log in cursor]
 
     return logs, int(total)

@@ -157,7 +157,7 @@ async def create_assessment(
     due_date: Optional[datetime] = None,
     created_by: str = "system",
 ) -> dict:
-    profile = await _collection("company_profiles").find_one(
+    profile = await get_collection("company_profiles").find_one(
         {"id": company_profile_id}
     )
     if not profile:
@@ -183,7 +183,7 @@ async def create_assessment(
         "created_at": now,
         "updated_at": now,
     }
-    await _collection("compliance_assessments").insert_one(assessment)
+    await get_collection("compliance_assessments").insert_one(assessment)
 
     await audit_service.log_event(
         db,
@@ -203,7 +203,7 @@ async def create_assessment(
 
 
 async def get_assessment(db, assessment_id: str) -> dict | None:
-    doc = await _collection("compliance_assessments").find_one(
+    doc = await get_collection("compliance_assessments").find_one(
         {"id": assessment_id}
     )
     if not doc:
@@ -225,9 +225,9 @@ async def list_assessments(
     if status:
         query["status"] = status
 
-    total = await _collection("compliance_assessments").count_documents(query)
+    total = await get_collection("compliance_assessments").count_documents(query)
     cursor = (
-        _collection("compliance_assessments")
+        get_collection("compliance_assessments")
         .find(query)
         .sort("created_at", -1)
         .skip(skip)
@@ -251,7 +251,7 @@ async def update_assessment(
     review_frequency: Optional[str] = None,
     due_date: Optional[datetime] = None,
 ) -> dict | None:
-    doc = await _collection("compliance_assessments").find_one(
+    doc = await get_collection("compliance_assessments").find_one(
         {"id": assessment_id}
     )
     if not doc:
@@ -278,7 +278,7 @@ async def update_assessment(
         elif doc.get("status") == "completed":
             updates["completed_at"] = None
 
-    await _collection("compliance_assessments").update_one(
+    await get_collection("compliance_assessments").update_one(
         {"id": assessment_id}, {"$set": updates}
     )
 
@@ -287,7 +287,7 @@ async def update_assessment(
 
 async def _enrich_assessment(doc: dict) -> dict:
     aid = doc["id"]
-    doc["link_count"] = await _collection(
+    doc["link_count"] = await get_collection(
         "requirement_control_links"
     ).count_documents({"assessment_id": aid})
     return _assessment_to_dict(doc)
@@ -308,7 +308,7 @@ async def create_control(
     risk_level: str = "medium",
     review_frequency: str = "quarterly",
 ) -> dict:
-    profile = await _collection("company_profiles").find_one(
+    profile = await get_collection("company_profiles").find_one(
         {"id": company_profile_id}
     )
     if not profile:
@@ -333,7 +333,7 @@ async def create_control(
         "created_at": now,
         "updated_at": now,
     }
-    await _collection("controls").insert_one(control)
+    await get_collection("controls").insert_one(control)
 
     await audit_service.log_event(
         db,
@@ -351,7 +351,7 @@ async def create_control(
 
 
 async def get_control(db, control_id: str) -> dict | None:
-    doc = await _collection("controls").find_one({"id": control_id})
+    doc = await get_collection("controls").find_one({"id": control_id})
     if not doc:
         return None
     return await _enrich_control(doc)
@@ -371,9 +371,9 @@ async def list_controls(
     if implementation_status:
         query["implementation_status"] = implementation_status
 
-    total = await _collection("controls").count_documents(query)
+    total = await get_collection("controls").count_documents(query)
     cursor = (
-        _collection("controls")
+        get_collection("controls")
         .find(query)
         .sort("created_at", -1)
         .skip(skip)
@@ -400,7 +400,7 @@ async def update_control(
     last_reviewed_at: Optional[datetime] = None,
     next_review_date: Optional[datetime] = None,
 ) -> dict | None:
-    doc = await _collection("controls").find_one({"id": control_id})
+    doc = await get_collection("controls").find_one({"id": control_id})
     if not doc:
         return None
 
@@ -426,7 +426,7 @@ async def update_control(
     if next_review_date is not None:
         updates["next_review_date"] = next_review_date
 
-    await _collection("controls").update_one(
+    await get_collection("controls").update_one(
         {"id": control_id}, {"$set": updates}
     )
     return await get_control(db, control_id)
@@ -434,10 +434,10 @@ async def update_control(
 
 async def _enrich_control(doc: dict) -> dict:
     cid = doc["id"]
-    doc["evidence_count"] = await _collection(
+    doc["evidence_count"] = await get_collection(
         "control_evidences"
     ).count_documents({"control_id": cid})
-    doc["linked_requirement_count"] = await _collection(
+    doc["linked_requirement_count"] = await get_collection(
         "requirement_control_links"
     ).count_documents({"control_id": cid})
     return _control_to_dict(doc)
@@ -461,12 +461,12 @@ async def create_evidence(
     valid_from: Optional[datetime] = None,
     valid_until: Optional[datetime] = None,
 ) -> dict:
-    control = await _collection("controls").find_one({"id": control_id})
+    control = await get_collection("controls").find_one({"id": control_id})
     if not control:
         raise ValueError(f"Control '{control_id}' not found")
 
     if document_id:
-        doc_exists = await _collection("documents").find_one(
+        doc_exists = await get_collection("documents").find_one(
             {"id": document_id}
         )
         if not doc_exists:
@@ -490,7 +490,7 @@ async def create_evidence(
         "created_at": now,
         "updated_at": now,
     }
-    await _collection("control_evidences").insert_one(evidence)
+    await get_collection("control_evidences").insert_one(evidence)
 
     logger.info(
         "Evidence created: id=%s control=%s", evidence["id"], control_id
@@ -505,9 +505,9 @@ async def list_evidences(
     limit: int = 100,
 ) -> tuple[list[dict], int]:
     query = {"control_id": control_id}
-    total = await _collection("control_evidences").count_documents(query)
+    total = await get_collection("control_evidences").count_documents(query)
     cursor = (
-        _collection("control_evidences")
+        get_collection("control_evidences")
         .find(query)
         .sort("created_at", -1)
         .skip(skip)
@@ -528,7 +528,7 @@ async def update_evidence(
     valid_from: Optional[datetime] = None,
     valid_until: Optional[datetime] = None,
 ) -> dict | None:
-    doc = await _collection("control_evidences").find_one(
+    doc = await get_collection("control_evidences").find_one(
         {"id": evidence_id}
     )
     if not doc:
@@ -548,10 +548,10 @@ async def update_evidence(
     if valid_until is not None:
         updates["valid_until"] = valid_until
 
-    await _collection("control_evidences").update_one(
+    await get_collection("control_evidences").update_one(
         {"id": evidence_id}, {"$set": updates}
     )
-    updated = await _collection("control_evidences").find_one(
+    updated = await get_collection("control_evidences").find_one(
         {"id": evidence_id}
     )
     return _evidence_to_dict(updated) if updated else None
@@ -573,22 +573,22 @@ async def create_link(
     justification: Optional[str] = None,
     linked_by: str = "system",
 ) -> dict:
-    exigence = await _collection("exigences").find_one({"id": exigence_id})
+    exigence = await get_collection("exigences").find_one({"id": exigence_id})
     if not exigence:
         raise ValueError(f"Exigence '{exigence_id}' not found")
 
-    control = await _collection("controls").find_one({"id": control_id})
+    control = await get_collection("controls").find_one({"id": control_id})
     if not control:
         raise ValueError(f"Control '{control_id}' not found")
 
     if assessment_id:
-        assessment = await _collection("compliance_assessments").find_one(
+        assessment = await get_collection("compliance_assessments").find_one(
             {"id": assessment_id}
         )
         if not assessment:
             raise ValueError(f"Assessment '{assessment_id}' not found")
 
-    existing = await _collection("requirement_control_links").find_one({
+    existing = await get_collection("requirement_control_links").find_one({
         "exigence_id": exigence_id,
         "control_id": control_id,
         "assessment_id": assessment_id,
@@ -614,7 +614,7 @@ async def create_link(
         "created_at": now,
         "updated_at": now,
     }
-    await _collection("requirement_control_links").insert_one(link)
+    await get_collection("requirement_control_links").insert_one(link)
 
     logger.info(
         "Req-control link created: id=%s exigence=%s control=%s",
@@ -640,11 +640,11 @@ async def list_links(
     if assessment_id:
         query["assessment_id"] = assessment_id
 
-    total = await _collection("requirement_control_links").count_documents(
+    total = await get_collection("requirement_control_links").count_documents(
         query
     )
     cursor = (
-        _collection("requirement_control_links")
+        get_collection("requirement_control_links")
         .find(query)
         .sort("created_at", -1)
         .skip(skip)
@@ -663,7 +663,7 @@ async def update_link(
     gap_description: Optional[str] = None,
     justification: Optional[str] = None,
 ) -> dict | None:
-    doc = await _collection("requirement_control_links").find_one(
+    doc = await get_collection("requirement_control_links").find_one(
         {"id": link_id}
     )
     if not doc:
@@ -679,17 +679,17 @@ async def update_link(
     if justification is not None:
         updates["justification"] = justification
 
-    await _collection("requirement_control_links").update_one(
+    await get_collection("requirement_control_links").update_one(
         {"id": link_id}, {"$set": updates}
     )
-    updated = await _collection("requirement_control_links").find_one(
+    updated = await get_collection("requirement_control_links").find_one(
         {"id": link_id}
     )
     return _link_to_dict(updated) if updated else None
 
 
 async def delete_link(db, link_id: str) -> bool:
-    result = await _collection("requirement_control_links").delete_one(
+    result = await get_collection("requirement_control_links").delete_one(
         {"id": link_id}
     )
     return result.deleted_count > 0
@@ -714,11 +714,11 @@ async def create_exception(
     remediation_action_id: Optional[str] = None,
     review_frequency: str = "quarterly",
 ) -> dict:
-    exigence = await _collection("exigences").find_one({"id": exigence_id})
+    exigence = await get_collection("exigences").find_one({"id": exigence_id})
     if not exigence:
         raise ValueError(f"Exigence '{exigence_id}' not found")
 
-    profile = await _collection("company_profiles").find_one(
+    profile = await get_collection("company_profiles").find_one(
         {"id": company_profile_id}
     )
     if not profile:
@@ -727,7 +727,7 @@ async def create_exception(
         )
 
     if control_id:
-        ctrl = await _collection("controls").find_one({"id": control_id})
+        ctrl = await get_collection("controls").find_one({"id": control_id})
         if not ctrl:
             raise ValueError(f"Control '{control_id}' not found")
 
@@ -751,7 +751,7 @@ async def create_exception(
         "created_at": now,
         "updated_at": now,
     }
-    await _collection("exception_register").insert_one(exc)
+    await get_collection("exception_register").insert_one(exc)
 
     await audit_service.log_event(
         db,
@@ -786,9 +786,9 @@ async def list_exceptions(
     if exigence_id:
         query["exigence_id"] = exigence_id
 
-    total = await _collection("exception_register").count_documents(query)
+    total = await get_collection("exception_register").count_documents(query)
     cursor = (
-        _collection("exception_register")
+        get_collection("exception_register")
         .find(query)
         .sort("created_at", -1)
         .skip(skip)
@@ -811,7 +811,7 @@ async def update_exception(
     expiry_date: Optional[datetime] = None,
     remediation_action_id: Optional[str] = None,
 ) -> dict | None:
-    doc = await _collection("exception_register").find_one(
+    doc = await get_collection("exception_register").find_one(
         {"id": exception_id}
     )
     if not doc:
@@ -840,11 +840,11 @@ async def update_exception(
     if approved_by is not None and "approved_by" not in updates:
         updates["approved_by"] = approved_by
 
-    await _collection("exception_register").update_one(
+    await get_collection("exception_register").update_one(
         {"id": exception_id}, {"$set": updates}
     )
 
-    updated = await _collection("exception_register").find_one(
+    updated = await get_collection("exception_register").find_one(
         {"id": exception_id}
     )
     return _exception_to_dict(updated) if updated else None
@@ -867,7 +867,7 @@ async def compute_posture(
       4. Check exception_register for approved exceptions.
       5. Compute overall coverage score.
     """
-    profile = await _collection("company_profiles").find_one(
+    profile = await get_collection("company_profiles").find_one(
         {"id": company_profile_id}
     )
     if not profile:
@@ -875,7 +875,7 @@ async def compute_posture(
             f"Company profile '{company_profile_id}' not found"
         )
 
-    applicable_cursor = _collection("exigence_applicabilities").find(
+    applicable_cursor = get_collection("exigence_applicabilities").find(
         {"profile_id": company_profile_id, "is_applicable": True}
     )
     applicable_exigence_ids: list[str] = []
@@ -895,7 +895,7 @@ async def compute_posture(
         }
 
     approved_exceptions: set[str] = set()
-    exc_cursor = _collection("exception_register").find({
+    exc_cursor = get_collection("exception_register").find({
         "company_profile_id": company_profile_id,
         "status": "approved",
     })
@@ -909,7 +909,7 @@ async def compute_posture(
         link_query["assessment_id"] = assessment_id
 
     links_by_exigence: dict[str, list[dict]] = {}
-    link_cursor = _collection("requirement_control_links").find(link_query)
+    link_cursor = get_collection("requirement_control_links").find(link_query)
     async for link_doc in link_cursor:
         eid = link_doc["exigence_id"]
         links_by_exigence.setdefault(eid, []).append(link_doc)
@@ -928,7 +928,7 @@ async def compute_posture(
         links = links_by_exigence.get(eid, [])
         if not links:
             not_covered += 1
-            exigence_doc = await _collection("exigences").find_one(
+            exigence_doc = await get_collection("exigences").find_one(
                 {"id": eid}
             )
             gaps.append({
@@ -965,7 +965,7 @@ async def compute_posture(
             else:
                 not_covered += 1
 
-            exigence_doc = await _collection("exigences").find_one(
+            exigence_doc = await get_collection("exigences").find_one(
                 {"id": eid}
             )
             gaps.append({
@@ -984,7 +984,7 @@ async def compute_posture(
     score = covered_count / total if total > 0 else 1.0
 
     if assessment_id:
-        await _collection("compliance_assessments").update_one(
+        await get_collection("compliance_assessments").update_one(
             {"id": assessment_id},
             {"$set": {
                 "overall_coverage_score": round(score, 4),
@@ -1034,7 +1034,7 @@ async def create_remediation_action(
     Create a remediation action and optionally link it to an exception.
     Stored in the existing 'actions' collection with modalite='remediation'.
     """
-    profile = await _collection("company_profiles").find_one(
+    profile = await get_collection("company_profiles").find_one(
         {"id": company_profile_id}
     )
     if not profile:
@@ -1058,10 +1058,10 @@ async def create_remediation_action(
         "updated_at": now,
         "completed_at": None,
     }
-    await _collection("actions").insert_one(action)
+    await get_collection("actions").insert_one(action)
 
     if exception_id:
-        await _collection("exception_register").update_one(
+        await get_collection("exception_register").update_one(
             {"id": exception_id},
             {"$set": {
                 "remediation_action_id": action["id"],

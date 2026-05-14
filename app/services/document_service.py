@@ -294,14 +294,14 @@ async def clean_and_store_pages(
         )
 
     if cleaned_text_docs:
-        await _collection("document_cleaned_texts").insert_many(cleaned_text_docs)
+        await get_collection("document_cleaned_texts").insert_many(cleaned_text_docs)
 
     return len(cleaned_text_docs)
 
 
 async def _update_document(doc_id: str, updates: dict) -> None:
     updates["updated_at"] = datetime.now(timezone.utc)
-    await _collection("documents").update_one({"id": doc_id}, {"$set": updates})
+    await get_collection("documents").update_one({"id": doc_id}, {"$set": updates})
 
 
 async def upload_document(
@@ -317,9 +317,9 @@ async def upload_document(
     upload_lock = await _get_upload_lock(file_hash)
 
     async with upload_lock:
-        existing_source = await _collection("document_sources").find_one({"file_hash": file_hash})
+        existing_source = await get_collection("document_sources").find_one({"file_hash": file_hash})
         if existing_source:
-            existing_doc = await _collection("documents").find_one({"id": existing_source.get("document_id")})
+            existing_doc = await get_collection("documents").find_one({"id": existing_source.get("document_id")})
             if existing_doc and existing_doc.get("status") == "ready":
                 return _doc_to_out(existing_doc)
 
@@ -343,7 +343,7 @@ async def upload_document(
             "ocr_used": False,
             "error_message": None,
         }
-        await _collection("documents").insert_one(doc_doc)
+        await get_collection("documents").insert_one(doc_doc)
 
         source_doc = {
             "id": str(uuid.uuid4()),
@@ -355,13 +355,13 @@ async def upload_document(
         }
 
         try:
-            await _collection("document_sources").insert_one(source_doc)
+            await get_collection("document_sources").insert_one(source_doc)
         except DuplicateKeyError:
-            await _collection("documents").delete_one({"id": doc_id})
+            await get_collection("documents").delete_one({"id": doc_id})
             saved_path.unlink(missing_ok=True)
-            existing_source = await _collection("document_sources").find_one({"file_hash": file_hash})
+            existing_source = await get_collection("document_sources").find_one({"file_hash": file_hash})
             if existing_source:
-                existing_doc = await _collection("documents").find_one({"id": existing_source.get("document_id")})
+                existing_doc = await get_collection("documents").find_one({"id": existing_source.get("document_id")})
                 if existing_doc:
                     return _doc_to_out(existing_doc)
             raise
@@ -370,7 +370,7 @@ async def upload_document(
             extractor = EXTRACTORS.get(ext)
             if extractor is None:
                 await _update_document(doc_id, {"status": "error", "error_message": f"Unsupported file type: {ext}"})
-                doc = await _collection("documents").find_one({"id": doc_id})
+                doc = await get_collection("documents").find_one({"id": doc_id})
                 return _doc_to_out(doc)
 
             logger.info("Processing: %s", filename)
@@ -381,7 +381,7 @@ async def upload_document(
 
                 if not pages:
                     await _update_document(doc_id, {"status": "error", "error_message": "No text extracted"})
-                    doc = await _collection("documents").find_one({"id": doc_id})
+                    doc = await get_collection("documents").find_one({"id": doc_id})
                     return _doc_to_out(doc)
 
                 extracted_at = datetime.now(timezone.utc)
@@ -402,10 +402,10 @@ async def upload_document(
                     )
 
                 if raw_pages:
-                    await _collection("document_raw_pages").insert_many(raw_pages)
+                    await get_collection("document_raw_pages").insert_many(raw_pages)
                     await clean_and_store_pages(db, doc_id, raw_pages)
 
-                cleaned_pages_for_exigence = await _collection("document_cleaned_texts").find({"document_id": doc_id}).to_list(length=None)
+                cleaned_pages_for_exigence = await get_collection("document_cleaned_texts").find({"document_id": doc_id}).to_list(length=None)
                 detected_language = llm_service._get_detect_query_language(
                     cleaned_pages_for_exigence[0].get("cleaned_text", "") if cleaned_pages_for_exigence else ""
                 )
@@ -423,7 +423,7 @@ async def upload_document(
 
                 if not records:
                     await _update_document(doc_id, {"status": "error", "error_message": "No chunks produced"})
-                    doc = await _collection("documents").find_one({"id": doc_id})
+                    doc = await get_collection("documents").find_one({"id": doc_id})
                     return _doc_to_out(doc)
 
                 pbar.set_postfix_str(f"embedding {len(records)} chunks")
@@ -463,12 +463,12 @@ async def upload_document(
                     max_page = max(max_page, meta["page"])
 
                 if chunk_docs:
-                    await _collection("chunks").insert_many(chunk_docs)
+                    await get_collection("chunks").insert_many(chunk_docs)
                     invalidate_embedding_dimension_cache()
                     await faiss_manager.add_vectors(chunk_docs)
 
                 language = "+".join(sorted(languages_seen)) if languages_seen else "unknown"
-                await _collection("documents").update_one(
+                await get_collection("documents").update_one(
                     {"id": doc_id},
                     {
                         "$set": {
@@ -481,19 +481,19 @@ async def upload_document(
                         }
                     },
                 )
-                await _collection("document_sources").update_one(
+                await get_collection("document_sources").update_one(
                     {"document_id": doc_id},
                     {"$set": {"language": language}},
                 )
                 pbar.update(1)
 
             logger.info("Done %s: %s chunks stored", filename, len(records))
-            doc = await _collection("documents").find_one({"id": doc_id})
+            doc = await get_collection("documents").find_one({"id": doc_id})
             return _doc_to_out(doc)
 
         except Exception as e:
             logger.exception("Processing failed for %s", filename)
-            await _collection("documents").update_one(
+            await get_collection("documents").update_one(
                 {"id": doc_id},
                 {
                     "$set": {
@@ -503,30 +503,30 @@ async def upload_document(
                     }
                 },
             )
-            doc = await _collection("documents").find_one({"id": doc_id})
+            doc = await get_collection("documents").find_one({"id": doc_id})
             return _doc_to_out(doc)
 
 
 async def get_document(db, doc_id: str) -> Optional[dict]:
-    return _doc_to_out(await _collection("documents").find_one({"id": doc_id}))
+    return _doc_to_out(await get_collection("documents").find_one({"id": doc_id}))
 
 
 async def get_document_source(db, doc_id: str) -> Optional[dict]:
-    source = await _collection("document_sources").find_one({"document_id": doc_id})
+    source = await get_collection("document_sources").find_one({"document_id": doc_id})
     return _source_to_out(source) if source else None
 
 
 async def list_documents(db, skip: int = 0, limit: int = 50) -> tuple[list[dict], int]:
-    total = await _collection("documents").count_documents({})
-    cursor = _collection("documents").find({}).sort("created_at", -1).skip(skip).limit(limit)
+    total = await get_collection("documents").count_documents({})
+    cursor = get_collection("documents").find({}).sort("created_at", -1).skip(skip).limit(limit)
     docs = [_doc_to_out(doc) async for doc in cursor]
     return docs, int(total)
 
 
 async def get_chunks(db, doc_id: str, skip: int = 0, limit: int = 100) -> tuple[list[dict], int]:
-    total = await _collection("chunks").count_documents({"document_id": doc_id})
+    total = await get_collection("chunks").count_documents({"document_id": doc_id})
     cursor = (
-        _collection("chunks")
+        get_collection("chunks")
         .find({"document_id": doc_id})
         .sort("chunk_index", 1)
         .skip(skip)
@@ -537,9 +537,9 @@ async def get_chunks(db, doc_id: str, skip: int = 0, limit: int = 100) -> tuple[
 
 
 async def get_raw_pages(db, doc_id: str, skip: int = 0, limit: int = 100) -> tuple[list[dict], int]:
-    total = await _collection("document_raw_pages").count_documents({"document_id": doc_id})
+    total = await get_collection("document_raw_pages").count_documents({"document_id": doc_id})
     cursor = (
-        _collection("document_raw_pages")
+        get_collection("document_raw_pages")
         .find({"document_id": doc_id})
         .sort("page_number", 1)
         .skip(skip)
@@ -550,9 +550,9 @@ async def get_raw_pages(db, doc_id: str, skip: int = 0, limit: int = 100) -> tup
 
 
 async def get_cleaned_pages(db, doc_id: str, skip: int = 0, limit: int = 100) -> tuple[list[dict], int]:
-    total = await _collection("document_cleaned_texts").count_documents({"document_id": doc_id})
+    total = await get_collection("document_cleaned_texts").count_documents({"document_id": doc_id})
     cursor = (
-        _collection("document_cleaned_texts")
+        get_collection("document_cleaned_texts")
         .find({"document_id": doc_id})
         .sort([("page_number", 1), ("version", -1)])
         .skip(skip)
@@ -685,7 +685,7 @@ async def extract_and_store_exigences(
             )
 
     if exigence_docs:
-        await _collection("exigences").insert_many(exigence_docs)
+        await get_collection("exigences").insert_many(exigence_docs)
         logger.info("Extracted and stored %s exigences for document %s", len(exigence_docs), doc_id)
 
     return len(exigence_docs)
@@ -702,9 +702,9 @@ async def get_exigences(
     if exigence_type:
         query["exigence_type"] = exigence_type
 
-    total = await _collection("exigences").count_documents(query)
+    total = await get_collection("exigences").count_documents(query)
     cursor = (
-        _collection("exigences")
+        get_collection("exigences")
         .find(query)
         .sort([("page_number", 1), ("confidence_score", -1)])
         .skip(skip)
@@ -714,7 +714,7 @@ async def get_exigences(
 
     type_counts: dict[str, int] = {}
     type_cursor = (
-        _collection("exigences")
+        get_collection("exigences")
         .aggregate([
             {"$match": {"document_id": doc_id}},
             {"$group": {"_id": "$exigence_type", "count": {"$sum": 1}}},
@@ -740,10 +740,10 @@ async def delete_document(db, doc_id: str) -> bool:
         "exigences",
         "amendment_operations",
     ]:
-        result = await _collection(collection_name).delete_many({"document_id": doc_id})
+        result = await get_collection(collection_name).delete_many({"document_id": doc_id})
         deleted_related += int(result.deleted_count)
 
-    doc_result = await _collection("documents").delete_one({"id": doc_id})
+    doc_result = await get_collection("documents").delete_one({"id": doc_id})
     deleted_documents = int(doc_result.deleted_count)
 
     # Consider cleanup successful if we removed either the document itself
@@ -756,7 +756,7 @@ async def delete_document(db, doc_id: str) -> bool:
 
 
 async def clear_all_documents(db) -> int:
-    doc_count = await _collection("documents").count_documents({})
+    doc_count = await get_collection("documents").count_documents({})
     if doc_count == 0:
         return 0
 
@@ -775,7 +775,7 @@ async def clear_all_documents(db) -> int:
         "exigences",
         "amendment_operations",
     ]:
-        await _collection(collection_name).delete_many({})
+        await get_collection(collection_name).delete_many({})
 
     logger.info("Cleared database: %s documents removed", doc_count)
     invalidate_embedding_dimension_cache()
@@ -789,19 +789,19 @@ async def reindex_all_documents(
     chunk_overlap: int | None = None,
 ) -> dict:
     """Rebuild chunks + embeddings for all documents using stored raw pages."""
-    total_docs = await _collection("documents").count_documents({})
-    await _collection("chunks").delete_many({})
+    total_docs = await get_collection("documents").count_documents({})
+    await get_collection("chunks").delete_many({})
     invalidate_embedding_dimension_cache()
 
     processed_docs = 0
     total_chunks = 0
     now = datetime.now(timezone.utc)
 
-    async for doc in _collection("documents").find({}):
+    async for doc in get_collection("documents").find({}):
         doc_id = doc.get("id")
         filename = doc.get("filename") or "unknown"
 
-        raw_pages = await _collection("document_raw_pages").find(
+        raw_pages = await get_collection("document_raw_pages").find(
             {"document_id": doc_id}
         ).sort("page_number", 1).to_list(length=None)
 
@@ -860,11 +860,11 @@ async def reindex_all_documents(
             max_page = max(max_page, meta["page"])
 
         if chunk_docs:
-            await _collection("chunks").insert_many(chunk_docs)
+            await get_collection("chunks").insert_many(chunk_docs)
             total_chunks += len(chunk_docs)
 
         language = "+".join(sorted(languages_seen)) if languages_seen else doc.get("language") or "unknown"
-        await _collection("documents").update_one(
+        await get_collection("documents").update_one(
             {"id": doc_id},
             {
                 "$set": {

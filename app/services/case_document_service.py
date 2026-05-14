@@ -486,7 +486,7 @@ async def upload_and_attach_document(
     This is the main entry point for case document intake.
     """
     # Validate case exists
-    case = await _collection("compliance_cases").find_one({"id": case_id})
+    case = await get_collection("compliance_cases").find_one({"id": case_id})
     if not case:
         raise ValueError(f"Case '{case_id}' not found")
 
@@ -564,7 +564,7 @@ async def _attach_document_with_role(
 ) -> dict:
     """Internal: Attach document to case with role and metadata."""
     # Check for duplicate attachment
-    existing = await _collection("case_documents").find_one(
+    existing = await get_collection("case_documents").find_one(
         {"case_id": case_id, "document_id": document_id}
     )
     if existing:
@@ -582,8 +582,8 @@ async def _attach_document_with_role(
         "analysis": None,
     }
 
-    await _collection("case_documents").insert_one(case_doc)
-    await _collection("compliance_cases").update_one(
+    await get_collection("case_documents").insert_one(case_doc)
+    await get_collection("compliance_cases").update_one(
         {"id": case_id}, {"$set": {"updated_at": now}}
     )
 
@@ -605,7 +605,7 @@ async def analyze_case_document(
     Stores analysis results in the case_documents collection.
     """
     # Get case document record
-    case_doc = await _collection("case_documents").find_one(
+    case_doc = await get_collection("case_documents").find_one(
         {"id": case_document_id, "case_id": case_id}
     )
     if not case_doc:
@@ -614,18 +614,18 @@ async def analyze_case_document(
     document_id = case_doc["document_id"]
 
     # Get the actual document
-    doc = await _collection("documents").find_one({"id": document_id})
+    doc = await get_collection("documents").find_one({"id": document_id})
     if not doc:
         raise ValueError(f"Document '{document_id}' not found")
 
     # Get cleaned text for analysis
-    cleaned_pages = await _collection("document_cleaned_texts").find(
+    cleaned_pages = await get_collection("document_cleaned_texts").find(
         {"document_id": document_id}
     ).sort("page_number", 1).to_list(length=None)
 
     if not cleaned_pages:
         # Try raw pages
-        raw_pages = await _collection("document_raw_pages").find(
+        raw_pages = await get_collection("document_raw_pages").find(
             {"document_id": document_id}
         ).sort("page_number", 1).to_list(length=None)
         texts = [p.get("raw_text", "") for p in raw_pages]
@@ -637,7 +637,7 @@ async def analyze_case_document(
     # If no text and force_ocr requested, try OCR
     ocr_used = False
     if not full_text.strip() and force_ocr:
-        source = await _collection("document_sources").find_one({"document_id": document_id})
+        source = await get_collection("document_sources").find_one({"document_id": document_id})
         if source:
             from pathlib import Path
             source_path = Path(source.get("source_path", ""))
@@ -672,7 +672,7 @@ async def analyze_case_document(
     }
 
     # Store analysis in case_documents
-    await _collection("case_documents").update_one(
+    await get_collection("case_documents").update_one(
         {"id": case_document_id},
         {"$set": {"analysis": analysis, "updated_at": _now()}}
     )
@@ -687,7 +687,7 @@ async def analyze_case_document(
     }
 
     # Upsert analysis record
-    await _collection("case_document_analyses").replace_one(
+    await get_collection("case_document_analyses").replace_one(
         {"case_document_id": case_document_id},
         analysis_record,
         upsert=True,
@@ -709,14 +709,14 @@ async def get_case_document_with_analysis(
     case_document_id: str,
 ) -> dict | None:
     """Get a case document with its analysis."""
-    case_doc = await _collection("case_documents").find_one(
+    case_doc = await get_collection("case_documents").find_one(
         {"id": case_document_id, "case_id": case_id}
     )
     if not case_doc:
         return None
 
     # Get document details
-    doc = await _collection("documents").find_one(
+    doc = await get_collection("documents").find_one(
         {"id": case_doc["document_id"]}
     )
 
@@ -740,7 +740,7 @@ async def list_case_documents_with_analysis(
     if role:
         query["role"] = role
 
-    total = await _collection("case_documents").count_documents(query)
+    total = await get_collection("case_documents").count_documents(query)
 
     # Use aggregation to join with analysis if filtering by document type
     if document_type:
@@ -766,10 +766,10 @@ async def list_case_documents_with_analysis(
             {"$skip": skip},
             {"$limit": limit},
         ]
-        cursor = _collection("case_documents").aggregate(pipeline)
+        cursor = get_collection("case_documents").aggregate(pipeline)
     else:
         cursor = (
-            _collection("case_documents")
+            get_collection("case_documents")
             .find(query)
             .sort("attached_at", -1)
             .skip(skip)
@@ -780,7 +780,7 @@ async def list_case_documents_with_analysis(
     async for doc in cursor:
         enriched = _case_doc_analysis_to_dict(doc)
         # Get basic document info
-        d = await _collection("documents").find_one({"id": doc["document_id"]})
+        d = await get_collection("documents").find_one({"id": doc["document_id"]})
         if d:
             enriched["document"] = {
                 "id": d["id"],
@@ -816,7 +816,7 @@ async def find_documents_by_entity(
     elif entity_type == "legal_reference":
         query["analysis.entities.legal_references"] = {"$exists": True, "$ne": []}
 
-    cursor = _collection("case_documents").find(query).sort("attached_at", -1)
+    cursor = get_collection("case_documents").find(query).sort("attached_at", -1)
 
     docs = []
     async for doc in cursor:
@@ -840,12 +840,12 @@ async def attach_existing_document(
 ) -> dict:
     """Attach an already-uploaded document to a case with role and optional analysis."""
     # Validate case
-    case = await _collection("compliance_cases").find_one({"id": case_id})
+    case = await get_collection("compliance_cases").find_one({"id": case_id})
     if not case:
         raise ValueError(f"Case '{case_id}' not found")
 
     # Validate document
-    doc = await _collection("documents").find_one({"id": document_id})
+    doc = await get_collection("documents").find_one({"id": document_id})
     if not doc:
         raise ValueError(f"Document '{document_id}' not found")
 
@@ -857,7 +857,7 @@ async def attach_existing_document(
         role = "other"
 
     # Check for duplicate
-    existing = await _collection("case_documents").find_one(
+    existing = await get_collection("case_documents").find_one(
         {"case_id": case_id, "document_id": document_id}
     )
     if existing:
@@ -876,8 +876,8 @@ async def attach_existing_document(
         "analysis": None,
     }
 
-    await _collection("case_documents").insert_one(case_doc)
-    await _collection("compliance_cases").update_one(
+    await get_collection("case_documents").insert_one(case_doc)
+    await get_collection("compliance_cases").update_one(
         {"id": case_id}, {"$set": {"updated_at": now}}
     )
 

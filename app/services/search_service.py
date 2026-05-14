@@ -44,7 +44,7 @@ async def _aggregate_dominant_stored_embedding_dim() -> int | None:
         {"$sort": {"c": -1}},
         {"$limit": 1},
     ]
-    coll = _collection("chunks")
+    coll = get_collection("chunks")
     async for row in coll.aggregate(pipeline):
         d = row.get("_id")
         if isinstance(d, int):
@@ -119,13 +119,13 @@ async def _python_search(
 
     documents = {
         doc["id"]: doc.get("filename")
-        async for doc in _collection("documents").find({})
+        async for doc in get_collection("documents").find({})
     }
 
     scored: list[tuple[float, dict]] = []
     query_dim = len(query_vec)
     skipped_mismatched_dims = 0
-    cursor = _collection("chunks").find(query)
+    cursor = get_collection("chunks").find(query)
     async for chunk in cursor:
         embedding = chunk.get("embedding") or []
         if not embedding:
@@ -231,8 +231,8 @@ async def get_vector_stats(db) -> dict:
     """Return basic embedding statistics for MongoDB storage."""
     from app.services.embedding_service import get_embedding_cache_stats
 
-    total_vectors = await _collection("chunks").count_documents({"embedding": {"$ne": None}})
-    total_chunks = await _collection("chunks").count_documents({})
+    total_vectors = await get_collection("chunks").count_documents({"embedding": {"$ne": None}})
+    total_chunks = await get_collection("chunks").count_documents({})
     dominant = await _aggregate_dominant_stored_embedding_dim()
     primary_d = get_primary_embedding_dimension()
     backend = "faiss" if _use_faiss() and faiss_manager.is_ready else "python-cosine"

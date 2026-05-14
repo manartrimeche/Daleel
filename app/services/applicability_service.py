@@ -170,19 +170,19 @@ async def create_company_profile(
         "created_at": datetime.now(timezone.utc),
         "updated_at": datetime.now(timezone.utc),
     }
-    await _collection("company_profiles").insert_one(profile)
+    await get_collection("company_profiles").insert_one(profile)
     logger.info("Created company profile: %s (%s)", profile["id"], name)
     return _profile_to_dict(profile)
 
 
 async def get_company_profile(db, profile_id: str) -> dict | None:
-    profile = await _collection("company_profiles").find_one({"id": profile_id})
+    profile = await get_collection("company_profiles").find_one({"id": profile_id})
     return _profile_to_dict(profile) if profile else None
 
 
 async def list_company_profiles(db, skip: int = 0, limit: int = 50) -> tuple[list[dict], int]:
-    total = await _collection("company_profiles").count_documents({})
-    cursor = _collection("company_profiles").find({}).sort("created_at", -1).skip(skip).limit(limit)
+    total = await get_collection("company_profiles").count_documents({})
+    cursor = get_collection("company_profiles").find({}).sort("created_at", -1).skip(skip).limit(limit)
     profiles = [_profile_to_dict(profile) async for profile in cursor]
     return profiles, int(total)
 
@@ -193,7 +193,7 @@ async def update_company_profile(db, profile_id: str, **kwargs) -> dict | None:
     if not updates:
         return await get_company_profile(db, profile_id)
     updates["updated_at"] = datetime.now(timezone.utc)
-    result = await _collection("company_profiles").find_one_and_update(
+    result = await get_collection("company_profiles").find_one_and_update(
         {"id": profile_id},
         {"$set": updates},
         return_document=__import__("pymongo").ReturnDocument.AFTER,
@@ -202,11 +202,11 @@ async def update_company_profile(db, profile_id: str, **kwargs) -> dict | None:
 
 
 async def delete_company_profile(db, profile_id: str) -> bool:
-    profile = await _collection("company_profiles").find_one({"id": profile_id})
+    profile = await get_collection("company_profiles").find_one({"id": profile_id})
     if not profile:
         return False
-    await _collection("exigence_applicabilities").delete_many({"profile_id": profile_id})
-    await _collection("company_profiles").delete_one({"id": profile_id})
+    await get_collection("exigence_applicabilities").delete_many({"profile_id": profile_id})
+    await get_collection("company_profiles").delete_one({"id": profile_id})
     logger.info("Deleted company profile: %s", profile_id)
     return True
 
@@ -217,7 +217,7 @@ async def evaluate_applicabilities(
     exigence_ids: list[str] | None = None,
     document_id: str | None = None,
 ) -> int:
-    profile = await _collection("company_profiles").find_one({"id": profile_id})
+    profile = await get_collection("company_profiles").find_one({"id": profile_id})
     if not profile:
         logger.error("Profile %s not found", profile_id)
         return 0
@@ -228,13 +228,13 @@ async def evaluate_applicabilities(
     if document_id:
         query["document_id"] = document_id
 
-    exigences = await _collection("exigences").find(query).to_list(length=None)
+    exigences = await get_collection("exigences").find(query).to_list(length=None)
     if not exigences:
         logger.info("No exigences found for profile %s", profile_id)
         return 0
 
     exigence_lookup = {exigence["id"] for exigence in exigences}
-    await _collection("exigence_applicabilities").delete_many(
+    await get_collection("exigence_applicabilities").delete_many(
         {"profile_id": profile_id, "exigence_id": {"$in": list(exigence_lookup)}}
     )
 
@@ -268,7 +268,7 @@ async def evaluate_applicabilities(
         )
 
     if applicabilities:
-        await _collection("exigence_applicabilities").insert_many(applicabilities)
+        await get_collection("exigence_applicabilities").insert_many(applicabilities)
         logger.info("Evaluated %s applicabilities for profile %s", len(applicabilities), profile_id)
 
     return len(applicabilities)
@@ -285,9 +285,9 @@ async def get_applicabilities(
     if is_applicable is not None:
         query["is_applicable"] = is_applicable
 
-    total = await _collection("exigence_applicabilities").count_documents(query)
+    total = await get_collection("exigence_applicabilities").count_documents(query)
     cursor = (
-        _collection("exigence_applicabilities")
+        get_collection("exigence_applicabilities")
         .find(query)
         .sort([("is_applicable", -1), ("confidence", -1)])
         .skip(skip)
@@ -301,13 +301,13 @@ async def get_applicability_summary(
     db,
     profile_id: str,
 ) -> dict:
-    applicabilities = await _collection("exigence_applicabilities").find({"profile_id": profile_id}).to_list(length=None)
+    applicabilities = await get_collection("exigence_applicabilities").find({"profile_id": profile_id}).to_list(length=None)
     applicable_count = sum(1 for app in applicabilities if app.get("is_applicable"))
     not_applicable_count = len(applicabilities) - applicable_count
     avg_confidence = sum(float(app.get("confidence", 0.0)) for app in applicabilities) / len(applicabilities) if applicabilities else 0.0
 
     by_type: dict[str, dict[str, int]] = {}
-    exigences = {exigence["id"]: exigence for exigence in await _collection("exigences").find({}).to_list(length=None)}
+    exigences = {exigence["id"]: exigence for exigence in await get_collection("exigences").find({}).to_list(length=None)}
     for app in applicabilities:
         exig = exigences.get(app.get("exigence_id"))
         exig_type = exig.get("exigence_type") if exig else "unknown"

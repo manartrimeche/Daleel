@@ -43,7 +43,7 @@ async def recalculate_after_amendment(
     from app.services.document_service import ExigenceExtractor
     from app.services.action_service import extract_and_store_actions
 
-    loi = await _collection("lois").find_one({"id": loi_id})
+    loi = await get_collection("lois").find_one({"id": loi_id})
     language = loi.get("language") if loi else "fr"
 
     total_exigences = 0
@@ -52,11 +52,11 @@ async def recalculate_after_amendment(
     versions_processed = 0
 
     for version_id in new_version_ids:
-        version = await _collection("article_versions").find_one({"id": version_id})
+        version = await get_collection("article_versions").find_one({"id": version_id})
         if not version or version.get("status") != "active":
             continue
 
-        article = await _collection("articles").find_one({"id": version.get("article_id")})
+        article = await get_collection("articles").find_one({"id": version.get("article_id")})
         article_ref = article.get("article_key") if article else "unknown"
         logger.info("Recalculation: processing %s (version=%s)", article_ref, version_id)
 
@@ -85,7 +85,7 @@ async def recalculate_after_amendment(
                 })
 
             if exigence_docs:
-                await _collection("exigences").insert_many(exigence_docs)
+                await get_collection("exigences").insert_many(exigence_docs)
                 total_exigences += len(exigence_docs)
                 logger.info("  Re-extracted %s exigences for %s", len(exigence_docs), article_ref)
         except Exception as exc:
@@ -155,10 +155,10 @@ async def recalculate_for_loi(
     actor: str = "system",
 ) -> dict:
     """Recalculate all active ArticleVersions for a Loi."""
-    versions = await _collection("article_versions").find({
+    versions = await get_collection("article_versions").find({
         "status": "active",
         "article_id": {
-            "$in": [article["id"] async for article in _collection("articles").find({"loi_id": loi_id}, {"id": 1})],
+            "$in": [article["id"] async for article in get_collection("articles").find({"loi_id": loi_id}, {"id": 1})],
         },
     }).to_list(length=None)
 

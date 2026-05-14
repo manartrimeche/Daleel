@@ -26,7 +26,7 @@ from app.database import get_collection
 logger = logging.getLogger(__name__)
 
 
-def _collection(name: str):
+def get_collection(name: str):
     return mongo_db[name]
 
 # ─────────────────────────────────────────────────────────────
@@ -194,7 +194,7 @@ async def compute_and_store(
 
     Returns the ActionCriticality dict, or None if skipped.
     """
-    existing = await _collection("action_criticalities").find_one({"action_id": action.get("id")})
+    existing = await get_collection("action_criticalities").find_one({"action_id": action.get("id")})
 
     if existing and not recompute:
         return None  # Already computed, skip
@@ -214,12 +214,12 @@ async def compute_and_store(
     }
 
     if existing:
-        await _collection("action_criticalities").update_one(
+        await get_collection("action_criticalities").update_one(
             {"id": existing["id"]},
             {"$set": crit},
         )
     else:
-        await _collection("action_criticalities").insert_one(crit)
+        await get_collection("action_criticalities").insert_one(crit)
 
     return _crit_to_dict(crit)
 
@@ -238,7 +238,7 @@ async def compute_for_article_version(
     query: dict = {"article_version_id": article_version_id}
     if action_ids:
         query["id"] = {"$in": action_ids}
-    actions = await _collection("actions").find(query).to_list(length=None)
+    actions = await get_collection("actions").find(query).to_list(length=None)
 
     computed = 0
     skipped = 0
@@ -279,9 +279,9 @@ async def compute_for_loi(
     Compute criticality for all Actions linked to any ArticleVersion of a Loi.
     """
     # Get all active article versions for this loi
-    articles = await _collection("articles").find({"loi_id": loi_id}).to_list(length=None)
+    articles = await get_collection("articles").find({"loi_id": loi_id}).to_list(length=None)
     article_ids = [article["id"] for article in articles]
-    versions = await _collection("article_versions").find({
+    versions = await get_collection("article_versions").find({
         "article_id": {"$in": article_ids},
         "status": "active",
     }).to_list(length=None)
@@ -315,7 +315,7 @@ async def compute_for_loi(
 
 async def get_criticality(db, action_id: str) -> dict | None:
     """Get the ActionCriticality record for an Action."""
-    c = await _collection("action_criticalities").find_one({"action_id": action_id})
+    c = await get_collection("action_criticalities").find_one({"action_id": action_id})
     return _crit_to_dict(c) if c else None
 
 
@@ -326,7 +326,7 @@ async def get_criticality_summary_for_profile(
     """
     Get criticality breakdown for all applicable actions of a company profile.
     """
-    applicable = await _collection("exigence_applicabilities").find({
+    applicable = await get_collection("exigence_applicabilities").find({
         "profile_id": profile_id,
         "is_applicable": True,
     }).to_list(length=None)
@@ -336,7 +336,7 @@ async def get_criticality_summary_for_profile(
         return {"critique": 0, "importante": 0, "secondaire": 0, "uncomputed": 0, "total": 0}
 
     # Get actions for those exigences
-    actions = await _collection("actions").find({"exigence_id": {"$in": applicable_ids}}).to_list(length=None)
+    actions = await get_collection("actions").find({"exigence_id": {"$in": applicable_ids}}).to_list(length=None)
     action_ids = [action["id"] for action in actions]
 
     if not action_ids:
@@ -344,7 +344,7 @@ async def get_criticality_summary_for_profile(
 
     # Count by level
     level_counts: dict[str, int] = {}
-    rows = await _collection("action_criticalities").aggregate([
+    rows = await get_collection("action_criticalities").aggregate([
         {"$match": {"action_id": {"$in": action_ids}}},
         {"$group": {"_id": "$level", "count": {"$sum": 1}}},
     ]).to_list(length=None)

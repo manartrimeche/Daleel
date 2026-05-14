@@ -102,7 +102,7 @@ async def create_loi(
 ) -> dict:
     """Create a new Loi. Raises ValueError if code already exists."""
     # Check uniqueness
-    existing = await _collection("lois").find_one({"code": code.upper()})
+    existing = await get_collection("lois").find_one({"code": code.upper()})
     if existing:
         raise ValueError(f"Loi with code '{code}' already exists (id={existing['id']})")
 
@@ -118,26 +118,26 @@ async def create_loi(
         "created_at": now,
         "updated_at": now,
     }
-    await _collection("lois").insert_one(loi)
+    await get_collection("lois").insert_one(loi)
     logger.info("Created Loi: %s — %s (%s)", loi["code"], loi["name"], loi["id"])
     return _loi_to_dict(loi, total_articles=0)
 
 
 async def get_loi(db, loi_id: str) -> dict | None:
     """Get a Loi by ID with article count."""
-    loi = await _collection("lois").find_one({"id": loi_id})
+    loi = await get_collection("lois").find_one({"id": loi_id})
     if not loi:
         return None
-    total = await _collection("articles").count_documents({"loi_id": loi_id})
+    total = await get_collection("articles").count_documents({"loi_id": loi_id})
     return _loi_to_dict(loi, total_articles=total)
 
 
 async def get_loi_by_code(db, code: str) -> dict | None:
     """Get a Loi by its short code (case-insensitive)."""
-    loi = await _collection("lois").find_one({"code": code.upper()})
+    loi = await get_collection("lois").find_one({"code": code.upper()})
     if not loi:
         return None
-    total = await _collection("articles").count_documents({"loi_id": loi["id"]})
+    total = await get_collection("articles").count_documents({"loi_id": loi["id"]})
     return _loi_to_dict(loi, total_articles=total)
 
 
@@ -147,41 +147,41 @@ async def list_lois(
     limit: int = 50,
 ) -> tuple[list[dict], int]:
     """Return paginated list of all Lois with article counts."""
-    total = await _collection("lois").count_documents({})
-    cursor = _collection("lois").find({}).sort("code", 1).skip(skip).limit(limit)
+    total = await get_collection("lois").count_documents({})
+    cursor = get_collection("lois").find({}).sort("code", 1).skip(skip).limit(limit)
     lois = []
     async for loi in cursor:
-        cnt = await _collection("articles").count_documents({"loi_id": loi["id"]})
+        cnt = await get_collection("articles").count_documents({"loi_id": loi["id"]})
         lois.append(_loi_to_dict(loi, total_articles=cnt))
     return lois, int(total)
 
 
 async def update_loi(db, loi_id: str, **kwargs) -> dict | None:
     """Partial update of a Loi's metadata fields."""
-    loi = await _collection("lois").find_one({"id": loi_id})
+    loi = await get_collection("lois").find_one({"id": loi_id})
     if not loi:
         return None
     allowed = {"name", "jurisdiction", "language", "description", "version_label"}
     updates = {k: v for k, v in kwargs.items() if k in allowed and v is not None}
     if updates:
         updates["updated_at"] = datetime.now(timezone.utc)
-        await _collection("lois").update_one({"id": loi_id}, {"$set": updates})
+        await get_collection("lois").update_one({"id": loi_id}, {"$set": updates})
         loi.update(updates)
-    total = await _collection("articles").count_documents({"loi_id": loi_id})
+    total = await get_collection("articles").count_documents({"loi_id": loi_id})
     return _loi_to_dict(loi, total_articles=total)
 
 
 async def delete_loi(db, loi_id: str) -> bool:
     """Delete a Loi and cascade to its articles/versions."""
-    loi = await _collection("lois").find_one({"id": loi_id})
+    loi = await get_collection("lois").find_one({"id": loi_id})
     if not loi:
         return False
-    article_ids = [article["id"] async for article in _collection("articles").find({"loi_id": loi_id}, {"id": 1})]
-    version_ids = [version["id"] async for version in _collection("article_versions").find({"article_id": {"$in": article_ids}}, {"id": 1})]
+    article_ids = [article["id"] async for article in get_collection("articles").find({"loi_id": loi_id}, {"id": 1})]
+    version_ids = [version["id"] async for version in get_collection("article_versions").find({"article_id": {"$in": article_ids}}, {"id": 1})]
 
     for collection_name, query in [
-        ("action_criticalities", {"action_id": {"$in": [action["id"] async for action in _collection("actions").find({"article_version_id": {"$in": version_ids}}, {"id": 1})]}}),
-        ("action_dependencies", {"action_id": {"$in": [action["id"] async for action in _collection("actions").find({"article_version_id": {"$in": version_ids}}, {"id": 1})]}}),
+        ("action_criticalities", {"action_id": {"$in": [action["id"] async for action in get_collection("actions").find({"article_version_id": {"$in": version_ids}}, {"id": 1})]}}),
+        ("action_dependencies", {"action_id": {"$in": [action["id"] async for action in get_collection("actions").find({"article_version_id": {"$in": version_ids}}, {"id": 1})]}}),
         ("actions", {"article_version_id": {"$in": version_ids}}),
         ("exigences", {"article_version_id": {"$in": version_ids}}),
         ("article_versions", {"article_id": {"$in": article_ids}}),
@@ -190,9 +190,9 @@ async def delete_loi(db, loi_id: str) -> bool:
         ("amendment_operations", {"loi_id": loi_id}),
         ("documents", {"loi_id": loi_id}),
     ]:
-        await _collection(collection_name).delete_many(query)
+        await get_collection(collection_name).delete_many(query)
 
-    await _collection("lois").delete_one({"id": loi_id})
+    await get_collection("lois").delete_one({"id": loi_id})
     logger.info("Deleted Loi %s", loi_id)
     return True
 
@@ -214,17 +214,17 @@ async def list_articles(
         regex = {"$regex": search, "$options": "i"}
         query["$or"] = [{"article_heading": regex}, {"article_number": regex}, {"article_key": regex}]
 
-    total = await _collection("articles").count_documents(query)
-    cursor = _collection("articles").find(query).sort("article_number", 1).skip(skip).limit(limit)
+    total = await get_collection("articles").count_documents(query)
+    cursor = get_collection("articles").find(query).sort("article_number", 1).skip(skip).limit(limit)
 
     result = []
     async for art in cursor:
-        active_v = await _collection("article_versions").find_one(
+        active_v = await get_collection("article_versions").find_one(
             {"article_id": art["id"], "status": "active"},
             sort=[("version_num", -1)],
             projection={"id": 1},
         )
-        total_v = await _collection("article_versions").count_documents({"article_id": art["id"]})
+        total_v = await get_collection("article_versions").count_documents({"article_id": art["id"]})
         result.append(_article_to_dict(art, active_version_id=active_v["id"] if active_v else None, total_versions=total_v))
 
     return result, int(total)
@@ -232,15 +232,15 @@ async def list_articles(
 
 async def get_article(db, article_id: str) -> dict | None:
     """Get an Article by UUID."""
-    art = await _collection("articles").find_one({"id": article_id})
+    art = await get_collection("articles").find_one({"id": article_id})
     if not art:
         return None
-    active_v = await _collection("article_versions").find_one(
+    active_v = await get_collection("article_versions").find_one(
         {"article_id": art["id"], "status": "active"},
         sort=[("version_num", -1)],
         projection={"id": 1},
     )
-    total_v = await _collection("article_versions").count_documents({"article_id": art["id"]})
+    total_v = await get_collection("article_versions").count_documents({"article_id": art["id"]})
     return _article_to_dict(art, active_version_id=active_v["id"] if active_v else None, total_versions=total_v)
 
 
@@ -248,7 +248,7 @@ async def get_article_by_key(
     db, loi_id: str, article_key: str
 ) -> dict | None:
     """Get an Article by its unique key within a Loi (e.g. 'CT-Art-95')."""
-    art = await _collection("articles").find_one({"loi_id": loi_id, "article_key": article_key})
+    art = await get_collection("articles").find_one({"loi_id": loi_id, "article_key": article_key})
     if not art:
         return None
     return await get_article(db, art.id)
@@ -259,13 +259,13 @@ async def list_article_versions(
     article_id: str,
 ) -> tuple[list[dict], int]:
     """List all versions of an Article (active + history)."""
-    art = await _collection("articles").find_one({"id": article_id})
-    cursor = _collection("article_versions").find({"article_id": article_id}).sort("version_num", 1)
+    art = await get_collection("articles").find_one({"id": article_id})
+    cursor = get_collection("article_versions").find({"article_id": article_id}).sort("version_num", 1)
 
     result = []
     async for version in cursor:
-        exig_count = await _collection("exigences").count_documents({"article_version_id": version["id"]})
-        action_count = await _collection("actions").count_documents({"article_version_id": version["id"]})
+        exig_count = await get_collection("exigences").count_documents({"article_version_id": version["id"]})
+        action_count = await get_collection("actions").count_documents({"article_version_id": version["id"]})
         result.append(_version_to_dict(
             version,
             article_key=art["article_key"] if art else None,
@@ -278,12 +278,12 @@ async def list_article_versions(
 
 async def get_article_version(db, version_id: str) -> dict | None:
     """Get a specific ArticleVersion by UUID."""
-    v = await _collection("article_versions").find_one({"id": version_id})
+    v = await get_collection("article_versions").find_one({"id": version_id})
     if not v:
         return None
-    art = await _collection("articles").find_one({"id": v["article_id"]})
-    exig_count = await _collection("exigences").count_documents({"article_version_id": v["id"]})
-    action_count = await _collection("actions").count_documents({"article_version_id": v["id"]})
+    art = await get_collection("articles").find_one({"id": v["article_id"]})
+    exig_count = await get_collection("exigences").count_documents({"article_version_id": v["id"]})
+    action_count = await get_collection("actions").count_documents({"article_version_id": v["id"]})
     return _version_to_dict(
         v,
         article_key=art["article_key"] if art else None,
@@ -331,16 +331,16 @@ async def segment_document(
             }
     """
     # ── 1. Verify entities ──
-    loi = await _collection("lois").find_one({"id": loi_id})
+    loi = await get_collection("lois").find_one({"id": loi_id})
     if not loi:
         raise ValueError(f"Loi '{loi_id}' not found")
 
-    doc = await _collection("documents").find_one({"id": document_id})
+    doc = await get_collection("documents").find_one({"id": document_id})
     if not doc:
         raise ValueError(f"Document '{document_id}' not found")
 
     # ── 2. Load cleaned pages ──
-    cleaned_pages = await _collection("document_cleaned_texts").find({"document_id": document_id}).sort("page_number", 1).to_list(length=None)
+    cleaned_pages = await get_collection("document_cleaned_texts").find({"document_id": document_id}).sort("page_number", 1).to_list(length=None)
 
     if not cleaned_pages:
         raise ValueError(
@@ -375,18 +375,18 @@ async def segment_document(
         article_key = art_data["article_key"]
 
         # Does this article already exist in this Loi?
-        existing_article = await _collection("articles").find_one({
+        existing_article = await get_collection("articles").find_one({
             "loi_id": loi_id,
             "article_key": article_key,
         })
 
         if existing_article:
             article = existing_article
-            await _collection("article_versions").update_many(
+            await get_collection("article_versions").update_many(
                 {"article_id": article["id"], "status": "active"},
                 {"$set": {"status": "superseded", "updated_at": now}},
             )
-            versions_cursor = _collection("article_versions").find({"article_id": article["id"]}, {"version_num": 1})
+            versions_cursor = get_collection("article_versions").find({"article_id": article["id"]}, {"version_num": 1})
             max_version = 0
             async for version_doc in versions_cursor:
                 max_version = max(max_version, int(version_doc.get("version_num", 0)))
@@ -405,7 +405,7 @@ async def segment_document(
                 "hierarchy_section": art_data["hierarchy"].get("section"),
                 "created_at": now,
             }
-            await _collection("articles").insert_one(article)
+            await get_collection("articles").insert_one(article)
             version_num = 1
             articles_created += 1
 
@@ -421,7 +421,7 @@ async def segment_document(
             "source_pages": art_data.get("pages", []),
             "created_at": now,
         }
-        await _collection("article_versions").insert_one(version)
+        await get_collection("article_versions").insert_one(version)
 
         if auto_extract_exigences:
             versions_to_extract.append(
@@ -434,7 +434,7 @@ async def segment_document(
             )
 
     # ── 6. Link Document → Loi ──
-    await _collection("documents").update_one({"id": document_id}, {"$set": {"loi_id": loi_id, "updated_at": now}})
+    await get_collection("documents").update_one({"id": document_id}, {"$set": {"loi_id": loi_id, "updated_at": now}})
 
     # ── 7. Optional phase-6 auto extraction (article-level) ──
     if auto_extract_exigences and versions_to_extract:
@@ -471,7 +471,7 @@ async def segment_document(
             if not exigence_docs:
                 continue
 
-            await _collection("exigences").insert_many(exigence_docs)
+            await get_collection("exigences").insert_many(exigence_docs)
             exigences_extracted += len(exigence_docs)
 
             if auto_extract_actions:

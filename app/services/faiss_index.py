@@ -118,7 +118,7 @@ class FaissIndexManager:
                     self._mark_unavailable("dimension_mismatch")
                     return
 
-            cursor = _collection("chunks").find(
+            cursor = get_collection("chunks").find(
                 {"embedding": {"$ne": None}},
                 {
                     "id": 1,
@@ -227,7 +227,7 @@ class FaissIndexManager:
         current_dim = int(get_primary_embedding_dimension())
         dims: set[int] = set()
 
-        cursor = _collection("chunks").find(
+        cursor = get_collection("chunks").find(
             {"embedding.0": {"$exists": True}},
             {"embedding": 1},
         ).limit(500)
@@ -347,7 +347,7 @@ class FaissIndexManager:
                 doc_ids_needed.add(self._meta[idx].document_id)
         filename_map: dict[str, str | None] = {}
         if doc_ids_needed:
-            async for doc in _collection("documents").find(
+            async for doc in get_collection("documents").find(
                 {"id": {"$in": list(doc_ids_needed)}}, {"id": 1, "filename": 1}
             ):
                 filename_map[doc["id"]] = doc.get("filename")

@@ -31,7 +31,7 @@ def _action_to_dict(action: dict) -> dict:
 async def _get_applicable_actions(profile_id: str) -> list[dict]:
     """Retrieve all actions for exigences that are applicable to the profile."""
     applicable_exigence_ids = []
-    cursor = _collection("exigence_applicabilities").find(
+    cursor = get_collection("exigence_applicabilities").find(
         {"profile_id": profile_id, "is_applicable": True},
         {"exigence_id": 1},
     )
@@ -43,7 +43,7 @@ async def _get_applicable_actions(profile_id: str) -> list[dict]:
     if not applicable_exigence_ids:
         return []
 
-    actions = await _collection("actions").find({"exigence_id": {"$in": applicable_exigence_ids}}).to_list(length=None)
+    actions = await get_collection("actions").find({"exigence_id": {"$in": applicable_exigence_ids}}).to_list(length=None)
     return [_action_to_dict(action) for action in actions]
 
 
@@ -53,7 +53,7 @@ async def _ensure_criticalities(actions: list[dict]) -> dict[str, dict]:
     if not action_ids:
         return {}
 
-    existing = await _collection("action_criticalities").find({"action_id": {"$in": action_ids}}).to_list(length=None)
+    existing = await get_collection("action_criticalities").find({"action_id": {"$in": action_ids}}).to_list(length=None)
     crit_map: dict[str, dict] = {criticality["action_id"]: criticality for criticality in existing if criticality.get("action_id")}
 
     missing = [action for action in actions if action["id"] not in crit_map]
@@ -62,7 +62,7 @@ async def _ensure_criticalities(actions: list[dict]) -> dict[str, dict]:
         for action in missing:
             result = await criticality_service.compute_and_store(None, action, recompute=False)
             if result:
-                stored = await _collection("action_criticalities").find_one({"action_id": action["id"]})
+                stored = await get_collection("action_criticalities").find_one({"action_id": action["id"]})
                 if stored:
                     crit_map[action["id"]] = stored
 
@@ -75,15 +75,15 @@ async def _get_article_context(action: dict) -> dict:
     if not version_id:
         return {"article_key": None, "loi_code": None}
 
-    version = await _collection("article_versions").find_one({"id": version_id})
+    version = await get_collection("article_versions").find_one({"id": version_id})
     if not version:
         return {"article_key": None, "loi_code": None}
 
-    article = await _collection("articles").find_one({"id": version.get("article_id")})
+    article = await get_collection("articles").find_one({"id": version.get("article_id")})
     if not article:
         return {"article_key": None, "loi_code": None}
 
-    loi = await _collection("lois").find_one({"id": article.get("loi_id")})
+    loi = await get_collection("lois").find_one({"id": article.get("loi_id")})
     return {
         "article_key": article.get("article_key"),
         "loi_code": loi.get("code") if loi else None,
@@ -139,7 +139,7 @@ def _topological_sort(action_ids: list[str], dependencies: list[dict], crit_map:
 
 async def generate_roadmap(db, profile_id: str) -> dict:
     """Generate the dynamic compliance roadmap for a company profile."""
-    profile = await _collection("company_profiles").find_one({"id": profile_id})
+    profile = await get_collection("company_profiles").find_one({"id": profile_id})
     if not profile:
         raise ValueError(f"Company profile '{profile_id}' not found")
 
@@ -159,7 +159,7 @@ async def generate_roadmap(db, profile_id: str) -> dict:
 
     crit_map = await _ensure_criticalities(actions)
     action_ids = [action["id"] for action in actions]
-    dependencies = await _collection("action_dependencies").find(
+    dependencies = await get_collection("action_dependencies").find(
         {"action_id": {"$in": action_ids}, "depends_on_id": {"$in": action_ids}}
     ).to_list(length=None)
 
@@ -226,8 +226,8 @@ async def generate_roadmap(db, profile_id: str) -> dict:
 
 async def add_dependency(db, action_id: str, depends_on_id: str, dependency_type: str, reason: str | None = None) -> dict:
     """Add a dependency: action_id depends on depends_on_id."""
-    a1 = await _collection("actions").find_one({"id": action_id})
-    a2 = await _collection("actions").find_one({"id": depends_on_id})
+    a1 = await get_collection("actions").find_one({"id": action_id})
+    a2 = await get_collection("actions").find_one({"id": depends_on_id})
     if not a1:
         raise ValueError(f"Action '{action_id}' not found")
     if not a2:
@@ -235,7 +235,7 @@ async def add_dependency(db, action_id: str, depends_on_id: str, dependency_type
     if action_id == depends_on_id:
         raise ValueError("An action cannot depend on itself")
 
-    existing = await _collection("action_dependencies").find_one({
+    existing = await get_collection("action_dependencies").find_one({
         "action_id": action_id,
         "depends_on_id": depends_on_id,
     })
@@ -251,17 +251,17 @@ async def add_dependency(db, action_id: str, depends_on_id: str, dependency_type
         "reason": reason,
         "created_at": now,
     }
-    await _collection("action_dependencies").insert_one(dependency)
+    await get_collection("action_dependencies").insert_one(dependency)
     return dependency
 
 
 async def list_dependencies(db, action_id: str) -> list[dict]:
     """List all dependencies where action_id is the dependent."""
-    dependencies = await _collection("action_dependencies").find({"action_id": action_id}).to_list(length=None)
+    dependencies = await get_collection("action_dependencies").find({"action_id": action_id}).to_list(length=None)
     return dependencies
 
 
 async def delete_dependency(db, dep_id: str) -> bool:
     """Delete a dependency by ID."""
-    result = await _collection("action_dependencies").delete_one({"id": dep_id})
+    result = await get_collection("action_dependencies").delete_one({"id": dep_id})
     return result.deleted_count > 0

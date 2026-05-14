@@ -121,7 +121,7 @@ async def classify_document(
 
     Returns the updated document dict.
     """
-    doc = await _collection("documents").find_one({"id": document_id})
+    doc = await get_collection("documents").find_one({"id": document_id})
     if not doc:
         raise ValueError(f"Document '{document_id}' not found")
 
@@ -133,14 +133,14 @@ async def classify_document(
         raise ValueError("loi_id is required when document_type is 'modificatif'")
 
     if loi_id:
-        loi = await _collection("lois").find_one({"id": loi_id})
+        loi = await get_collection("lois").find_one({"id": loi_id})
         if not loi:
             raise ValueError(f"Loi '{loi_id}' not found")
 
     updates = {"document_type": document_type, "updated_at": datetime.now(timezone.utc)}
     if loi_id:
         updates["loi_id"] = loi_id
-    await _collection("documents").update_one({"id": document_id}, {"$set": updates})
+    await get_collection("documents").update_one({"id": document_id}, {"$set": updates})
 
     # Audit
     await audit_service.log_event(
@@ -177,16 +177,16 @@ async def extract_amendment_operations(
 
     Returns: {document_id, loi_id, operations_extracted, by_type, message}
     """
-    doc = await _collection("documents").find_one({"id": document_id})
+    doc = await get_collection("documents").find_one({"id": document_id})
     if not doc:
         raise ValueError(f"Document '{document_id}' not found")
 
-    loi = await _collection("lois").find_one({"id": loi_id})
+    loi = await get_collection("lois").find_one({"id": loi_id})
     if not loi:
         raise ValueError(f"Loi '{loi_id}' not found")
 
     # Load cleaned pages
-    cleaned_pages = await _collection("document_cleaned_texts").find({"document_id": document_id}).sort("page_number", 1).to_list(length=None)
+    cleaned_pages = await get_collection("document_cleaned_texts").find({"document_id": document_id}).sort("page_number", 1).to_list(length=None)
 
     if not cleaned_pages:
         raise ValueError(
@@ -275,7 +275,7 @@ async def extract_amendment_operations(
         by_type[op_type] = by_type.get(op_type, 0) + 1
 
     if op_docs:
-        await _collection("amendment_operations").insert_many(op_docs)
+        await get_collection("amendment_operations").insert_many(op_docs)
 
     # Audit
     await audit_service.log_event(
@@ -333,7 +333,7 @@ async def apply_amendment_operation(
       2. Create Article (if new) + ArticleVersion(v1, status='active').
       3. Write audit log.
     """
-    op = await _collection("amendment_operations").find_one({"id": operation_id})
+    op = await get_collection("amendment_operations").find_one({"id": operation_id})
     if not op:
         raise ValueError(f"AmendmentOperation '{operation_id}' not found")
     if op.get("status") == "applied":
@@ -342,10 +342,10 @@ async def apply_amendment_operation(
         raise ValueError(f"Operation '{operation_id}' has been rejected")
 
     now = datetime.now(timezone.utc)
-    loi = await _collection("lois").find_one({"id": op["loi_id"]})
+    loi = await get_collection("lois").find_one({"id": op["loi_id"]})
 
     # ── Find target article ──
-    existing_article = await _collection("articles").find_one({
+    existing_article = await get_collection("articles").find_one({
         "loi_id": op["loi_id"],
         "article_key": op["target_article_key"],
     })
@@ -362,17 +362,17 @@ async def apply_amendment_operation(
                 f"ADD operation target {op.target_article_key} already exists — "
                 "creating new version instead"
             )
-            active_v = await _collection("article_versions").find_one(
+            active_v = await get_collection("article_versions").find_one(
                 {"article_id": existing_article["id"], "status": "active"},
                 sort=[("version_num", -1)],
             )
             if active_v:
                 old_version_id = active_v["id"]
-                await _collection("article_versions").update_one(
+                await get_collection("article_versions").update_one(
                     {"id": active_v["id"]},
                     {"$set": {"status": "superseded", "updated_at": now}},
                 )
-            versions = await _collection("article_versions").find({"article_id": existing_article["id"]}, {"version_num": 1}).to_list(length=None)
+            versions = await get_collection("article_versions").find({"article_id": existing_article["id"]}, {"version_num": 1}).to_list(length=None)
             max_v = max((int(v.get("version_num", 0)) for v in versions), default=0)
             article = existing_article
             version_num = max_v + 1
@@ -385,7 +385,7 @@ async def apply_amendment_operation(
                 "article_heading": f"Article {op['target_article_number']}",
                 "created_at": now,
             }
-            await _collection("articles").insert_one(article)
+            await get_collection("articles").insert_one(article)
             version_num = 1
 
         new_v = {
@@ -399,7 +399,7 @@ async def apply_amendment_operation(
             "source_pages": [],
             "created_at": now,
         }
-        await _collection("article_versions").insert_one(new_v)
+        await get_collection("article_versions").insert_one(new_v)
         new_version_id = new_v["id"]
 
     # ── REPLACE / MODIFY ─────────────────────────────────────
@@ -414,18 +414,18 @@ async def apply_amendment_operation(
                 "article_heading": f"Article {op['target_article_number']}",
                 "created_at": now,
             }
-            await _collection("articles").insert_one(article)
+            await get_collection("articles").insert_one(article)
             version_num = 1
         else:
             article = existing_article
             # Supersede current active version
-            active_v = await _collection("article_versions").find_one(
+            active_v = await get_collection("article_versions").find_one(
                 {"article_id": article["id"], "status": "active"},
                 sort=[("version_num", -1)],
             )
             if active_v:
                 old_version_id = active_v["id"]
-                await _collection("article_versions").update_one(
+                await get_collection("article_versions").update_one(
                     {"id": active_v["id"]},
                     {"$set": {"status": "superseded", "updated_at": now}},
                 )
@@ -442,7 +442,7 @@ async def apply_amendment_operation(
                     confidence=op.get("confidence", 1.0),
                     actor=actor,
                 )
-            versions = await _collection("article_versions").find({"article_id": article["id"]}, {"version_num": 1}).to_list(length=None)
+            versions = await get_collection("article_versions").find({"article_id": article["id"]}, {"version_num": 1}).to_list(length=None)
             max_v = max((int(v.get("version_num", 0)) for v in versions), default=0)
             version_num = max_v + 1
 
@@ -457,30 +457,30 @@ async def apply_amendment_operation(
             "source_pages": [],
             "created_at": now,
         }
-        await _collection("article_versions").insert_one(new_v)
+        await get_collection("article_versions").insert_one(new_v)
         new_version_id = new_v["id"]
 
     # ── REPEAL ───────────────────────────────────────────────
     elif op["operation_type"] == "REPEAL":
         if not existing_article:
-            await _collection("amendment_operations").update_one({"id": op["id"]}, {"$set": {"status": "rejected", "updated_at": now}})
+            await get_collection("amendment_operations").update_one({"id": op["id"]}, {"$set": {"status": "rejected", "updated_at": now}})
             raise ValueError(
                 f"Cannot repeal: article '{op['target_article_key']}' not found in loi '{op['loi_id']}'"
             )
-        active_v = await _collection("article_versions").find_one(
+        active_v = await get_collection("article_versions").find_one(
             {"article_id": existing_article["id"], "status": "active"},
             sort=[("version_num", -1)],
         )
         if active_v:
             old_version_id = active_v["id"]
-            await _collection("article_versions").update_one(
+            await get_collection("article_versions").update_one(
                 {"id": active_v["id"]},
                 {"$set": {"status": "repealed", "updated_at": now}},
             )
             event_type = "article_repealed"
 
     # ── Update operation record ──────────────────────────────
-    await _collection("amendment_operations").update_one(
+    await get_collection("amendment_operations").update_one(
         {"id": op["id"]},
         {"$set": {
             "status": "applied",
@@ -535,7 +535,7 @@ async def apply_all_pending(
     actor: str = "system",
 ) -> dict:
     """Apply all pending AmendmentOperations for a document, in creation order."""
-    pending = await _collection("amendment_operations").find({
+    pending = await get_collection("amendment_operations").find({
         "amendment_doc_id": document_id,
         "status": "pending",
     }).sort("created_at", 1).to_list(length=None)
@@ -555,7 +555,7 @@ async def apply_all_pending(
                 loi_ids_affected.add(result["loi_id"])
         except Exception as e:
             logger.error(f"Failed to apply operation {op['id']}: {e}")
-            await _collection("amendment_operations").update_one({"id": op["id"]}, {"$set": {"status": "rejected", "updated_at": datetime.now(timezone.utc)}})
+            await get_collection("amendment_operations").update_one({"id": op["id"]}, {"$set": {"status": "rejected", "updated_at": datetime.now(timezone.utc)}})
             results.append({
                 "operation_id": op["id"],
                 "loi_id": op.get("loi_id"),
@@ -600,16 +600,16 @@ async def list_operations(
     if status:
         query["status"] = status
 
-    total = await _collection("amendment_operations").count_documents(query)
-    ops = await _collection("amendment_operations").find(query).sort("created_at", 1).to_list(length=None)
+    total = await get_collection("amendment_operations").count_documents(query)
+    ops = await get_collection("amendment_operations").find(query).sort("created_at", 1).to_list(length=None)
 
-    by_type_rows = await _collection("amendment_operations").aggregate([
+    by_type_rows = await get_collection("amendment_operations").aggregate([
         {"$match": {"amendment_doc_id": document_id}},
         {"$group": {"_id": "$operation_type", "count": {"$sum": 1}}},
     ]).to_list(length=None)
     by_type = {row["_id"]: row["count"] for row in by_type_rows}
 
-    by_status_rows = await _collection("amendment_operations").aggregate([
+    by_status_rows = await get_collection("amendment_operations").aggregate([
         {"$match": {"amendment_doc_id": document_id}},
         {"$group": {"_id": "$status", "count": {"$sum": 1}}},
     ]).to_list(length=None)

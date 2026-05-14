@@ -8,9 +8,97 @@ import logging
 from typing import Dict, List, Tuple
 
 from app.config import get_settings
-from app.processing.text_utils import clean_text, detect_language
+from app.processing.text_utils import clean_text, clean_arabic_ocr_text, detect_language
 
 logger = logging.getLogger(__name__)
+
+_PAGE_NUM_PREFIX_RE = re.compile(r"^\d{1,3}\s*\n")
+_PAGE_NUM_STANDALONE_RE = re.compile(r"^\s*\d{1,3}\s*$", re.MULTILINE)
+_PUBLISHER_RE = re.compile(
+    r"(?:"
+    r"[Ii]mprimerie\s+[Oo]fficielle\s+de\s+la\s+[Rr][eé]publique\s+[Tt]unisienne"
+    r"|[Pp]ublications\s+de\s+l['’]?[Ii]mprimerie\s+[Oo]fficielle"
+    r"|منشورات\s+المطبعة\s+الرسمية\s+للجمهورية\s+التونسية"
+    r"|المطبعة\s+الرسمية\s+للجمهورية\s+التونسية"
+    r")",
+    re.UNICODE,
+)
+_REPEATED_HEADER_RE = re.compile(
+    r"^(?:REPUBLIQUE\s+TUNISIENNE|الجمهورية\s+التونسية).*?\n",
+    re.IGNORECASE | re.UNICODE,
+)
+_COVER_PAGE_RE = re.compile(
+    r"^(?:\s|\n)*"
+    r"(?:REPUBLIQUE\s+TUNISIENNE|الجمهورية\s+التونسية)"
+    r"[\s\S]{0,300}"
+    r"(?:CODE\s+D[EU]|مجل[ةـ]|LOI\s+(?:ORGANIQUE\s+)?N)"
+    r"[\s\S]{0,200}$",
+    re.IGNORECASE | re.UNICODE,
+)
+_SOMMAIRE_RE = re.compile(
+    r"(?:^|\n)\s*(?:SOMMAIRE|TABLE\s+DES\s+MATI[EÈ]RES|فهرس|الفهرس)\s*(?:\n|$)",
+    re.IGNORECASE | re.UNICODE,
+)
+_SOMMAIRE_LINE_RE = re.compile(
+    r"^.*\.{3,}\s*\d+\s*$",
+    re.MULTILINE,
+)
+
+
+def _strip_page_noise(text: str) -> str:
+    """Remove page number prefixes, publisher lines, and repeated headers."""
+    text = _PAGE_NUM_PREFIX_RE.sub("", text)
+    text = _PAGE_NUM_STANDALONE_RE.sub("", text)
+    text = _PUBLISHER_RE.sub("", text)
+    text = _REPEATED_HEADER_RE.sub("", text)
+    return text.strip()
+
+
+def _is_cover_page(text: str) -> bool:
+    """Detect cover pages (title pages with no substantive legal content)."""
+    stripped = text.strip()
+    if len(stripped) > 500:
+        return False
+    if _COVER_PAGE_RE.match(stripped):
+        return True
+    return False
+
+
+def _is_sommaire_page(text: str) -> bool:
+    """Detect table of contents / sommaire / index pages."""
+    stripped = text.strip()
+    lines = stripped.split("\n")
+    if len(lines) < 5:
+        return False
+    dotted_lines = sum(1 for line in lines if _SOMMAIRE_LINE_RE.match(line))
+    if dotted_lines >= 5 and dotted_lines / len(lines) > 0.5:
+        return True
+    header_match = _SOMMAIRE_RE.search(stripped)
+    if header_match and dotted_lines >= 3 and dotted_lines / len(lines) > 0.3:
+        return True
+    return False
+
+
+def _is_low_quality(text: str, lang: str) -> bool:
+    """Reject pages that are mostly noise (OCR garbage, too short, repetitive)."""
+    stripped = text.strip()
+    if len(stripped) < 50:
+        return True
+    words = stripped.split()
+    if len(words) < 8:
+        return True
+    unique_words = set(w.lower() for w in words if len(w) > 2)
+    if len(words) > 10 and len(unique_words) / len(words) < 0.15:
+        return True
+    alnum = sum(1 for c in stripped if c.isalnum())
+    if len(stripped) > 0 and alnum / len(stripped) < 0.25:
+        return True
+    if lang == "ar":
+        single = len(re.findall(r"(?<!\w)\w(?!\w)", stripped))
+        if words and single / len(words) > 0.35:
+            return True
+    return False
+
 
 _AR_SECTION_RE = re.compile(
     r"^(?:على\s+أساس|الفصل|المادة|البند)\b.*$",
@@ -310,6 +398,8 @@ def build_records(
         min_chunk_size=300,
     )
 
+    seen_texts: set[str] = set()
+
     for page_data in pages:
         raw = clean_text(page_data["text"])
         page_num = page_data["page"]
@@ -319,13 +409,38 @@ def build_records(
             continue
 
         lang = detect_language(raw)
+
+        if lang in ("ar", "ar+fr") and ocr_used:
+            raw = clean_arabic_ocr_text(raw)
+
+        raw = _strip_page_noise(raw)
+
+        if _is_cover_page(raw):
+            logger.debug("Skipping cover page %d of %s", page_num, source_name)
+            continue
+
+        if _is_sommaire_page(raw):
+            logger.debug("Skipping sommaire/index page %d of %s", page_num, source_name)
+            continue
+
+        if _is_low_quality(raw, lang):
+            logger.debug("Skipping low-quality page %d of %s", page_num, source_name)
+            continue
+
         chunks = chunker.chunk_text(raw, lang)
         for chunk in chunks:
+            chunk_text = chunk["text"].strip()
+            dedup_key = re.sub(r"\s+", " ", chunk_text.lower())
+            if dedup_key in seen_texts:
+                logger.debug("Skipping duplicate chunk on page %d of %s", page_num, source_name)
+                continue
+            seen_texts.add(dedup_key)
+
             meta = chunk.get("metadata", {})
             heading = meta.get("source_article") or meta.get("source_section")
             records.append({
                 "id": make_chunk_id(source_name, page_num, chunk_idx),
-                "text": chunk["text"],
+                "text": chunk_text,
                 "metadata": {
                     "source": source_name,
                     "page": page_num,

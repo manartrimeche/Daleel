@@ -6,26 +6,84 @@ import re
 import unicodedata
 
 _ARABIC_BLOCK_RE = re.compile(
-    r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]"
+    r"[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]"
 )
-_LATIN_BLOCK_RE = re.compile(r"[A-Za-z\u00C0-\u00FF]")
+_LATIN_BLOCK_RE = re.compile(r"[A-Za-zÀ-ÿ]")
 _ARABIC_DIACRITICS_RE = re.compile(
-    r"[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]"
+    r"[ؐ-ًؚ-ٰٟۖ-ۭ]"
 )
 _SPACED_ARABIC_LETTERS_RE = re.compile(
-    r"(?<!\S)(?:[\u0621-\u064A]\s+){2,}[\u0621-\u064A](?!\S)"
+    r"(?<!\S)(?:[ء-ي]\s+){2,}[ء-ي](?!\S)"
 )
 _ISOLATED_LATIN_NOISE_RE = re.compile(r"\b[A-Za-z]{1,2}\b")
 _DISALLOWED_OCR_CHARS_RE = re.compile(
     r"[^"
-    r"\u0600-\u06FF"        # Arabic
-    r"A-Za-z\u00C0-\u00FF"  # Latin (kept to avoid dropping meaningful acronyms)
-    r"0-9\u0660-\u0669"     # Western + Arabic-Indic digits
+    r"؀-ۿ"        # Arabic
+    r"A-Za-zÀ-ÿ"  # Latin (kept to avoid dropping meaningful acronyms)
+    r"0-9٠-٩"     # Western + Arabic-Indic digits
     r"\s\n\r\t"
     r"\.,:!\?\-_/\\%\"'()\[\]\{\}"
     r"،؛؟«»"
     r"]"
 )
+
+_STRAY_ZERO_IN_ARABIC_RE = re.compile(
+    r"(?<=[؀-ۿ.,؛])\s+0\s+(?=[؀-ۿ])"
+)
+_STRAY_DIGIT_EOL_RE = re.compile(
+    r"(?<=[؀-ۿ])[.\s]+\d{1,2}\s*$", re.MULTILINE
+)
+_STRAY_DIGIT_BOL_RE = re.compile(
+    r"^\s*\d{1,2}\s+(?=[؀-ۿ])", re.MULTILINE
+)
+_ISOLATED_AR_LETTER_RE = re.compile(
+    r"(?<=[؀-ۿ])\s+([؀-ۿ])\s+(?=[؀-ۿ]{2,})"
+)
+_LEADING_ISOLATED_LETTER_RE = re.compile(
+    r"^\s*[؀-ۿ]\s+(?=[؀-ۿ]{2,})", re.MULTILINE
+)
+_TRAILING_ISOLATED_LETTER_RE = re.compile(
+    r"(?<=[؀-ۿ]{2})\s+[؀-ۿ]\s*$", re.MULTILINE
+)
+_TRIPLE_ARABIC_CHAR_RE = re.compile(
+    r"([؀-ۿ])\1{2,}"
+)
+_STRAY_SYMBOL_IN_ARABIC_RE = re.compile(
+    r"(?<=[؀-ۿ])\s*[#@&\*\^~`|\\<>{}\"]+\s*(?=[؀-ۿ])"
+)
+_DOUBLE_DASH_RE = re.compile(r"\s*--+\s*")
+_ORPHAN_PAREN_RE = re.compile(
+    r"(?<=[؀-ۿ])\s*[\(\)]\s*(?=[؀-ۿ])"
+)
+
+_LEGAL_AR_OCR_CORRECTIONS = {
+    "التاسيسي": "التأسيسي",
+    "التاسيسئ": "التأسيسي",
+    "الاساسية": "الأساسية",
+    "الاولي": "الأولى",
+    "الاخري": "الأخرى",
+    "الاعضاءء": "الأعضاء",
+    "الاملية": "الأهلية",
+    "الاحكام": "الأحكام",
+    "الاسهم": "الأسهم",
+    "الاجال": "الآجال",
+    "المختصف": "المختصة",
+    "يتقزر": "يتقرر",
+    "باالقاكون": "بالقانون",
+    "باالقانون": "بالقانون",
+    "المؤسسسة": "المؤسسة",
+    "المؤسسسات": "المؤسسات",
+    "الشرككة": "الشركة",
+    "القانوة": "القانون",
+    "الاقتصااد": "الاقتصاد",
+    "واحااك": "واحدة",
+    "بطاةاللايف": "بطاقة التعريف",
+    "الاكهد": "الاقتضاء",
+    "التهلم": "المسلمة",
+    "قاد": "بطاقات",
+    "فلللمبوع": "للأسبوع",
+    "فيلللم": "في",
+}
 
 _ARABIC_PUNCT_TRANSLATION = str.maketrans({
     ",": "،",
@@ -46,16 +104,17 @@ _ARABIC_PUNCT_TRANSLATION = str.maketrans({
     "−": "-",
 })
 _ARABIC_DIGIT_TRANSLATION = str.maketrans(
-    "٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹",
+    "٠١٢٣٤٥٦٧٨٩"
+    "۰۱۲۳۴۵۶۷۸۹",
     "01234567890123456789",
 )
 _ARABIC_CHAR_TRANSLATION = str.maketrans({
-    "أ": "ا",
-    "إ": "ا",
-    "آ": "ا",
-    "ٱ": "ا",
-    "ى": "ي",
-    "ۀ": "ة",
+    "أ": "ا",  # alef with hamza above -> alef
+    "إ": "ا",  # alef with hamza below -> alef
+    "آ": "ا",  # alef with madda -> alef
+    "ٱ": "ا",  # alef wasla -> alef
+    "ى": "ي",  # alef maqsura -> ya
+    "ۀ": "ة",  # heh with yeh above -> ta marbuta
 })
 
 
@@ -85,15 +144,9 @@ def clean_arabic_ocr_text(text: str, ta_marbuta_form: str = "ة") -> str:
     Clean OCR-generated Arabic legal text for NLP classification.
 
     Rules are deterministic and regex-driven to keep output stable across runs.
-
-    Args:
-        text: Raw OCR text (Arabic legal content with potential OCR noise).
-        ta_marbuta_form: Normalization target for ta marbuta:
-            - "ة": keep ta marbuta as ta marbuta (default, lower data loss)
-            - "ه": normalize ta marbuta to heh for stricter token unification
     """
     if ta_marbuta_form not in {"ة", "ه"}:
-        raise ValueError("ta_marbuta_form must be either 'ة' or 'ه'")
+        raise ValueError("ta_marbuta_form must be either ta marbuta or heh")
     if not text:
         return ""
 
@@ -102,7 +155,7 @@ def clean_arabic_ocr_text(text: str, ta_marbuta_form: str = "ة") -> str:
 
     # 2) Remove control and invisible direction marks that pollute OCR output.
     cleaned = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", cleaned)
-    cleaned = re.sub(r"[\u200b\u200c\u200d\u200e\u200f\ufeff]", "", cleaned)
+    cleaned = re.sub(r"[​‌‍‎‏﻿]", "", cleaned)
 
     # 3) Normalize punctuation and digits to one consistent representation.
     cleaned = cleaned.translate(_ARABIC_PUNCT_TRANSLATION)
@@ -123,22 +176,43 @@ def clean_arabic_ocr_text(text: str, ta_marbuta_form: str = "ة") -> str:
         cleaned,
     )
 
-    # 7) Remove short isolated Latin noise while preserving longer legal acronyms.
+    # 7) Remove stray digits/symbols injected by OCR.
+    cleaned = _STRAY_ZERO_IN_ARABIC_RE.sub(" ", cleaned)
+    cleaned = _STRAY_DIGIT_EOL_RE.sub(".", cleaned)
+    cleaned = _STRAY_DIGIT_BOL_RE.sub("", cleaned)
+    cleaned = _STRAY_SYMBOL_IN_ARABIC_RE.sub(" ", cleaned)
+    cleaned = _DOUBLE_DASH_RE.sub(" ", cleaned)
+    cleaned = _ORPHAN_PAREN_RE.sub(" ", cleaned)
+
+    # 7b) Remove isolated single Arabic letters (OCR word fragments).
+    for _ in range(3):
+        cleaned = _ISOLATED_AR_LETTER_RE.sub(" ", cleaned)
+    cleaned = _LEADING_ISOLATED_LETTER_RE.sub("", cleaned)
+    cleaned = _TRAILING_ISOLATED_LETTER_RE.sub("", cleaned)
+
+    # 7c) Fix triple+ consecutive Arabic characters (OCR stutter).
+    cleaned = _TRIPLE_ARABIC_CHAR_RE.sub(r"\1\1", cleaned)
+
+    # 8) Remove short isolated Latin noise while preserving longer legal acronyms.
     cleaned = _ISOLATED_LATIN_NOISE_RE.sub(" ", cleaned)
 
-    # 8) Drop non-Arabic corruption symbols while keeping legal punctuation/digits.
+    # 9) Drop non-Arabic corruption symbols while keeping legal punctuation/digits.
     cleaned = _DISALLOWED_OCR_CHARS_RE.sub(" ", cleaned)
 
-    # 9) Normalize boundaries between Arabic letters and digits (e.g., "الفصل12").
-    cleaned = re.sub(r"(?<=[\u0621-\u064A])(?=[0-9])", " ", cleaned)
-    cleaned = re.sub(r"(?<=[0-9])(?=[\u0621-\u064A])", " ", cleaned)
+    # 10) Apply known OCR corrections for legal Arabic terms.
+    for wrong, correct in _LEGAL_AR_OCR_CORRECTIONS.items():
+        cleaned = cleaned.replace(wrong, correct)
 
-    # 10) Fix punctuation spacing for clean RTL tokenization.
+    # 11) Normalize boundaries between Arabic letters and digits.
+    cleaned = re.sub(r"(?<=[ء-ي])(?=[0-9])", " ", cleaned)
+    cleaned = re.sub(r"(?<=[0-9])(?=[ء-ي])", " ", cleaned)
+
+    # 12) Fix punctuation spacing for clean RTL tokenization.
     cleaned = re.sub(r"\s+([،؛؟\.,:!\)\]\}])", r"\1", cleaned)
     cleaned = re.sub(r"([«\(\[\{])\s+", r"\1", cleaned)
     cleaned = re.sub(r"([،؛؟\.,:!])(?=[^\s\n\)\]\}»])", r"\1 ", cleaned)
 
-    # 11) Final whitespace normalization (stable for downstream classifiers).
+    # 13) Final whitespace normalization.
     cleaned = re.sub(r"[ \t]+", " ", cleaned)
     cleaned = re.sub(r" *\n *", "\n", cleaned)
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
@@ -169,7 +243,7 @@ _FRENCH_MARKERS = [
     "quelles", "quelle", "quel", "quels", "comment", "pourquoi",
     "est-ce", "dans", "pour", "les", "des", "une", "que", "qui",
     "sont", "cette", "avec", "sur", "selon", "droit", "loi",
-    "article", "société", "societe", "juridique", "contrat",
+    "article", "societe", "juridique", "contrat",
     "tribunal", "code", "conditions", "obligations",
 ]
 
@@ -178,21 +252,18 @@ def detect_query_language(text: str) -> str:
     """
     Detect the dominant language of a user query or short text.
 
-    More nuanced than detect_language() — uses French word markers and accent
+    More nuanced than detect_language() -- uses French word markers and accent
     detection for better accuracy on short legal queries.
 
     Returns: 'ar', 'fr', or 'en'
     """
     if not text:
         return "en"
-    # Arabic characters → Arabic
     arabic_chars = len(_ARABIC_BLOCK_RE.findall(text))
     if arabic_chars >= 2:
         return "ar"
-    # French accented characters → French
     if _FRENCH_ACCENT_RE.search(text):
         return "fr"
-    # Check French word markers
     lower = text.lower()
     french_count = sum(1 for w in _FRENCH_MARKERS if w in lower)
     if french_count >= 2:
@@ -207,17 +278,11 @@ def is_text_garbled(
 ) -> bool:
     """
     Detect garbled/broken text extraction, especially from problematic Arabic PDFs.
-
-    Args:
-        text: Cleaned text (after clean_text()).
-        expect_arabic: True if the document is expected to contain Arabic.
-        raw_text: Original text before clean_text(), to inspect stripped controls.
     """
     stripped = text.strip()
     if len(stripped) < 30:
         return False
 
-    # Check raw text for control-character-heavy extraction.
     if raw_text is not None:
         raw_len = len(raw_text)
         if raw_len > 0:
