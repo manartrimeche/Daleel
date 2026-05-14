@@ -430,6 +430,8 @@ def build_records(
         chunks = chunker.chunk_text(raw, lang)
         for chunk in chunks:
             chunk_text = chunk["text"].strip()
+            if lang in ("ar", "ar+fr") and ocr_used:
+                chunk_text = clean_arabic_ocr_text(chunk_text)
             dedup_key = re.sub(r"\s+", " ", chunk_text.lower())
             if dedup_key in seen_texts:
                 logger.debug("Skipping duplicate chunk on page %d of %s", page_num, source_name)

@@ -5,8 +5,11 @@ page noise stripping), re-embed, and rebuild FAISS index.
 """
 import asyncio
 import sys
+import io
 import os
 from pathlib import Path
+
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 os.environ.setdefault("ENVIRONMENT", "development")

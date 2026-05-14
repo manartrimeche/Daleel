@@ -178,15 +178,21 @@ def clean_arabic_ocr_text(text: str, ta_marbuta_form: str = "ة") -> str:
 
     # 7) Remove stray digits/symbols injected by OCR.
     cleaned = _STRAY_ZERO_IN_ARABIC_RE.sub(" ", cleaned)
+    cleaned = re.sub(r"\s+0\s+(?=[؀-ۿ])", " ", cleaned)
+    cleaned = re.sub(r"(?<=[؀-ۿ.,؛؟])\s+0\s*$", "", cleaned, flags=re.MULTILINE)
     cleaned = _STRAY_DIGIT_EOL_RE.sub(".", cleaned)
+    cleaned = re.sub(r"\s+\d{1,2}\s*$", "", cleaned, flags=re.MULTILINE)
     cleaned = _STRAY_DIGIT_BOL_RE.sub("", cleaned)
     cleaned = _STRAY_SYMBOL_IN_ARABIC_RE.sub(" ", cleaned)
     cleaned = _DOUBLE_DASH_RE.sub(" ", cleaned)
+    cleaned = re.sub(r"\.(\s*\.)+", ".", cleaned)
+    cleaned = re.sub(r"(?<=[؀-ۿ،؛؟])\s*[\(\)]\s*(?=[؀-ۿ،؛؟])", " ", cleaned)
     cleaned = _ORPHAN_PAREN_RE.sub(" ", cleaned)
 
     # 7b) Remove isolated single Arabic letters (OCR word fragments).
     for _ in range(3):
         cleaned = _ISOLATED_AR_LETTER_RE.sub(" ", cleaned)
+        cleaned = re.sub(r"(?<=[؀-ۿ،؛؟]{2})\s+([؀-ۿ])\s+(?=[؀-ۿ]{2})", " ", cleaned)
     cleaned = _LEADING_ISOLATED_LETTER_RE.sub("", cleaned)
     cleaned = _TRAILING_ISOLATED_LETTER_RE.sub("", cleaned)
 
