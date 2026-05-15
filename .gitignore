@@ -88,4 +88,4 @@ training/models/**/checkpoint-*/
 
 training/models/
 
-training/models/
+\n# Local sensitive / large files\n.claude/\ntmp_video_frames/\ntest_out.txt\nlatex_content.txt
