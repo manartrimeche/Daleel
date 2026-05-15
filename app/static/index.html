@@ -638,6 +638,7 @@
             .suggestions { flex-direction: column; align-items: center; }
         }
     </style>
+    <script src="/static/auth-guard.js"></script>
 </head>
 <body>
     <!-- Header -->
@@ -651,7 +652,7 @@
             <div class="status-dot"></div>
             <span>En ligne</span>
             <button class="new-chat-btn" onclick="newChat()">✨ Nouvelle discussion</button>
-            <a href="/admin.html" style="text-decoration:none"><button class="new-chat-btn">⚙️ Admin</button></a>
+            <a href="/admin" style="text-decoration:none"><button class="new-chat-btn">⚙️ Admin</button></a>
             <button class="new-chat-btn" onclick="createCaseFromChat()">📂 Dossier</button>
         </div>
     </div>
@@ -1089,9 +1090,12 @@
             addLoading();
 
             try {
-                const response = await fetchWithApiFallback('/ask', {
+                const askHeaders = { 'Content-Type': 'application/json' };
+                const jwt = localStorage.getItem('access_token');
+                if (jwt) askHeaders['Authorization'] = 'Bearer ' + jwt;
+                const response = await fetchWithApiFallback('/ask-agentic', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: askHeaders,
                     body: JSON.stringify({
                         question: text,
                         top_k: retrieval.topK,

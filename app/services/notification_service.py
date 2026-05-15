@@ -180,3 +180,71 @@ async def check_and_notify_amendment_impacts(
         target_article_key=target_article_key,
         affected_profile_ids=list(affected_pids),
     )
+
+
+async def notify_amendment_summary(
+    db: Any,
+    *,
+    loi_id: str,
+    loi_code: str,
+    loi_name: str,
+    diff: dict,
+    operations: list[dict],
+) -> int:
+    """
+    Send a detailed amendment summary notification to every company profile.
+
+    Called once after all article-level operations are applied. Each profile
+    receives one notification describing exactly what changed.
+    """
+    profiles = [
+        p async for p in db["company_profiles"].find({}, {"_id": 0, "id": 1, "name": 1})
+    ]
+    if not profiles:
+        return 0
+
+    added = diff.get("added", 0)
+    modified = diff.get("modified", 0)
+    removed = diff.get("removed", 0)
+
+    op_lines = []
+    for op in operations[:20]:
+        op_type = op.get("type", "?")
+        key = op.get("article_key", "?")
+        label = {"ADD": "Ajouté", "REPLACE": "Modifié", "REPEAL": "Supprimé"}.get(op_type, op_type)
+        op_lines.append(f"  • {label} : {key}")
+    if len(operations) > 20:
+        op_lines.append(f"  … et {len(operations) - 20} autre(s)")
+
+    detail_text = "\n".join(op_lines) if op_lines else "  Aucun changement d'article."
+
+    message = (
+        f"Un amendement a été appliqué à la loi « {loi_name} » ({loi_code}).\n\n"
+        f"Résumé : {added} article(s) ajouté(s), {modified} modifié(s), {removed} supprimé(s).\n\n"
+        f"Détail des opérations :\n{detail_text}\n\n"
+        f"Veuillez vérifier l'impact sur vos obligations de conformité."
+    )
+
+    created = 0
+    for p in profiles:
+        await create_notification(
+            db,
+            alert_type="amendment_impact",
+            profile_id=p["id"],
+            profile_name=p.get("name", ""),
+            title=f"Amendement — {loi_code}",
+            message=message,
+            details={
+                "loi_id": loi_id,
+                "loi_code": loi_code,
+                "loi_name": loi_name,
+                "added": added,
+                "modified": modified,
+                "removed": removed,
+                "operations": operations[:50],
+            },
+        )
+        created += 1
+
+    logger.info("Sent amendment summary to %d company profiles", created)
+    return created

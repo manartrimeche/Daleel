@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     # ── Tesseract ──
     tesseract_path: str = ""
 
+    # ── Reranking (cross-encoder) ──
+    enable_cross_encoder: bool = False
+
     # ── Vector search ──
     # "faiss" (recommended, scalable) | "python-cosine" (legacy fallback).
     # FAISS builds an in-memory index from MongoDB embeddings and is 100×+ faster.
@@ -80,11 +83,19 @@ class Settings(BaseSettings):
     # Comma-separated list of allowed origins. Use "*" only for local dev.
     cors_origins: str = "http://localhost:8000,http://127.0.0.1:8000"
 
-    # ── Authentication ──
-    # API key required for all mutating endpoints. Leave empty to disable auth.
+    # ── Authentication (legacy API key — kept for backward compat) ──
     api_key: str = ""
-    # Separate admin key for /admin/* endpoints. Falls back to api_key if empty.
     admin_api_key: str = ""
+
+    # ── JWT Authentication ──
+    jwt_secret_key: str = "change-me-in-production-use-a-64-char-random-string"
+    jwt_algorithm: str = "HS256"
+    jwt_access_token_expire_minutes: int = 30
+    jwt_refresh_token_expire_days: int = 7
+
+    # ── Super admin bootstrap ──
+    super_admin_email: str = ""
+    super_admin_password: str = ""
 
     # ── Embedding cache ──
     embedding_cache_maxsize: int = 512
@@ -103,7 +114,7 @@ class Settings(BaseSettings):
     domain_router_llm_fallback_enabled: bool = True
 
     # ── Partitioned retrieval orchestrator ──
-    partitioned_retrieval_enabled: bool = True
+    partitioned_retrieval_enabled: bool = False
 
     # ── Quality guard (hallucination detection) ──
     quality_guard_enabled: bool = True
@@ -137,6 +148,10 @@ def _validate_production_settings(s: Settings) -> None:
             raise RuntimeError(
                 "DALEEL_ADMIN_API_KEY must be set in production/staging. "
                 "Set DALEEL_ENV=dev to disable this check."
+            )
+        if s.jwt_secret_key == "change-me-in-production-use-a-64-char-random-string":
+            raise RuntimeError(
+                "DALEEL_JWT_SECRET_KEY must be changed from its default in production/staging."
             )
         if s.cors_origins.strip() == "*":
             raise RuntimeError(

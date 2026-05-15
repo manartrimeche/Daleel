@@ -17,17 +17,27 @@
 body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);display:flex;height:100vh;overflow:hidden;font-size:14px}
 
 /* Sidebar */
-.sidebar{width:220px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
-.sidebar-logo{padding:20px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
-.sidebar-logo span{font-size:18px;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--accent2));background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.nav{padding:8px 0;flex:1;overflow-y:auto}
-.nav-item{display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;border-radius:0;transition:.15s;color:var(--text2);border-left:3px solid transparent}
-.nav-item:hover{background:var(--accent-glow);color:var(--text)}
-.nav-item.active{background:var(--accent-glow);color:var(--accent);border-left-color:var(--accent)}
-.nav-item .icon{width:18px;text-align:center;font-size:16px}
-.sidebar-footer{padding:12px 16px;border-top:1px solid var(--border)}
-.chatbot-btn{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--accent);border-radius:8px;color:#fff;cursor:pointer;text-decoration:none;font-size:13px;font-weight:500;transition:.15s}
-.chatbot-btn:hover{background:var(--accent2)}
+.sidebar{width:300px;background:#111019;border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
+.sidebar-logo{height:98px;padding:0 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
+.logo-mark{width:45px;height:45px;border-radius:13px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:21px;box-shadow:0 12px 34px rgba(124,92,252,.32)}
+.brand-name{font-size:21px;font-weight:800;color:var(--accent2);letter-spacing:0}
+.nav{padding:24px 0 16px;flex:1;overflow-y:auto}
+.nav-group{margin-bottom:18px}
+.nav-group-title{padding:0 23px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:#7e769b}
+.nav-item{height:50px;display:flex;align-items:center;gap:14px;padding:0 23px;cursor:pointer;transition:.15s;color:#b7b3c7;border-left:4px solid transparent;font-size:14px}
+.nav-item:hover{background:rgba(124,92,252,.12);color:#fff}
+.nav-item.active{background:#2a2246;color:var(--accent);border-left-color:var(--accent)}
+.nav-item .icon{width:22px;text-align:center;font-size:17px;line-height:1}
+.sidebar-footer{padding:16px 22px 14px;background:#181829;border-top:1px solid var(--border)}
+.footer-profile{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.footer-avatar{width:43px;height:43px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;box-shadow:0 8px 22px rgba(124,92,252,.28)}
+.footer-name{font-size:14px;font-weight:700;color:#fff;line-height:1.2}
+.footer-role{font-size:13px;color:var(--accent2);line-height:1.35}
+.footer-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.footer-btn{height:34px;border-radius:9px;border:1px solid var(--border);background:#151527;color:#fff;display:flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;font-size:12px;font-weight:700;cursor:pointer;transition:.15s}
+.footer-btn:hover{border-color:var(--accent);color:var(--accent2)}
+.footer-btn-danger{background:rgba(248,113,113,.12);border-color:rgba(248,113,113,.35);color:#ff7f8d}
+.footer-btn-danger:hover{background:rgba(248,113,113,.18);border-color:rgba(248,113,113,.55);color:#ff9aa5}
 
 /* Main */
 .main{flex:1;display:flex;flex-direction:column;overflow:hidden}
@@ -197,27 +207,11 @@ pre{background:var(--bg3);border:1px solid var(--border);border-radius:8px;paddi
 <!-- Sidebar -->
 <nav class="sidebar">
   <div class="sidebar-logo">
-    <span>⚖️</span>
-    <span>Daleel Admin</span>
+    <div class="logo-mark">D</div>
+    <div class="brand-name">Daleel</div>
   </div>
-  <div class="nav" id="nav">
-    <div class="nav-item active" data-section="dashboard"><span class="icon">📊</span> Dashboard</div>
-    <div class="nav-item" data-section="documents"><span class="icon">📄</span> Documents</div>
-    <div class="nav-item" data-section="lois"><span class="icon">⚖️</span> Lois & Articles</div>
-    <div class="nav-item" data-section="amendements"><span class="icon">📝</span> Amendements</div>
-    <div class="nav-item" data-section="conformite"><span class="icon">✅</span> Conformité</div>
-    <div class="nav-item" data-section="cases"><span class="icon">📂</span> Dossiers</div>
-    <div class="nav-item" data-section="posture"><span class="icon">🛡️</span> Posture</div>
-    <div class="nav-item" data-section="assessments"><span class="icon">📊</span> Évaluations</div>
-    <div class="nav-item" data-section="controls"><span class="icon">🔒</span> Contrôles</div>
-    <div class="nav-item" data-section="exceptions"><span class="icon">⚠️</span> Exceptions</div>
-    <div class="nav-item" data-section="audit"><span class="icon">📋</span> Audit Log</div>
-    <div class="nav-item" data-section="recherche"><span class="icon">🔍</span> Recherche</div>
-    <div class="nav-item" data-section="vecteur"><span class="icon">⚡</span> Vecteurs</div>
-  </div>
-  <div class="sidebar-footer">
-    <a href="/" class="chatbot-btn" target="_blank">💬 Assistant Juridique</a>
-  </div>
+  <div class="nav" id="nav"></div>
+  <div class="sidebar-footer" id="sidebar-footer"></div>
 </nav>
 
 <!-- Main -->
@@ -236,6 +230,7 @@ pre{background:var(--bg3);border:1px solid var(--border);border-radius:8px;paddi
 
 <div class="toast-container" id="toasts"></div>
 
+<script src="/static/auth-guard.js"></script>
 <script>
 const API = '/api/v1';
 let currentSection = 'dashboard';
@@ -268,8 +263,9 @@ function toast(msg, type='info', dur=4000) {
 // ── API layer ──────────────────────────────────────────────────────────
 async function apiFetch(path, opts={}) {
   try {
+    const bearerHeaders = typeof AuthGuard !== 'undefined' ? AuthGuard.authHeaders() : {};
     const r = await fetch(API + path, {
-      headers: {'Content-Type':'application/json', ...opts.headers},
+      headers: {'Content-Type':'application/json', ...bearerHeaders, ...opts.headers},
       ...opts
     });
     if (!r.ok) {
@@ -289,47 +285,152 @@ const api = {
   del: (p) => apiFetch(p, {method:'DELETE'}),
 };
 
+async function authApiFetch(path, opts={}) {
+  if (typeof AuthGuard === 'undefined') throw new Error('Authentification indisponible');
+  const r = await AuthGuard.authFetch(API + path, {
+    ...opts,
+    headers: {'Content-Type':'application/json', ...opts.headers},
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({detail: r.statusText}));
+    throw new Error(err.detail || r.statusText);
+  }
+  if (r.status === 204) return null;
+  return r.json();
+}
+
+const authApi = {
+  get: (p) => authApiFetch(p),
+  post: (p, b) => authApiFetch(p, {method:'POST', body: b !== undefined ? JSON.stringify(b) : undefined}),
+  put: (p, b) => authApiFetch(p, {method:'PUT', body: JSON.stringify(b)}),
+  del: (p) => authApiFetch(p, {method:'DELETE'}),
+};
+
 async function uploadFile(path, file, extra={}) {
   const fd = new FormData();
   fd.append('file', file);
   Object.entries(extra).forEach(([k,v]) => fd.append(k, v));
-  const r = await fetch(API + path, {method:'POST', body: fd});
+  const bearerHeaders = typeof AuthGuard !== 'undefined' ? AuthGuard.authHeaders() : {};
+  const r = await fetch(API + path, {method:'POST', headers: bearerHeaders, body: fd});
   if (!r.ok) { const e = await r.json().catch(()=>({detail:r.statusText})); throw new Error(e.detail); }
   return r.json();
 }
 
 // ── Navigation ─────────────────────────────────────────────────────────
+const ALL_ROLES = ['super_admin', 'owner', 'admin', 'member', 'viewer'];
+const SIDEBAR_ITEMS = [
+  {section:'dashboard', label:'Dashboard', icon:'📊', group:'main', roles: ALL_ROLES},
+  {section:'documents', label:'Documents', icon:'📄', group:'main', roles:['super_admin', 'owner', 'admin', 'member']},
+  {section:'amendements', label:'Amendements', icon:'📝', group:'main', roles:['super_admin', 'owner', 'admin']},
+  {section:'company_profile', label:'Profil Entreprise', icon:'🏢', group:'admin', roles:['owner', 'admin']},
+  {section:'users', label:'Utilisateurs', icon:'👥', group:'admin', roles:['owner', 'admin']},
+  {section:'organizations', label:'Entreprises', icon:'🏢', group:'admin', roles:['super_admin']},
+];
+const SIDEBAR_GROUPS = [
+  {key:'main', title:null},
+  {key:'admin', title:'ADMINISTRATION'},
+];
+
+function currentRole() {
+  const user = typeof AuthGuard !== 'undefined' ? AuthGuard.getUser() : null;
+  return user?.role || 'viewer';
+}
+
+function canSeeItem(item) {
+  return item.roles.includes(currentRole());
+}
+
+function canAccessSection(section) {
+  const item = SIDEBAR_ITEMS.find(i => i.section === section);
+  return Boolean(item && !item.href && canSeeItem(item));
+}
+
+function defaultSection() {
+  return SIDEBAR_ITEMS.find(i => !i.href && canSeeItem(i))?.section || 'dashboard';
+}
+
+function renderSidebar() {
+  const nav = document.getElementById('nav');
+  nav.innerHTML = SIDEBAR_GROUPS
+    .map(group => {
+      const items = SIDEBAR_ITEMS.filter(item => item.group === group.key && canSeeItem(item));
+      if (!items.length) return '';
+      return `<div class="nav-group">
+        ${group.title ? `<div class="nav-group-title">${group.title}</div>` : ''}
+        ${items.map(item => `
+          <div class="nav-item ${item.section===currentSection?'active':''}" data-section="${item.section}">
+            <span class="icon">${item.icon}</span> ${item.label}
+          </div>`).join('')}
+      </div>`;
+    })
+    .join('');
+  renderSidebarFooter();
+}
+
+function initialsFor(user) {
+  const source = (user?.full_name || user?.email || roleLabel(currentRole())).trim();
+  const words = source.split(/[\s.@_-]+/).filter(Boolean);
+  const initials = words.length > 1 ? words[0][0] + words[1][0] : source.slice(0, 2);
+  return initials.toUpperCase();
+}
+
+function renderSidebarFooter() {
+  const footer = document.getElementById('sidebar-footer');
+  if (!footer) return;
+  const user = typeof AuthGuard !== 'undefined' ? AuthGuard.getUser() : null;
+  const role = user?.role || currentRole();
+  const name = user?.full_name || roleLabel(role);
+  footer.innerHTML = `
+    <div class="footer-profile">
+      <div class="footer-avatar">${escapeHtml(initialsFor(user))}</div>
+      <div>
+        <div class="footer-name">${escapeHtml(name)}</div>
+        <div class="footer-role">${escapeHtml(roleLabel(role))}</div>
+      </div>
+    </div>
+    <div class="footer-actions">
+      <a class="footer-btn" href="/">💬 Chat</a>
+      <button type="button" class="footer-btn footer-btn-danger" onclick="logoutAdmin()">Déconnexion</button>
+    </div>`;
+}
+
+function sectionTitle(section) {
+  return SIDEBAR_ITEMS.find(i => i.section === section)?.label || section;
+}
+
 function navigate(section) {
+  if (!canAccessSection(section)) {
+    section = defaultSection();
+  }
   currentSection = section;
-  document.querySelectorAll('.nav-item').forEach(el => {
-    el.classList.toggle('active', el.dataset.section === section);
-  });
-  const titles = {
-    dashboard:'Dashboard', documents:'Documents', lois:'Lois & Articles',
-    amendements:'Amendements', conformite:'Conformité & Roadmap',
-    cases:'Dossiers de Conformité', posture:'Posture de Conformité',
-    assessments:'Évaluations', controls:'Contrôles & Preuves',
-    exceptions:'Registre d\'Exceptions', audit:'Journal d\'Audit', recherche:'Recherche Sémantique', vecteur:'Moteur Vectoriel'
-  };
-  document.getElementById('topbar-title').textContent = titles[section] || section;
+  renderSidebar();
+  document.getElementById('topbar-title').textContent = sectionTitle(section);
   render(section);
 }
 
 document.getElementById('nav').addEventListener('click', e => {
   const item = e.target.closest('.nav-item');
-  if (item) navigate(item.dataset.section);
+  if (!item) return;
+  navigate(item.dataset.section);
 });
+
+function logoutAdmin() {
+  if (typeof AuthGuard !== 'undefined') AuthGuard.logout();
+  else window.location.href = '/login';
+}
 
 async function render(section) {
   const c = document.getElementById('content');
+  if (!canAccessSection(section)) {
+    navigate(defaultSection());
+    return;
+  }
   c.innerHTML = '<div class="loading-text"><span class="loading"></span> Chargement…</div>';
   try {
     const renders = {
-      dashboard: renderDashboard, documents: renderDocuments, lois: renderLois,
-      amendements: renderAmendements, conformite: renderConformite,
-      cases: renderCases, posture: renderPosture,
-      assessments: renderAssessments, controls: renderControls,
-      exceptions: renderExceptions, audit: renderAudit, recherche: renderRecherche, vecteur: renderVecteur
+      dashboard: renderDashboard, documents: renderDocuments,
+      company_profile: renderConformite, amendements: renderAmendements,
+      users: renderUsers, organizations: renderOrganizations
     };
     if (renders[section]) await renders[section](c);
   } catch(e) {
@@ -370,27 +471,21 @@ function escapeHtml(t) {
 // DASHBOARD
 // ══════════════════════════════════════════════════════════════════════
 async function renderDashboard(c) {
-  const [stats, logs, vec, caseSummary, controlsData] = await Promise.all([
+  const [stats, logs, vec] = await Promise.all([
     api.get('/admin/stats'),
     api.get('/audit-logs?limit=6'),
     api.get('/admin/vector-stats').catch(() => null),
-    api.get('/cases/summary').catch(() => ({total_cases:0, by_status:{}, by_priority:{}})),
-    api.get('/compliance/controls?limit=1').catch(() => ({total:0})),
   ]);
 
   const s = stats;
-  const cs = caseSummary;
+  const exByType = s.exigences.by_type || {};
   const cards = [
-    {icon:'📁', value: cs.total_cases,          label:'Dossiers',    sub: `${cs.by_status?.open||0} ouverts · ${cs.by_status?.in_progress||0} en cours`},
-    {icon:'🔴', value: cs.by_priority?.critical||0, label:'Critiques', sub: `${cs.by_status?.resolved||0} résolus`},
     {icon:'📄', value: s.documents.total,        label:'Documents',   sub: `${s.chunks.total} chunks`},
     {icon:'⚖️', value: s.lois.total,             label:'Lois',        sub: `${s.articles.total} articles`},
-    {icon:'🔍', value: s.exigences.total,         label:'Exigences',   sub: Object.entries(s.exigences.by_type||{}).map(([k,v])=>`${k}:${v}`).join(' ')},
+    {icon:'📝', value: s.amendments.total,        label:'Amendements', sub: `${s.amendments.by_status?.pending||0} en attente`},
+    {icon:'🔍', value: s.exigences.total,         label:'Exigences',   sub: Object.entries(exByType).map(([k,v])=>`${k}:${v}`).join(' ')},
     {icon:'✅', value: s.actions.total,           label:'Actions',     sub: `${s.actions.criticalities.total} avec criticité`},
     {icon:'👥', value: s.profiles.total,          label:'Profils',     sub: ''},
-    {icon:'📝', value: s.amendments.total,        label:'Amendements', sub: `${s.amendments.by_status.pending||0} en attente`},
-    {icon:'📜', value: s.audit_logs.total,        label:'Événements',  sub: 'journal d\'audit'},
-    {icon:'🔒', value: controlsData.total,         label:'Contrôles',   sub: 'compliance steering'},
   ];
 
   const statsHtml = cards.map(cd =>
@@ -819,135 +914,177 @@ async function computeCriticality(loiId) {
 // ══════════════════════════════════════════════════════════════════════
 // AMENDEMENTS
 // ══════════════════════════════════════════════════════════════════════
-let aState = {step: 1, docId: null, loiId: null, ops: []};
+let aState = {step: 'upload', loiId: null, result: null};
 
 async function renderAmendements(c) {
-  const [docs, lois] = await Promise.all([api.get('/documents?limit=100'), api.get('/lois')]);
-
   c.innerHTML = `
-    <div class="section-header"><span class="section-title">Workflow Amendements</span></div>
-    <p class="section-sub">Pipeline en 5 étapes : Classification → Extraction → Revue → Application → Recalcul</p>
-    <div class="steps" id="amend-steps">
-      ${['1 Classifier','2 Extraire','3 Réviser','4 Appliquer','5 Recalculer'].map((s,i) =>
-        `<div class="step${i+1===aState.step?' active':i+1<aState.step?' done':''}" data-step="${i+1}">
-          <span class="step-num">${i+1}</span><span class="step-lbl">${s.slice(2)}</span>
-        </div>`).join('')}
-    </div>
+    <div class="section-header"><span class="section-title">Amendements — Mise à jour de documents</span></div>
+    <p class="section-sub">Uploadez une nouvelle version d'un document. Le système détecte automatiquement la loi cible, compare les articles et notifie les profils entreprise.</p>
     <div id="amend-content"></div>`;
 
-  renderAmendStep(c.querySelector('#amend-content'), docs, lois);
+  renderAmendContent(c.querySelector('#amend-content'));
 }
 
-function renderAmendStep(container, docs, lois) {
-  const readyDocs = (docs?.documents||[]).filter(d => d.status==='ready');
-
-  if (aState.step === 1) {
+function renderAmendContent(container) {
+  if (aState.step === 'upload') {
     container.innerHTML = `
-      <div class="panel"><div class="panel-title">Étape 1 — Classifier le document modificatif</div>
-        <div class="form-grid">
-          <div class="form-group"><label>Document modificatif</label>
-            <select id="a-doc">
-              <option value="">— Sélectionner —</option>
-              ${readyDocs.map(d=>`<option value="${d.id}">${d.filename}</option>`).join('')}
-            </select>
-          </div>
-          <div class="form-group"><label>Loi cible</label>
-            <select id="a-loi">
-              <option value="">— Sélectionner —</option>
-              ${(lois?.lois||[]).map(l=>`<option value="${l.id}">${l.code} — ${l.name}</option>`).join('')}
-            </select>
+      <div class="panel">
+        <div class="panel-title">Uploader un document amendé</div>
+        <p class="text-muted" style="margin-bottom:16px">Le système détecte automatiquement la loi cible depuis le contenu du document, compare les articles et notifie les profils entreprise des changements.</p>
+        <div class="form-group"><label>Document (PDF ou DOCX)</label>
+          <div id="a-drop" style="border:2px dashed var(--border);border-radius:8px;padding:24px;text-align:center;cursor:pointer;transition:border-color .2s">
+            <div style="font-size:28px;margin-bottom:8px">📄</div>
+            <p style="margin:0;color:var(--text2)">Glissez un fichier ici ou <span style="color:var(--primary);text-decoration:underline">parcourir</span></p>
+            <p id="a-file-name" style="margin:4px 0 0;font-weight:600;color:var(--text1)"></p>
+            <input type="file" id="a-file" accept=".pdf,.docx,.doc,.txt" style="display:none">
           </div>
         </div>
-        <button class="btn btn-primary" onclick="amendStep1()">Classifier & Continuer →</button>
+        <button class="btn btn-primary" id="a-upload-btn" onclick="doAmendUpload()" style="margin-top:12px">Comparer & Mettre à jour</button>
       </div>`;
-  } else if (aState.step === 2) {
-    container.innerHTML = `
-      <div class="panel"><div class="panel-title">Étape 2 — Extraction LLM des opérations</div>
-        <p class="text-muted mb-16">Document: <code>${aState.docId}</code> · Loi: <code>${aState.loiId}</code></p>
-        <button class="btn btn-primary" onclick="amendStep2()">🤖 Extraire les opérations</button>
-        ${btn('← Retour', 'aState.step=1;navigate("amendements")', 'secondary')}
-      </div>`;
-  } else if (aState.step === 3) {
-    const opsHtml = aState.ops.length ? `
-      <div class="table-wrap"><table>
-        <thead><tr><th>Type</th><th>Article</th><th>Texte (aperçu)</th><th>Preuve</th><th>Conf.</th><th>Statut</th></tr></thead>
+
+    const drop = document.getElementById('a-drop');
+    const fileInput = document.getElementById('a-file');
+    drop.onclick = () => fileInput.click();
+    fileInput.onchange = () => {
+      if (fileInput.files.length) document.getElementById('a-file-name').textContent = fileInput.files[0].name;
+    };
+    drop.ondragover = e => { e.preventDefault(); drop.style.borderColor = 'var(--primary)'; };
+    drop.ondragleave = () => { drop.style.borderColor = 'var(--border)'; };
+    drop.ondrop = e => {
+      e.preventDefault(); drop.style.borderColor = 'var(--border)';
+      if (e.dataTransfer.files.length) { fileInput.files = e.dataTransfer.files; document.getElementById('a-file-name').textContent = e.dataTransfer.files[0].name; }
+    };
+  } else if (aState.step === 'result') {
+    const r = aState.result;
+    const d = r.diff;
+    const total = d.added + d.modified + d.removed + d.unchanged;
+    const ops = r.operations || [];
+
+    const opsHtml = ops.length ? `
+      <div class="table-wrap" style="margin-top:16px"><table>
+        <thead><tr><th>Opération</th><th>Article</th><th>Détails</th></tr></thead>
         <tbody>
-          ${aState.ops.map(op => `<tr>
-            <td>${tag(op.operation_type, 'active')}</td>
-            <td><code>${op.target_article_key}</code></td>
-            <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(op.new_text||'—').slice(0,80)}</td>
-            <td style="max-width:160px;font-size:11px;color:var(--text2)">${op.proof_extract.slice(0,60)}…</td>
-            <td>${(op.confidence*100).toFixed(0)}%</td>
-            <td>${tag(op.status, op.status)}</td>
+          ${ops.map(op => `<tr>
+            <td>${tag(op.type, op.type === 'ADD' ? 'active' : op.type === 'REPEAL' ? 'error' : 'pending')}</td>
+            <td><code>${op.article_key}</code></td>
+            <td style="font-size:12px;color:var(--text2)">Art. ${op.article_number}${op.new_version_id ? ' (nouvelle version)' : ''}</td>
           </tr>`).join('')}
         </tbody>
-      </table></div>
-      <div class="btn-group mt-16">
-        <button class="btn btn-primary" onclick="amendStep4()">✅ Appliquer tout →</button>
-        ${btn('← Retour', 'aState.step=2;navigate("amendements")', 'secondary')}
-      </div>` : `<div class="empty"><div class="empty-icon">😕</div><p>Aucune opération extraite</p>${btn('← Retour','aState.step=2;navigate("amendements")','secondary')}</div>`;
+      </table></div>` : '';
 
-    container.innerHTML = `<div class="panel"><div class="panel-title">Étape 3 — Révision des opérations (${aState.ops.length})</div>${opsHtml}</div>`;
-  } else if (aState.step === 4) {
     container.innerHTML = `
-      <div class="panel"><div class="panel-title">Étape 4 — Application des amendements</div>
-        <p class="text-muted mb-16">Cliquez pour appliquer les ${aState.ops.filter(o=>o.status==='pending').length} opération(s) en attente.</p>
-        <button class="btn btn-primary" onclick="amendStep4Apply()">⚡ Appliquer tous</button>
-        ${btn('← Retour', 'aState.step=3;navigate("amendements")', 'secondary')}
-      </div>`;
-  } else if (aState.step === 5) {
-    container.innerHTML = `
-      <div class="panel"><div class="panel-title">Étape 5 — Recalcul automatique</div>
-        <p class="text-muted mb-16">Recalculez les exigences, actions et criticités pour les articles mis à jour.</p>
-        <button class="btn btn-primary" onclick="amendStep5()">🔄 Recalculer</button>
-        <button class="btn btn-success" style="margin-left:8px" onclick="aState={step:1,docId:null,loiId:null,ops:[]};navigate('amendements')">✅ Nouveau workflow</button>
+      <div class="panel">
+        <div class="panel-title">Résultat de la comparaison</div>
+        <p class="text-muted mb-16">${r.message}</p>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px">
+          <div class="stat-card" style="border-left:3px solid #22c55e"><div class="stat-value">${d.added}</div><div class="stat-label">Ajoutés</div></div>
+          <div class="stat-card" style="border-left:3px solid #f59e0b"><div class="stat-value">${d.modified}</div><div class="stat-label">Modifiés</div></div>
+          <div class="stat-card" style="border-left:3px solid #ef4444"><div class="stat-value">${d.removed}</div><div class="stat-label">Supprimés</div></div>
+          <div class="stat-card" style="border-left:3px solid #6b7280"><div class="stat-value">${d.unchanged}</div><div class="stat-label">Inchangés</div></div>
+          <div class="stat-card" style="border-left:3px solid #3b82f6"><div class="stat-value">${r.notifications_sent || 0}</div><div class="stat-label">Notifiés</div></div>
+        </div>
+        ${(r.notifications_sent || 0) > 0 ? `<p style="font-size:12px;color:var(--primary);margin-bottom:8px">🔔 ${r.notifications_sent} profil(s) entreprise notifié(s) du changement.</p>` : ''}
+        ${r.old_document_id ? `<p style="font-size:12px;color:var(--text2)">Ancien document <code>${r.old_document_id}</code> remplacé.</p>` : '<p style="font-size:12px;color:var(--text2)">Aucun document existant trouvé — nouveau document créé.</p>'}
+        ${opsHtml}
+        <div class="btn-group mt-16">
+          ${aState.loiId ? `<button class="btn btn-primary" onclick="doAmendRecalc()">Recalculer exigences</button>` : ''}
+          <button class="btn btn-secondary" onclick="aState={step:'upload',loiId:null,result:null};navigate('amendements')">Nouvel amendement</button>
+        </div>
       </div>`;
   }
 }
 
-async function amendStep1() {
-  aState.docId = document.getElementById('a-doc').value;
-  aState.loiId = document.getElementById('a-loi').value;
-  if (!aState.docId || !aState.loiId) { toast('Sélectionnez document et loi', 'error'); return; }
+async function doAmendUpload() {
+  const fileInput = document.getElementById('a-file');
+  if (!fileInput.files.length) { toast('Sélectionnez un fichier', 'error'); return; }
+
+  const formData = new FormData();
+  formData.append('file', fileInput.files[0]);
+
+  toast('Traitement en cours — détection de la loi, extraction, comparaison, mise à jour…', 'info', 30000);
   try {
-    await api.patch('/documents/' + aState.docId + '/classify', {document_type:'modificatif', loi_id: aState.loiId});
-    toast('Document classifié comme modificatif', 'success');
-    aState.step = 2;
+    const r = await fetch('/documents/upload-amendment', {
+      method: 'POST',
+      headers: api.key ? {'X-API-Key': api.key} : {},
+      body: formData,
+    }).then(async res => {
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || res.statusText); }
+      return res.json();
+    });
+
+    const loiId = r.document?.loi_id || null;
+    const notifMsg = r.notifications_sent ? ` · ${r.notifications_sent} profil(s) notifié(s)` : '';
+    toast(`Mise à jour terminée: ${r.diff.added} ajoutés, ${r.diff.modified} modifiés, ${r.diff.removed} supprimés${notifMsg}`, 'success', 8000);
+    aState = {step: 'result', loiId, result: r};
     navigate('amendements');
   } catch(e) { toast(e.message, 'error'); }
 }
 
-async function amendStep2() {
-  toast('Extraction LLM en cours…', 'info', 15000);
-  try {
-    const r = await api.post('/documents/' + aState.docId + '/extract-amendments', {loi_id: aState.loiId});
-    toast(`✅ ${r.operations_extracted} opérations extraites`, 'success');
-    const opsData = await api.get('/documents/' + aState.docId + '/amendments');
-    aState.ops = opsData.operations || [];
-    aState.step = 3;
-    navigate('amendements');
-  } catch(e) { toast(e.message, 'error'); }
-}
-
-async function amendStep4() { aState.step = 4; navigate('amendements'); }
-
-async function amendStep4Apply() {
-  toast('Application des amendements…', 'info', 10000);
-  try {
-    const r = await api.post('/documents/' + aState.docId + '/apply-amendments');
-    toast(`✅ ${r.applied} appliqués, ${r.failed} échoués`, r.failed?'warn':'success', 6000);
-    aState.step = 5;
-    navigate('amendements');
-  } catch(e) { toast(e.message, 'error'); }
-}
-
-async function amendStep5() {
+async function doAmendRecalc() {
   toast('Recalcul en cours…', 'info', 20000);
   try {
     const r = await api.post('/lois/' + aState.loiId + '/recalculate');
-    toast(`✅ ${r.versions_processed} versions · ${r.exigences_extracted} exigences · ${r.actions_extracted} actions`, 'success', 8000);
+    toast(`${r.versions_processed} versions · ${r.exigences_extracted} exigences · ${r.actions_extracted} actions`, 'success', 8000);
   } catch(e) { toast(e.message, 'error'); }
 }
+
+// ══════════════════════════════════════════════════════════════════════
+// HISTORIQUE DES CONVERSATIONS
+// ══════════════════════════════════════════════════════════════════════
+let histState = {skip: 0, filterUser: ''};
+
+async function renderHistorique(c) {
+  const user = AuthGuard.getUser();
+  if (!user) { c.innerHTML = '<div class="empty"><div class="empty-icon">🔒</div><p>Connectez-vous pour voir l\'historique.</p></div>'; return; }
+  if (user.role === 'super_admin') { c.innerHTML = '<div class="empty"><div class="empty-icon">🚫</div><p>Accès non autorisé pour les super admins.</p></div>'; return; }
+
+  const isAdmin = ['admin','owner'].includes(user.role);
+  const params = new URLSearchParams({skip: histState.skip, limit: PAGE_SIZE});
+  if (isAdmin && histState.filterUser) params.append('user_id', histState.filterUser);
+
+  let data;
+  try {
+    const res = await AuthGuard.authFetch(API + '/chat-history?' + params);
+    if (res.status === 403) { c.innerHTML = '<div class="empty"><div class="empty-icon">🚫</div><p>Accès refusé.</p></div>'; return; }
+    if (!res.ok) throw new Error('Erreur ' + res.status);
+    data = await res.json();
+  } catch(e) { c.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div><p>${e.message}</p></div>`; return; }
+
+  const entries = data.entries || [];
+  const filterHtml = isAdmin ? `
+    <div class="form-grid" style="margin-bottom:16px">
+      <div class="form-group">
+        <label>Filtrer par utilisateur</label>
+        <input id="hist-filter-user" placeholder="ID utilisateur…" value="${histState.filterUser}" onchange="histState.filterUser=this.value;histState.skip=0;navigate('historique')">
+      </div>
+    </div>` : '';
+
+  const tableHtml = entries.length ? `
+    <div class="table-wrap"><table>
+      <thead><tr>
+        ${isAdmin ? '<th>Utilisateur</th>' : ''}
+        <th>Question</th><th>Réponse (aperçu)</th><th>Sources</th><th>Date</th>
+      </tr></thead>
+      <tbody>
+        ${entries.map(e => `<tr>
+          ${isAdmin ? `<td style="font-size:12px">${e.user_name || '?'}</td>` : ''}
+          <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.question || '—'}</td>
+          <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--text2)">${(e.answer||'').slice(0,120)}</td>
+          <td>${e.sources_count ?? '—'}</td>
+          <td style="font-size:12px;color:var(--text2)">${fmtDate(e.created_at)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>
+    ${paginationHtml(data.total, histState.skip, PAGE_SIZE, 'histPage')}` : '<div class="empty"><div class="empty-icon">💬</div><p>Aucune conversation trouvée.</p></div>';
+
+  c.innerHTML = `
+    <div class="section-header"><span class="section-title">Historique des conversations</span><span class="text-muted" style="font-size:12px">${data.total} entrée(s)</span></div>
+    <p class="section-sub">${isAdmin ? 'Toutes les conversations de votre organisation.' : 'Vos conversations avec l\'assistant juridique.'}</p>
+    ${filterHtml}
+    ${tableHtml}`;
+}
+
+function histPage(skip) { histState.skip = skip; navigate('historique'); }
 
 // ══════════════════════════════════════════════════════════════════════
 // CONFORMITÉ & ROADMAP
@@ -1000,13 +1137,13 @@ async function createProfile() {
       jurisdiction: 'tunisia'
     });
     toast('Profil créé', 'success');
-    navigate('conformite');
+    navigate('company_profile');
   } catch(e) { toast(e.message, 'error'); }
 }
 
 async function deleteProfile(id) {
   if (!confirm('Supprimer ce profil ?')) return;
-  try { await api.del('/company-profiles/'+id); toast('Profil supprimé','success'); navigate('conformite'); }
+  try { await api.del('/company-profiles/'+id); toast('Profil supprimé','success'); navigate('company_profile'); }
   catch(e) { toast(e.message,'error'); }
 }
 
@@ -1913,6 +2050,164 @@ async function renderExceptions(c){
     </tbody></table></div>`;
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// UTILISATEURS
+// ══════════════════════════════════════════════════════════════════════
+const ROLE_LABELS = {
+  super_admin: 'Super Admin',
+  owner: 'Owner',
+  admin: 'Admin',
+  member: 'Member',
+  viewer: 'Viewer',
+};
+
+function roleLabel(role) {
+  return ROLE_LABELS[role] || role || '—';
+}
+
+function editableRoleOptions(selected) {
+  return ['admin', 'member', 'viewer']
+    .map(role => `<option value="${role}" ${role===selected?'selected':''}>${roleLabel(role)}</option>`)
+    .join('');
+}
+
+function userRoleControl(user) {
+  if (!['admin', 'member', 'viewer'].includes(user.role)) {
+    return tag(roleLabel(user.role), user.role);
+  }
+  return `<select onchange="updateOrgUserRole('${user.id}', this.value)">${editableRoleOptions(user.role)}</select>`;
+}
+
+function userStatusControl(user) {
+  const locked = user.role === 'owner';
+  return `<label class="flex gap-8 items-center" style="font-size:12px;color:var(--text2)">
+    <input type="checkbox" ${user.is_active?'checked':''} ${locked?'disabled':''} onchange="updateOrgUserStatus('${user.id}', this.checked)">
+    Actif
+  </label>`;
+}
+
+async function renderUsers(c) {
+  const currentUser = typeof AuthGuard !== 'undefined' ? AuthGuard.getUser() : null;
+  if (!currentUser?.organization_id) {
+    c.innerHTML = '<div class="empty"><div class="empty-icon">👥</div><p>Aucune entreprise associée à ce compte.</p></div>';
+    return;
+  }
+
+  const [usersData, invitationsData] = await Promise.all([
+    authApi.get(`/auth/organizations/${currentUser.organization_id}/users?limit=100`),
+    authApi.get('/auth/invitations').catch(() => ({invitations:[], total:0})),
+  ]);
+
+  const users = usersData.users || [];
+  const invitations = invitationsData.invitations || [];
+
+  c.innerHTML = `
+    <div class="section-header"><span class="section-title">Utilisateurs</span><span class="text-muted" style="font-size:12px">${usersData.total || users.length} utilisateur(s)</span></div>
+    <div class="panel">
+      <div class="panel-title">Inviter un utilisateur</div>
+      <div class="form-grid">
+        <div class="form-group"><label>Email</label><input id="invite-email" type="email" placeholder="nom@entreprise.com"></div>
+        <div class="form-group"><label>Rôle</label><select id="invite-role">${editableRoleOptions('member')}</select></div>
+      </div>
+      <button class="btn btn-primary" onclick="inviteOrgUser()">Envoyer l'invitation</button>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Nom</th><th>Email</th><th>Rôle</th><th>Statut</th><th>Dernière connexion</th><th>Actions</th></tr></thead>
+      <tbody>
+        ${users.map(u => `<tr>
+          <td><strong>${escapeHtml(u.full_name || '—')}</strong></td>
+          <td>${escapeHtml(u.email || '—')}</td>
+          <td>${userRoleControl(u)}</td>
+          <td>${userStatusControl(u)}</td>
+          <td style="font-size:12px;color:var(--text2)">${fmtDate(u.last_login)}</td>
+          <td>${u.role === 'owner' ? '—' : btn('Désactiver', `deactivateOrgUser('${u.id}')`, 'danger', true)}</td>
+        </tr>`).join('') || '<tr><td colspan="6">Aucun utilisateur.</td></tr>'}
+      </tbody>
+    </table></div>
+    <div class="section-header mt-16"><span class="section-title">Invitations</span><span class="text-muted" style="font-size:12px">${invitationsData.total || invitations.length} invitation(s)</span></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Email</th><th>Rôle</th><th>Statut</th><th>Expiration</th><th>Actions</th></tr></thead>
+      <tbody>
+        ${invitations.map(inv => `<tr>
+          <td>${escapeHtml(inv.email || '—')}</td>
+          <td>${tag(roleLabel(inv.role), inv.role)}</td>
+          <td>${tag(inv.status, inv.status)}</td>
+          <td style="font-size:12px;color:var(--text2)">${fmtDate(inv.expires_at)}</td>
+          <td>${inv.status === 'pending' ? btn('Révoquer', `revokeInvitation('${inv.id}')`, 'danger', true) : '—'}</td>
+        </tr>`).join('') || '<tr><td colspan="5">Aucune invitation.</td></tr>'}
+      </tbody>
+    </table></div>`;
+}
+
+async function inviteOrgUser() {
+  const email = document.getElementById('invite-email').value.trim();
+  const role = document.getElementById('invite-role').value;
+  if (!email) { toast('Email requis', 'error'); return; }
+  try {
+    await authApi.post('/auth/invitations', {email, role});
+    toast('Invitation envoyée', 'success');
+    navigate('users');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function updateOrgUserRole(userId, role) {
+  try {
+    await authApi.put('/auth/users/' + userId, {role});
+    toast('Rôle mis à jour', 'success');
+    navigate('users');
+  } catch(e) { toast(e.message, 'error'); navigate('users'); }
+}
+
+async function updateOrgUserStatus(userId, isActive) {
+  try {
+    await authApi.put('/auth/users/' + userId, {is_active: isActive});
+    toast('Statut mis à jour', 'success');
+    navigate('users');
+  } catch(e) { toast(e.message, 'error'); navigate('users'); }
+}
+
+async function deactivateOrgUser(userId) {
+  if (!confirm('Désactiver cet utilisateur ?')) return;
+  try {
+    await authApi.del('/auth/users/' + userId);
+    toast('Utilisateur désactivé', 'success');
+    navigate('users');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function revokeInvitation(invitationId) {
+  if (!confirm('Révoquer cette invitation ?')) return;
+  try {
+    await authApi.del('/auth/invitations/' + invitationId);
+    toast('Invitation révoquée', 'success');
+    navigate('users');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// ENTREPRISES
+// ══════════════════════════════════════════════════════════════════════
+async function renderOrganizations(c) {
+  const data = await authApi.get('/auth/organizations?limit=100');
+  const organizations = data.organizations || [];
+  c.innerHTML = `
+    <div class="section-header"><span class="section-title">Entreprises</span><span class="text-muted" style="font-size:12px">${data.total || organizations.length} entreprise(s)</span></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Nom</th><th>Secteur</th><th>Taille</th><th>Employés</th><th>Membres</th><th>Statut</th><th>Créée le</th></tr></thead>
+      <tbody>
+        ${organizations.map(org => `<tr>
+          <td><strong>${escapeHtml(org.name || '—')}</strong></td>
+          <td>${escapeHtml(org.sector || '—')}</td>
+          <td>${fmt(org.size)}</td>
+          <td>${fmt(org.employees)}</td>
+          <td>${fmt(org.member_count)}</td>
+          <td>${tag(org.status, org.status)}</td>
+          <td style="font-size:12px;color:var(--text2)">${fmtDate(org.created_at)}</td>
+        </tr>`).join('') || '<tr><td colspan="7">Aucune entreprise.</td></tr>'}
+      </tbody>
+    </table></div>`;
+}
+
 // ── Modal close ────────────────────────────────────────────────────────
 function closeModal() {
   document.querySelectorAll('.modal-bg').forEach(m => m.remove());
@@ -1921,6 +2216,7 @@ document.addEventListener('keydown', e => { if (e.key==='Escape') closeModal(); 
 
 // ── Init ───────────────────────────────────────────────────────────────
 (async () => {
+  renderSidebar();
   try {
     await api.get('/admin/stats');
     document.getElementById('api-status').textContent = '🟢 Connecté';
@@ -1929,8 +2225,43 @@ document.addEventListener('keydown', e => { if (e.key==='Escape') closeModal(); 
     document.getElementById('api-status').textContent = '🔴 Hors ligne';
     document.getElementById('api-status').className = 'badge badge-warn';
   }
-  await render('dashboard');
+  await render(defaultSection());
 })();
+
+// ══════════════════════════════════════════════════════════════════════
+// ADMINISTRATION (regroupe les sections techniques)
+// ══════════════════════════════════════════════════════════════════════
+let adminSubSection = 'lois';
+
+async function renderAdministration(c) {
+  const tabs = [
+    {key:'lois', label:'Lois & Articles', icon:'⚖️'},
+    {key:'cases', label:'Dossiers', icon:'📂'},
+    {key:'posture', label:'Posture', icon:'🛡️'},
+    {key:'assessments', label:'Évaluations', icon:'📊'},
+    {key:'controls', label:'Contrôles', icon:'🔒'},
+    {key:'exceptions', label:'Exceptions', icon:'⚠️'},
+    {key:'audit', label:'Audit Log', icon:'📋'},
+    {key:'recherche', label:'Recherche', icon:'🔍'},
+    {key:'vecteur', label:'Vecteurs', icon:'⚡'},
+  ];
+
+  c.innerHTML = `
+    <div class="section-header"><span class="section-title">Administration</span></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px" id="admin-tabs">
+      ${tabs.map(t => `<button class="btn ${t.key===adminSubSection?'btn-primary':'btn-secondary'} btn-sm" onclick="adminSubSection='${t.key}';navigate('administration')">${t.icon} ${t.label}</button>`).join('')}
+    </div>
+    <div id="admin-sub-content"><div class="loading-text"><span class="loading"></span> Chargement…</div></div>`;
+
+  const subC = document.getElementById('admin-sub-content');
+  const subRenders = {
+    lois: renderLois, cases: renderCases, posture: renderPosture,
+    assessments: renderAssessments, controls: renderControls,
+    exceptions: renderExceptions, audit: renderAudit,
+    recherche: renderRecherche, vecteur: renderVecteur
+  };
+  if (subRenders[adminSubSection]) await subRenders[adminSubSection](subC);
+}
 </script>
 </body>
 </html>

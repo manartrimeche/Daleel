@@ -21,9 +21,10 @@ from tqdm import tqdm
 
 from app.config import get_settings
 from app.database import get_collection
+from app.processing.article_segmenter import build_page_map, segment_text_into_articles
 from app.processing.chunker import build_records
 from app.processing.extractor import EXTRACTORS
-from app.services import llm_service
+from app.services import audit_service, llm_service
 from app.services.embedding_service import embed_texts_async
 from app.services.faiss_index import faiss_manager
 from app.services.search_service import invalidate_embedding_dimension_cache
@@ -62,6 +63,8 @@ def _doc_to_out(doc: dict | None) -> dict | None:
         "ocr_used": doc.get("ocr_used"),
         "status": doc.get("status"),
         "error_message": doc.get("error_message"),
+        "document_type": doc.get("document_type"),
+        "loi_id": doc.get("loi_id"),
         "created_at": doc.get("created_at"),
         "updated_at": doc.get("updated_at"),
     }
@@ -724,6 +727,497 @@ async def get_exigences(
         type_counts[row["_id"]] = row["count"]
 
     return exigences, int(total), type_counts
+
+
+# ─────────────────────────────────────────────────────────────
+# Amendment upload — article-level diff and replacement
+# ─────────────────────────────────────────────────────────────
+
+def _normalize_article_text(text: str) -> str:
+    text = unicodedata.normalize("NFKC", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
+def _diff_articles(
+    old_articles: list[dict],
+    new_articles: list[dict],
+) -> dict:
+    old_map = {a["article_key"]: a for a in old_articles}
+    new_map = {a["article_key"]: a for a in new_articles}
+
+    added = []
+    modified = []
+    removed = []
+    unchanged = []
+
+    for key, new_art in new_map.items():
+        if key not in old_map:
+            added.append(new_art)
+        else:
+            old_norm = _normalize_article_text(old_map[key]["text"])
+            new_norm = _normalize_article_text(new_art["text"])
+            if old_norm != new_norm:
+                modified.append({"old": old_map[key], "new": new_art})
+            else:
+                unchanged.append(new_art)
+
+    for key in old_map:
+        if key not in new_map:
+            removed.append(old_map[key])
+
+    return {
+        "added": added,
+        "modified": modified,
+        "removed": removed,
+        "unchanged": unchanged,
+    }
+
+
+def _detect_page_language(text: str) -> str:
+    arabic = len(re.findall(r"[؀-ۿ]", text))
+    latin = len(re.findall(r"[a-zA-ZÀ-ÿ]", text))
+    total = arabic + latin
+    if total == 0:
+        return "unknown"
+    ratio = arabic / total
+    if ratio > 0.60:
+        return "ar"
+    if ratio < 0.25:
+        return "fr"
+    return "fr+ar"
+
+
+def _split_pages_by_language(
+    cleaned_pages: list[dict],
+) -> dict[str, list[dict]]:
+    """Group cleaned pages by detected language (fr / ar)."""
+    groups: dict[str, list[dict]] = {"fr": [], "ar": []}
+    for page in cleaned_pages:
+        lang = _detect_page_language(page.get("cleaned_text", ""))
+        if lang == "ar":
+            groups["ar"].append(page)
+        else:
+            groups["fr"].append(page)
+    return groups
+
+
+def _segment_by_language(
+    cleaned_pages: list[dict],
+    loi_code: str,
+) -> list[dict]:
+    """Segment pages into articles, treating each language independently."""
+    groups = _split_pages_by_language(cleaned_pages)
+    all_articles: list[dict] = []
+
+    for lang, pages in groups.items():
+        if not pages:
+            continue
+        full_text, page_map = build_page_map(pages)
+        articles = segment_text_into_articles(
+            full_text, loi_code, page_map, language=lang,
+        )
+        all_articles.extend(articles)
+
+    # Deduplicate by article_key — if same article appears in both languages,
+    # keep the one with more text (the substantive version)
+    seen: dict[str, dict] = {}
+    for art in all_articles:
+        key = art["article_key"]
+        if key not in seen or len(art["text"]) > len(seen[key]["text"]):
+            seen[key] = art
+    return list(seen.values())
+
+
+async def _detect_loi_from_text(text: str) -> tuple[dict | None, dict | None]:
+    """
+    Scan text for references to existing lois (by name or code).
+    Searches in both French and Arabic independently.
+    Returns (loi, existing_document) or (None, None).
+    """
+    text_norm = unicodedata.normalize("NFKC", text)
+
+    all_lois = await get_collection("lois").find({}).to_list(length=None)
+    best_loi = None
+    best_score = 0
+
+    for loi in all_lois:
+        score = 0
+        loi_name = (loi.get("name") or "").strip()
+        loi_code = (loi.get("code") or "").strip()
+
+        # Match French name (case-insensitive)
+        if loi_name:
+            name_lower = loi_name.lower()
+            if name_lower in text_norm.lower():
+                score = len(loi_name)
+
+        # Match Arabic name (no case, exact substring in normalized text)
+        arabic_chars = re.findall(r"[؀-ۿ]+", loi_name)
+        for arabic_token in arabic_chars:
+            if len(arabic_token) >= 3 and arabic_token in text_norm:
+                score = max(score, len(arabic_token) + 5)
+
+        # Match code (word boundary)
+        if loi_code and re.search(
+            r"\b" + re.escape(loi_code) + r"\b", text, re.IGNORECASE
+        ):
+            score = max(score, len(loi_code) + 10)
+
+        if score > best_score:
+            best_score = score
+            best_loi = loi
+
+    if not best_loi:
+        return None, None
+
+    existing_doc = await get_collection("documents").find_one({
+        "loi_id": best_loi["id"],
+        "status": "ready",
+    })
+    return best_loi, existing_doc
+
+
+async def upload_amendment_document(
+    db,
+    filename: str,
+    file_bytes: bytes,
+    loi_id: str | None = None,
+    chunk_size: int | None = None,
+    chunk_overlap: int | None = None,
+) -> dict:
+    """
+    Upload an amendment document (e.g. from JORT). The system:
+    1. Extracts text from the uploaded file
+    2. Auto-detects the target loi by scanning the text for law references
+    3. Finds the existing document linked to that loi
+    4. Compares articles and applies changes (add/modify/repeal)
+    5. Replaces the old document with the updated version
+
+    Returns a summary with diff stats and the new document.
+    """
+    from pathlib import Path as _Path
+
+    # ── Step 1: Extract text from the new file ──────────────────────
+    upload_dir = settings.upload_dir
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    doc_id = str(uuid.uuid4())
+    ext = _Path(filename).suffix.lower()
+    saved_path = upload_dir / f"{doc_id}{ext}"
+    saved_path.write_bytes(file_bytes)
+    now = datetime.now(timezone.utc)
+
+    extractor = EXTRACTORS.get(ext)
+    if extractor is None:
+        saved_path.unlink(missing_ok=True)
+        raise ValueError(f"Unsupported file type: {ext}")
+
+    pages = extractor(saved_path, original_filename=filename)
+    if not pages:
+        saved_path.unlink(missing_ok=True)
+        raise ValueError("No text extracted from the uploaded file")
+
+    # ── Step 2: Auto-detect target loi from content ─────────────────
+    preview_text = "\n".join(
+        (p.get("text") or "")[:2000] for p in pages[:5]
+    )
+
+    loi = None
+    existing_doc = None
+
+    if loi_id:
+        loi = await get_collection("lois").find_one({"id": loi_id})
+        if not loi:
+            saved_path.unlink(missing_ok=True)
+            raise ValueError(f"Loi '{loi_id}' not found")
+        existing_doc = await get_collection("documents").find_one({
+            "loi_id": loi_id, "status": "ready",
+        })
+    else:
+        loi, existing_doc = await _detect_loi_from_text(preview_text)
+        if not loi:
+            saved_path.unlink(missing_ok=True)
+            raise ValueError(
+                "Impossible de détecter la loi cible dans le document. "
+                "Aucune loi existante n'a été trouvée dans le texte. "
+                "Veuillez spécifier loi_id manuellement."
+            )
+        loi_id = loi["id"]
+        logger.info("Auto-detected loi: %s (%s)", loi.get("code"), loi.get("name"))
+
+    loi_code = loi.get("code", "LOI")
+
+    extracted_at = datetime.now(timezone.utc)
+    raw_pages: list[dict] = []
+    for page_data in pages:
+        page_text = (page_data.get("text") or "").strip()
+        if not page_text:
+            continue
+        raw_pages.append({
+            "id": str(uuid.uuid4()),
+            "document_id": doc_id,
+            "page_number": int(page_data.get("page", 1)),
+            "raw_text": page_text,
+            "ocr_used": bool(page_data.get("ocr_used", False)),
+            "extracted_at": extracted_at,
+        })
+
+    # Clean pages in memory for article segmentation
+    from app.processing.legal_cleaner import clean_page as legal_clean_page, detect_repeated_elements
+
+    all_raw_texts = [p.get("raw_text", "") for p in raw_pages]
+    repeated_elements = detect_repeated_elements(all_raw_texts)
+    new_cleaned_pages: list[dict] = []
+    for raw_page in raw_pages:
+        basic_text, basic_rules, _ = TextCleaningRules.apply_cleaning(raw_page.get("raw_text", ""))
+        legal_text, legal_rules, _ = legal_clean_page(basic_text, repeated_elements=repeated_elements)
+        new_cleaned_pages.append({
+            "page_number": raw_page.get("page_number"),
+            "cleaned_text": legal_text,
+        })
+
+    # ── Step 2: Segment new document into articles (per language) ────
+    new_articles = _segment_by_language(new_cleaned_pages, loi_code)
+
+    # ── Step 3: Segment old document into articles (per language) ──
+    diff_result = {"added": [], "modified": [], "removed": [], "unchanged": []}
+    old_doc_id = None
+
+    if existing_doc:
+        old_doc_id = existing_doc["id"]
+        old_cleaned = await get_collection("document_cleaned_texts").find(
+            {"document_id": old_doc_id}
+        ).sort("page_number", 1).to_list(length=None)
+
+        if old_cleaned:
+            old_articles = _segment_by_language(old_cleaned, loi_code)
+            diff_result = _diff_articles(old_articles, new_articles)
+
+    # ── Step 4: Apply article-level changes to loi articles/versions ──
+    articles_col = get_collection("articles")
+    versions_col = get_collection("article_versions")
+    applied_ops = []
+
+    for new_art in diff_result["added"]:
+        art_doc = {
+            "id": str(uuid.uuid4()),
+            "loi_id": loi_id,
+            "article_key": new_art["article_key"],
+            "article_number": new_art["article_number"],
+            "article_heading": new_art["article_heading"],
+            "hierarchy_titre": new_art["hierarchy"].get("titre"),
+            "hierarchy_chapitre": new_art["hierarchy"].get("chapitre"),
+            "hierarchy_section": new_art["hierarchy"].get("section"),
+            "created_at": now,
+        }
+        await articles_col.insert_one(art_doc)
+        ver_doc = {
+            "id": str(uuid.uuid4()),
+            "article_id": art_doc["id"],
+            "version_num": 1,
+            "text": new_art["text"],
+            "status": "active",
+            "language": new_art.get("language", loi.get("language", "fr")),
+            "source_document_id": doc_id,
+            "source_pages": new_art.get("pages", []),
+            "created_at": now,
+        }
+        await versions_col.insert_one(ver_doc)
+        applied_ops.append({
+            "type": "ADD",
+            "article_key": new_art["article_key"],
+            "article_number": new_art["article_number"],
+        })
+
+    for mod in diff_result["modified"]:
+        new_art = mod["new"]
+        existing_article = await articles_col.find_one({
+            "loi_id": loi_id,
+            "article_key": new_art["article_key"],
+        })
+        if existing_article:
+            active_v = await versions_col.find_one(
+                {"article_id": existing_article["id"], "status": "active"},
+                sort=[("version_num", -1)],
+            )
+            old_version_id = None
+            if active_v:
+                old_version_id = active_v["id"]
+                await versions_col.update_one(
+                    {"id": active_v["id"]},
+                    {"$set": {"status": "superseded", "updated_at": now}},
+                )
+            all_versions = await versions_col.find(
+                {"article_id": existing_article["id"]}, {"version_num": 1}
+            ).to_list(length=None)
+            max_v = max((int(v.get("version_num", 0)) for v in all_versions), default=0)
+
+            new_ver = {
+                "id": str(uuid.uuid4()),
+                "article_id": existing_article["id"],
+                "version_num": max_v + 1,
+                "text": new_art["text"],
+                "status": "active",
+                "language": new_art.get("language", loi.get("language", "fr")),
+                "source_document_id": doc_id,
+                "source_pages": new_art.get("pages", []),
+                "created_at": now,
+            }
+            await versions_col.insert_one(new_ver)
+
+            await audit_service.log_event(
+                db, "version_superseded",
+                loi_id=loi_id,
+                article_id=existing_article["id"],
+                old_version_id=old_version_id,
+                new_version_id=new_ver["id"],
+                actor="amendment_upload",
+            )
+            applied_ops.append({
+                "type": "REPLACE",
+                "article_key": new_art["article_key"],
+                "article_number": new_art["article_number"],
+                "old_version_id": old_version_id,
+                "new_version_id": new_ver["id"],
+            })
+        else:
+            art_doc = {
+                "id": str(uuid.uuid4()),
+                "loi_id": loi_id,
+                "article_key": new_art["article_key"],
+                "article_number": new_art["article_number"],
+                "article_heading": new_art["article_heading"],
+                "created_at": now,
+            }
+            await articles_col.insert_one(art_doc)
+            ver_doc = {
+                "id": str(uuid.uuid4()),
+                "article_id": art_doc["id"],
+                "version_num": 1,
+                "text": new_art["text"],
+                "status": "active",
+                "language": new_art.get("language", loi.get("language", "fr")),
+                "source_document_id": doc_id,
+                "source_pages": new_art.get("pages", []),
+                "created_at": now,
+            }
+            await versions_col.insert_one(ver_doc)
+            applied_ops.append({
+                "type": "ADD",
+                "article_key": new_art["article_key"],
+                "article_number": new_art["article_number"],
+            })
+
+    for old_art in diff_result["removed"]:
+        existing_article = await articles_col.find_one({
+            "loi_id": loi_id,
+            "article_key": old_art["article_key"],
+        })
+        if existing_article:
+            active_v = await versions_col.find_one(
+                {"article_id": existing_article["id"], "status": "active"},
+            )
+            if active_v:
+                await versions_col.update_one(
+                    {"id": active_v["id"]},
+                    {"$set": {"status": "repealed", "updated_at": now}},
+                )
+                await audit_service.log_event(
+                    db, "article_repealed",
+                    loi_id=loi_id,
+                    article_id=existing_article["id"],
+                    old_version_id=active_v["id"],
+                    actor="amendment_upload",
+                )
+            applied_ops.append({
+                "type": "REPEAL",
+                "article_key": old_art["article_key"],
+                "article_number": old_art["article_number"],
+            })
+
+    # ── Step 4b: Notify all company profiles about amendment ─────────
+    from app.services.notification_service import notify_amendment_summary
+
+    total_notifs = 0
+    try:
+        total_notifs = await notify_amendment_summary(
+            db,
+            loi_id=loi_id,
+            loi_code=loi_code,
+            loi_name=loi.get("name", loi_code),
+            diff={
+                "added": len(diff_result["added"]),
+                "modified": len(diff_result["modified"]),
+                "removed": len(diff_result["removed"]),
+            },
+            operations=applied_ops,
+        )
+    except Exception:
+        logger.warning("Failed to send amendment notifications", exc_info=True)
+
+    # ── Step 5: Replace old document with new one ───────────────────
+    if old_doc_id:
+        await delete_document(db, old_doc_id)
+
+    new_doc = await upload_document(
+        db, filename, file_bytes,
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+    )
+
+    if new_doc and new_doc.get("id"):
+        await get_collection("documents").update_one(
+            {"id": new_doc["id"]},
+            {"$set": {"document_type": "loi_principale", "loi_id": loi_id}},
+        )
+
+    await audit_service.log_event(
+        db, "amendment_uploaded",
+        loi_id=loi_id,
+        details={
+            "old_document_id": old_doc_id,
+            "new_document_id": new_doc.get("id") if new_doc else None,
+            "filename": filename,
+            "added": len(diff_result["added"]),
+            "modified": len(diff_result["modified"]),
+            "removed": len(diff_result["removed"]),
+            "unchanged": len(diff_result["unchanged"]),
+        },
+        actor="amendment_upload",
+    )
+
+    # Clean up the temp extraction file
+    saved_path.unlink(missing_ok=True)
+
+    logger.info(
+        "Amendment upload complete: %s → added=%d modified=%d removed=%d unchanged=%d",
+        filename,
+        len(diff_result["added"]),
+        len(diff_result["modified"]),
+        len(diff_result["removed"]),
+        len(diff_result["unchanged"]),
+    )
+
+    return {
+        "document": new_doc,
+        "old_document_id": old_doc_id,
+        "diff": {
+            "added": len(diff_result["added"]),
+            "modified": len(diff_result["modified"]),
+            "removed": len(diff_result["removed"]),
+            "unchanged": len(diff_result["unchanged"]),
+        },
+        "operations": applied_ops,
+        "notifications_sent": total_notifs,
+        "message": (
+            f"Document '{filename}' mis à jour: "
+            f"{len(diff_result['added'])} ajoutés, "
+            f"{len(diff_result['modified'])} modifiés, "
+            f"{len(diff_result['removed'])} supprimés, "
+            f"{len(diff_result['unchanged'])} inchangés."
+            + (f" {total_notifs} notification(s) envoyée(s)." if total_notifs else "")
+        ),
+    }
 
 
 async def delete_document(db, doc_id: str) -> bool:

@@ -142,6 +142,25 @@ _COLLECTION_INDEXES: dict[str, list[dict[str, Any]]] = {
         {"fields": [("exigence_id", 1)]},
         {"fields": [("status", 1)]},
     ],
+    # ── Auth & Multi-tenant ──
+    "users": [
+        {"fields": [("email", 1)], "kwargs": {"unique": True}},
+        {"fields": [("organization_id", 1)]},
+        {"fields": [("role", 1)]},
+        {"fields": [("created_at", -1)]},
+    ],
+    "organizations": [
+        {"fields": [("name", 1)]},
+        {"fields": [("sector", 1)]},
+        {"fields": [("status", 1)]},
+        {"fields": [("created_at", -1)]},
+    ],
+    "invitations": [
+        {"fields": [("token", 1)], "kwargs": {"unique": True}},
+        {"fields": [("email", 1)]},
+        {"fields": [("organization_id", 1)]},
+        {"fields": [("status", 1)]},
+    ],
 }
 
 _BASELINE_LOIS = [
@@ -232,6 +251,8 @@ async def init_db() -> None:
     """Initialize MongoDB collections, indexes, and baseline data."""
     await _ensure_indexes()
     await _seed_baseline_lois()
+    from app.services.auth_service import ensure_super_admin
+    await ensure_super_admin()
 
 
 async def close_db() -> None:

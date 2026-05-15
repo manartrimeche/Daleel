@@ -67,6 +67,91 @@ def _supported_refs(chunks: list[dict]) -> set[str]:
     return supported
 
 
+def _extract_quoted_claims(answer: str) -> list[dict]:
+    """Extract quoted text from the answer (text between quotation marks)."""
+    claims = []
+    for m in re.finditer(r'[""«]([^""»]{15,})[""»]', answer):
+        claims.append({"quote": m.group(1), "start": m.start(), "end": m.end()})
+    return claims
+
+
+def _verify_quotes_against_chunks(answer: str, chunks: list[dict]) -> dict[str, Any]:
+    """Check that quoted text in the answer actually appears in chunks."""
+    claims = _extract_quoted_claims(answer)
+    if not claims:
+        return {"fabricated_quotes": [], "passed": True, "clean_answer": answer}
+
+    chunk_texts = " ".join(c.get("text", "") for c in chunks).lower()
+    fabricated = []
+    clean_answer = answer
+
+    for claim in claims:
+        quote_lower = claim["quote"].lower().strip()
+        words = quote_lower.split()
+        if len(words) < 4:
+            continue
+        # Check if a significant portion of the quote appears in chunk texts
+        # Use sliding window of 5+ consecutive words
+        found = False
+        for window_size in range(min(len(words), 8), 3, -1):
+            for i in range(len(words) - window_size + 1):
+                fragment = " ".join(words[i:i + window_size])
+                if fragment in chunk_texts:
+                    found = True
+                    break
+            if found:
+                break
+        if not found:
+            fabricated.append(claim["quote"])
+            clean_answer = clean_answer.replace(f'"{claim["quote"]}"', "[citation non vérifiée]")
+            clean_answer = clean_answer.replace(f'«{claim["quote"]}»', "[citation non vérifiée]")
+            clean_answer = clean_answer.replace(f'“{claim["quote"]}”', "[citation non vérifiée]")
+
+    return {
+        "fabricated_quotes": fabricated,
+        "passed": len(fabricated) == 0,
+        "clean_answer": clean_answer,
+    }
+
+
+def _verify_article_content_match(answer: str, chunks: list[dict]) -> list[str]:
+    """Verify that article descriptions in the answer match actual chunk content.
+
+    Catches cases like: "Article 409 states that attendance records must be..."
+    when Article 409 actually talks about something else entirely.
+    """
+    mismatched = []
+    article_claims = re.finditer(
+        r"(?i)(?:Article|Art\.?|الفصل)\s*(\d+)(?:\s*(?::|—|-|–|stipulates?|states?|provides?|prévoit|dispose|stipule|ينص))\s*[:\-–—]?\s*(.{20,120}?)(?:[.\n]|$)",
+        answer,
+    )
+    chunk_texts_by_article: dict[str, str] = {}
+    for chunk in chunks:
+        text = chunk.get("text", "")
+        for m in re.finditer(r"(?i)(?:Article|Art\.?|الفصل)\s*(\d+)", text):
+            art_num = m.group(1)
+            if art_num not in chunk_texts_by_article:
+                chunk_texts_by_article[art_num] = ""
+            chunk_texts_by_article[art_num] += " " + text
+
+    for m in article_claims:
+        art_num = m.group(1)
+        claim_text = m.group(2).lower().strip()
+        claim_words = set(re.findall(r"[a-zA-ZÀ-ÿ؀-ۿ]{4,}", claim_text))
+        if not claim_words or len(claim_words) < 3:
+            continue
+
+        if art_num in chunk_texts_by_article:
+            source_text = chunk_texts_by_article[art_num].lower()
+            source_words = set(re.findall(r"[a-zA-ZÀ-ÿ؀-ۿ]{4,}", source_text))
+            overlap = claim_words & source_words
+            # If less than 30% of claim's key words appear in the source, it's likely fabricated
+            if len(overlap) < len(claim_words) * 0.3:
+                mismatched.append(f"Article {art_num}")
+
+    return mismatched
+
+
 def audit_references(answer: str, chunks: list[dict]) -> dict[str, Any]:
     """Compare references in the answer against retrieved chunks.
 
@@ -81,12 +166,23 @@ def audit_references(answer: str, chunks: list[dict]) -> dict[str, Any]:
     unsupported = answer_refs - supported
     clean_answer = answer
     for ref in unsupported:
-        # Very naive stripping — can be replaced by a regex that includes surrounding sentence
         clean_answer = re.sub(
-            rf"(?i)\b(?:selon|conformément à|en vertu de|d'après)[^.,;]*\b{re.escape(ref)}[^.,;]*[.,;]?",
+            rf"(?i)\b(?:selon|conformément à|en vertu de|d'après|according to|under|pursuant to|بموجب|وفقاً)[^.,;]*\b{re.escape(ref)}[^.,;]*[.,;]?",
             "",
             clean_answer,
         )
+
+    # Check quoted text against actual chunk content
+    quote_audit = _verify_quotes_against_chunks(clean_answer, chunks)
+    if not quote_audit["passed"]:
+        clean_answer = quote_audit["clean_answer"]
+        unsupported = unsupported | {f"fabricated_quote:{q[:50]}" for q in quote_audit["fabricated_quotes"]}
+
+    # Check article content descriptions match actual chunk text
+    content_mismatches = _verify_article_content_match(clean_answer, chunks)
+    if content_mismatches:
+        unsupported = unsupported | {f"content_mismatch:{a}" for a in content_mismatches}
+
     return {
         "supported_refs": supported,
         "answer_refs": answer_refs,
@@ -145,7 +241,8 @@ async def _semantic_fidelity_check(
             }
     except Exception as e:
         logger.warning("Semantic fidelity LLM check failed: %s", e)
-    return {"supported": True, "confidence": 1.0, "issues": []}
+    # Fail open but with reduced confidence so decision logic can flag it
+    return {"supported": True, "confidence": 0.6, "issues": ["semantic_check_unavailable"]}
 
 
 async def conservative_rewrite(

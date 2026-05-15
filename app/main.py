@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
+from app.api.auth_router import router as auth_router
 from app.api.router import router
 from app.api.case_router import router as case_router
 from app.api.case_conversation_router import router as case_conversation_router
@@ -116,6 +117,7 @@ async def api_v1_entrypoint():
     }
 
 
+app.include_router(auth_router, prefix="/api/v1")
 app.include_router(router, prefix="/api/v1")
 app.include_router(case_conversation_router, prefix="/api/v1")
 app.include_router(case_router, prefix="/api/v1")
@@ -130,6 +132,24 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 async def serve_frontend():
     """Serve the chatbot UI at the root URL."""
     return FileResponse(STATIC_DIR / "index.html")
+
+
+@app.get("/login")
+async def serve_login():
+    """Serve the auth page."""
+    return FileResponse(STATIC_DIR / "auth.html")
+
+
+@app.get("/register")
+async def serve_register():
+    """Serve the auth page (register tab)."""
+    return FileResponse(STATIC_DIR / "auth.html")
+
+
+@app.get("/invite")
+async def serve_invite():
+    """Serve the invitation acceptance page."""
+    return FileResponse(STATIC_DIR / "invite.html")
 
 
 @app.get("/admin")

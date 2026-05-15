@@ -10,18 +10,29 @@ import os
 import threading
 import time
 
+from app.config import get_settings
+
 logger = logging.getLogger(__name__)
 
 
 class RerankingService:
     """
     Optional cross-encoder reranking on top of hybrid retrieval.
+    Enabled by default via DALEEL_ENABLE_CROSS_ENCODER=true.
     """
 
     MODEL_NAME = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    # MS-MARCO cross-encoder scores range roughly -10 to +10.
+    # Chunks below this threshold are considered irrelevant.
+    MIN_RERANK_SCORE = -2.0
 
     def __init__(self) -> None:
-        self.enabled = os.getenv("ENABLE_CROSS_ENCODER", "false").lower() == "true"
+        settings = get_settings()
+        env_flag = os.getenv("ENABLE_CROSS_ENCODER")
+        if env_flag is not None:
+            self.enabled = env_flag.lower() == "true"
+        else:
+            self.enabled = settings.enable_cross_encoder
         self._model = None
         self._load_attempted = False
         self._load_failed = False
@@ -95,8 +106,16 @@ class RerankingService:
         for chunk, score in zip(limited_chunks, scores):
             chunk["rerank_score"] = float(score)
 
-        return sorted(
+        ranked = sorted(
             limited_chunks,
             key=lambda chunk: float(chunk.get("rerank_score", 0.0)),
             reverse=True,
         )
+
+        filtered = [c for c in ranked if c.get("rerank_score", 0.0) >= self.MIN_RERANK_SCORE]
+        if not filtered:
+            return ranked[:3]
+        dropped = len(ranked) - len(filtered)
+        if dropped:
+            logger.info("Reranker dropped %d chunks below score threshold %.1f", dropped, self.MIN_RERANK_SCORE)
+        return filtered

@@ -21,6 +21,8 @@ class DocumentOut(BaseModel):
     ocr_used: bool = False
     status: str
     error_message: Optional[str] = None
+    document_type: Optional[str] = None
+    loi_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -695,6 +697,30 @@ class ApplyAllAmendmentsResponse(BaseModel):
     applied: int
     failed: int
     results: List[ApplyAmendmentResponse]
+    message: str
+
+
+class AmendmentDiffOut(BaseModel):
+    added: int
+    modified: int
+    removed: int
+    unchanged: int
+
+
+class AmendmentOperationSummary(BaseModel):
+    type: str
+    article_key: str
+    article_number: str
+    old_version_id: Optional[str] = None
+    new_version_id: Optional[str] = None
+
+
+class AmendmentUploadResponse(BaseModel):
+    document: Optional[DocumentOut] = None
+    old_document_id: Optional[str] = None
+    diff: AmendmentDiffOut
+    operations: List[AmendmentOperationSummary]
+    notifications_sent: int = 0
     message: str
 
 

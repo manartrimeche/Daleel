@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Upl
 from fastapi.responses import StreamingResponse
 from typing import Any
 
-from app.api.auth import require_api_key, require_admin
+from app.api.auth import get_current_user, require_api_key, require_admin
 from app.config import get_settings
 from app.database import get_db
 from app.limiter import limiter
@@ -21,6 +21,7 @@ from app.schemas import (
     ActionOut,
     AgenticAskResponse,
     AmendmentOperationListOut,
+    AmendmentUploadResponse,
     ApplicabilityEvalResponse,
     ApplyAllAmendmentsResponse,
     ApplyAmendmentResponse,
@@ -130,12 +131,17 @@ async def upload_document(
     db: Any = Depends(get_db),
     _key: str | None = Depends(require_api_key),
 ):
-    """Upload and process a document (PDF, DOCX, TXT, image)."""
+    """Upload and process a document (PDF or DOCX only)."""
     if clear_db:
         await document_service.clear_all_documents(db)
 
     if not file.filename:
         raise HTTPException(400, "No filename provided")
+
+    allowed_ext = {".pdf", ".docx", ".doc"}
+    ext = "." + file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
+    if ext not in allowed_ext:
+        raise HTTPException(400, f"Type de fichier non supporté. Formats acceptés : PDF, DOCX")
 
     max_bytes = settings.max_upload_mb * 1024 * 1024
     chunks = []
@@ -160,6 +166,58 @@ async def upload_document(
     if doc.get("status") == "error":
         raise HTTPException(422, doc.get("error_message") or "Processing failed")
     return doc
+
+
+# ── Amendment upload (article-level diff & replace) ──
+
+
+@router.post(
+    "/documents/upload-amendment",
+    response_model=AmendmentUploadResponse,
+    status_code=201,
+)
+@limiter.limit("5/minute")
+async def upload_amendment(
+    request: Request,
+    file: UploadFile = File(...),
+    loi_id: str | None = Query(None, description="UUID of the target Loi (auto-detected from document content if omitted)"),
+    chunk_size: int | None = Query(None, ge=100, le=5000),
+    chunk_overlap: int | None = Query(None, ge=0, le=500),
+    db: Any = Depends(get_db),
+    _key: str | None = Depends(require_api_key),
+):
+    """Upload an amended document. Auto-detects the target law from the text,
+    compares articles with the existing version, applies changes, and replaces
+    the old document."""
+    if not file.filename:
+        raise HTTPException(400, "No filename provided")
+
+    max_bytes = settings.max_upload_mb * 1024 * 1024
+    chunks = []
+    total_size = 0
+    while True:
+        chunk = await file.read(1024 * 1024)
+        if not chunk:
+            break
+        total_size += len(chunk)
+        if total_size > max_bytes:
+            raise HTTPException(413, f"File exceeds {settings.max_upload_mb} MB limit")
+        chunks.append(chunk)
+    content = b"".join(chunks)
+
+    try:
+        result = await document_service.upload_amendment_document(
+            db,
+            file.filename,
+            content,
+            loi_id=loi_id,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+        )
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+
+    return result
 
 
 # ── Bulk upload from data directory ──
@@ -421,6 +479,34 @@ async def ask_question(
         use_quality_guard=body.use_quality_guard,
         intent=body.intent,
     )
+
+    # Save Q&A to conversation history
+    try:
+        from app.api.auth import _bearer_scheme
+        from fastapi.security import HTTPAuthorizationCredentials
+        creds = await _bearer_scheme(request)
+        user = None
+        if creds:
+            try:
+                from app.services import auth_service as _as
+                payload = _as.decode_token(creds.credentials)
+                if payload.get("type") == "access":
+                    user = await _as.get_user_by_id(payload["sub"])
+            except Exception:
+                pass
+        if user:
+            from datetime import datetime, timezone
+            await db["chat_history"].insert_one({
+                "user_id": user["id"],
+                "organization_id": user.get("organization_id"),
+                "question": body.question,
+                "answer": result.get("answer", ""),
+                "sources_count": len(result.get("sources", [])),
+                "created_at": datetime.now(timezone.utc),
+            })
+    except Exception:
+        logger.debug("Could not save chat history (non-fatal)", exc_info=True)
+
     return AskResponse(**result)
 
 
@@ -440,6 +526,33 @@ async def ask_question_agentic(request: Request, body: AskRequest, db: Any = Dep
         use_quality_guard=body.use_quality_guard,
         intent=body.intent,
     )
+
+    # Save Q&A to conversation history
+    try:
+        from app.api.auth import _bearer_scheme
+        creds = await _bearer_scheme(request)
+        user = None
+        if creds:
+            try:
+                from app.services import auth_service as _as
+                payload = _as.decode_token(creds.credentials)
+                if payload.get("type") == "access":
+                    user = await _as.get_user_by_id(payload["sub"])
+            except Exception:
+                pass
+        if user:
+            from datetime import datetime, timezone
+            await db["chat_history"].insert_one({
+                "user_id": user["id"],
+                "organization_id": user.get("organization_id"),
+                "question": body.question,
+                "answer": result.get("answer", ""),
+                "sources_count": len(result.get("sources", [])),
+                "created_at": datetime.now(timezone.utc),
+            })
+    except Exception:
+        logger.debug("Could not save chat history (non-fatal)", exc_info=True)
+
     return AgenticAskResponse(**result)
 
 
@@ -1867,3 +1980,68 @@ async def export_roadmap(
         media_type=media_type,
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+# ── Chat History ─────────────────────────────────────────────────────────────
+
+
+@router.get("/chat-history")
+async def get_chat_history(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    user_id: str | None = Query(None),
+    user: dict = Depends(get_current_user),
+    db: Any = Depends(get_db),
+):
+    """
+    List chat history with role-based access:
+    - member/viewer: own history only
+    - admin/owner: all members of their organization
+    - super_admin: no access (403)
+    """
+    if user["role"] == "super_admin":
+        raise HTTPException(403, "Super admin cannot access company chat histories")
+
+    query: dict = {}
+    org_id = user.get("organization_id")
+
+    if user["role"] in ("admin", "owner"):
+        query["organization_id"] = org_id
+        if user_id:
+            query["user_id"] = user_id
+    else:
+        query["user_id"] = user["id"]
+
+    total = await db["chat_history"].count_documents(query)
+    cursor = db["chat_history"].find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit)
+    entries = await cursor.to_list(length=limit)
+
+    user_ids = list({e["user_id"] for e in entries if e.get("user_id")})
+    user_map: dict[str, str] = {}
+    if user_ids:
+        async for u in db["users"].find({"id": {"$in": user_ids}}, {"id": 1, "full_name": 1, "email": 1}):
+            user_map[u["id"]] = u.get("full_name") or u.get("email", "?")
+
+    for e in entries:
+        e["user_name"] = user_map.get(e.get("user_id", ""), "?")
+        if e.get("created_at"):
+            e["created_at"] = e["created_at"].isoformat()
+
+    return {"entries": entries, "total": total}
+
+
+@router.delete("/chat-history/{entry_id}")
+async def delete_chat_history_entry(
+    entry_id: str,
+    user: dict = Depends(get_current_user),
+    db: Any = Depends(get_db),
+):
+    """Delete a single chat history entry (own entries or admin for org)."""
+    entry = await db["chat_history"].find_one({"user_id": user["id"], "created_at": entry_id})
+    if not entry:
+        if user["role"] not in ("admin", "owner"):
+            raise HTTPException(404, "Entry not found")
+    result = await db["chat_history"].delete_one({"_id": entry["_id"]}) if entry else None
+    if not result or result.deleted_count == 0:
+        raise HTTPException(404, "Entry not found")
+    return {"deleted": True}

@@ -26,9 +26,6 @@ from app.database import get_collection
 logger = logging.getLogger(__name__)
 
 
-def get_collection(name: str):
-    return mongo_db[name]
-
 # ─────────────────────────────────────────────────────────────
 # Scoring constants
 # ─────────────────────────────────────────────────────────────
