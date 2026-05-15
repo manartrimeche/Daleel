@@ -155,4 +155,7 @@ async def serve_invite():
 @app.get("/admin")
 async def serve_admin():
     """Serve the admin panel UI."""
-    return FileResponse(STATIC_DIR / "admin.html")
+    return FileResponse(
+        STATIC_DIR / "admin.html",
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+    )
