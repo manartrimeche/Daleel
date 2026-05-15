@@ -169,10 +169,8 @@
             document.getElementById('accept-form').style.display = 'block';
 
             const orgName = params.get('org') || 'Votre organisation';
-            const role = params.get('role') || 'member';
             document.getElementById('org-name-display').textContent = orgName;
-            const roleLabels = { admin: 'Administrateur', member: 'Membre', viewer: 'Lecteur' };
-            document.getElementById('role-display').textContent = roleLabels[role] || role;
+            document.getElementById('role-display').textContent = 'Membre';
         });
 
         function showError(msg) {

@@ -31,6 +31,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.api.auth import get_current_user, require_role
 from app.config import get_settings
 from app.services import auth_service
+from app.services.email_service import send_invitation_email
 from app.schemas_auth import (
     AcceptInvitationRequest,
     ChangePasswordRequest,
@@ -337,13 +338,21 @@ async def create_invitation(
         raise HTTPException(status_code=409, detail="User already in organization")
 
     org = await auth_service.get_organization(org_id)
+    org_name = org["name"] if org else "Organisation"
     inv = await auth_service.create_invitation(
         email=body.email,
-        role=body.role,
+        role="member",
         organization_id=org_id,
         invited_by=str(user["_id"]),
     )
-    return InvitationOut(**auth_service.serialize_invitation(inv, org["name"] if org else None))
+
+    await send_invitation_email(
+        to_email=body.email,
+        org_name=org_name,
+        token=inv["token"],
+    )
+
+    return InvitationOut(**auth_service.serialize_invitation(inv, org_name))
 
 
 @router.get("/invitations", response_model=InvitationListOut)

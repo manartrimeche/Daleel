@@ -128,7 +128,6 @@ class ChangePasswordRequest(BaseModel):
 
 class InvitationCreate(BaseModel):
     email: EmailStr
-    role: str = Field(default="member", pattern=r"^(admin|member|viewer)$")
 
 class InvitationOut(BaseModel):
     id: str

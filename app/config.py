@@ -132,6 +132,16 @@ class Settings(BaseSettings):
     kg_light_enabled: bool = True
     kg_light_max_entities: int = 6
 
+    # ── Email (SMTP) ──
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from_email: str = ""
+    smtp_from_name: str = "Daleel"
+    smtp_use_tls: bool = True
+    app_base_url: str = "http://localhost:8000"
+
     model_config = {"env_prefix": "DALEEL_", "env_file": ".env", "extra": "ignore"}
 
 
