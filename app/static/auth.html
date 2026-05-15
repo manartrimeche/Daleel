@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="fr" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daleel — Connexion</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%237c5cfc'/><text y='.9em' x='50' text-anchor='middle' font-size='70'>⚖️</text></svg>">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a2e;
+            --bg-card: #16162a;
+            --accent: #7c5cfc;
+            --accent-light: #a78bfa;
+            --accent-glow: rgba(124, 92, 252, 0.15);
+            --text-primary: #e8e6f0;
+            --text-secondary: #9896a8;
+            --text-muted: #6b6980;
+            --border: #2a2a40;
+            --border-accent: rgba(124, 92, 252, 0.3);
+            --success: #34d399;
+            --error: #f87171;
+            --warning: #fbbf24;
+            --gradient-1: linear-gradient(135deg, #7c5cfc 0%, #a78bfa 50%, #c084fc 100%);
+            --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.5);
+            --shadow-glow: 0 0 30px rgba(124, 92, 252, 0.1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', 'Noto Sans Arabic', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .bg-pattern {
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(ellipse at 20% 50%, rgba(124,92,252,0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(167,139,250,0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 80%, rgba(192,132,252,0.04) 0%, transparent 50%);
+            pointer-events: none;
+        }
+
+        .auth-container {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 590px;
+            padding: 20px;
+        }
+
+        .auth-header {
+            text-align: center;
+            margin-bottom: 38px;
+        }
+
+        .auth-logo {
+            width: 80px;
+            height: 80px;
+            background: var(--gradient-1);
+            border-radius: 21px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 34px;
+            color: white;
+            margin-bottom: 28px;
+            box-shadow: var(--shadow-glow), 0 8px 32px rgba(124,92,252,0.3);
+        }
+
+        .auth-header h1 {
+            font-size: 36px;
+            font-weight: 700;
+            background: var(--gradient-1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 18px;
+        }
+
+        .auth-header p {
+            color: var(--text-secondary);
+            font-size: 17px;
+        }
+
+        .auth-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .auth-tabs {
+            display: flex;
+            gap: 4px;
+            background: var(--bg-primary);
+            border-radius: 10px;
+            padding: 4px;
+            margin-bottom: 34px;
+        }
+
+        .auth-tab {
+            flex: 1;
+            padding: 14px 10px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            font-family: inherit;
+            font-size: 16px;
+            font-weight: 500;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .auth-tab.active {
+            background: var(--accent);
+            color: white;
+            box-shadow: 0 2px 8px rgba(124,92,252,0.4);
+        }
+
+        .auth-tab:hover:not(.active) {
+            color: var(--text-primary);
+            background: var(--bg-tertiary);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 15px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .form-group label .required {
+            color: var(--error);
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 16px 18px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 17px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            outline: none;
+        }
+
+        .form-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .form-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .form-input.error {
+            border-color: var(--error);
+        }
+
+        .form-select {
+            width: 100%;
+            padding: 16px 18px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 16px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            outline: none;
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' stroke='%239896a8' fill='none' stroke-width='1.5'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+        }
+
+        .form-select:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .form-select option {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .btn-primary {
+            width: 100%;
+            padding: 17px;
+            background: var(--gradient-1);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-family: inherit;
+            font-size: 17px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.1s;
+            margin-top: 12px;
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+        }
+
+        .btn-primary:active {
+            transform: scale(0.98);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-primary .spinner {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .error-message {
+            background: rgba(248,113,113,0.1);
+            border: 1px solid rgba(248,113,113,0.3);
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 13px;
+            color: var(--error);
+            margin-bottom: 16px;
+            display: none;
+        }
+
+        .error-message.visible {
+            display: block;
+        }
+
+        .success-message {
+            background: rgba(52,211,153,0.1);
+            border: 1px solid rgba(52,211,153,0.3);
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 13px;
+            color: var(--success);
+            margin-bottom: 16px;
+            display: none;
+        }
+
+        .success-message.visible {
+            display: block;
+        }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 20px 0;
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        .auth-footer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .auth-footer a {
+            color: var(--accent-light);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .auth-footer a:hover {
+            text-decoration: underline;
+        }
+
+        .password-strength {
+            height: 3px;
+            background: var(--bg-primary);
+            border-radius: 2px;
+            margin-top: 6px;
+            overflow: hidden;
+        }
+
+        .password-strength-bar {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.3s, background 0.3s;
+            width: 0;
+        }
+
+        .sector-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 18px;
+        }
+
+        .sector-chip {
+            padding: 8px 10px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-size: 12px;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .sector-chip:hover {
+            border-color: var(--accent);
+            color: var(--text-primary);
+        }
+
+        .sector-chip.selected {
+            background: var(--accent-glow);
+            border-color: var(--accent);
+            color: var(--accent-light);
+            font-weight: 500;
+        }
+
+        .form-group label .sector-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .selected-sector-badge {
+            font-size: 11px;
+            padding: 2px 8px;
+            background: var(--accent-glow);
+            border-radius: 4px;
+            color: var(--accent-light);
+        }
+
+        #login-form, #register-form {
+            display: none;
+        }
+
+        #login-form.active, #register-form.active {
+            display: block;
+        }
+
+        .register-steps {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+
+        .step-indicator {
+            flex: 1;
+            height: 3px;
+            background: var(--border);
+            border-radius: 2px;
+            transition: background 0.3s;
+        }
+
+        .step-indicator.active {
+            background: var(--accent);
+        }
+
+        .step-indicator.done {
+            background: var(--success);
+        }
+
+        .register-step {
+            display: none;
+        }
+
+        .register-step.active {
+            display: block;
+        }
+
+        .step-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .step-subtitle {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+        }
+
+        .btn-secondary {
+            width: 100%;
+            padding: 12px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-card);
+            border-color: var(--accent);
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 8px;
+        }
+
+        .btn-row .btn-secondary { flex: 1; }
+        .btn-row .btn-primary { flex: 2; margin-top: 0; }
+
+        @media (max-width: 520px) {
+            .auth-container { padding: 16px; }
+            .auth-card { padding: 24px; }
+            .sector-grid { grid-template-columns: repeat(2, 1fr); }
+            .form-row { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-pattern"></div>
+
+    <div class="auth-container">
+        <div class="auth-header">
+            <div class="auth-logo">D</div>
+            <h1>Daleel — دليل</h1>
+            <p>Plateforme de conformité juridique tunisienne</p>
+        </div>
+
+        <div class="auth-card">
+            <div class="auth-tabs">
+                <button class="auth-tab active" onclick="switchTab('login')">Connexion</button>
+                <button class="auth-tab" onclick="switchTab('register')">Inscription</button>
+            </div>
+
+            <div id="error-msg" class="error-message"></div>
+            <div id="success-msg" class="success-message"></div>
+
+            <!-- ══════ LOGIN FORM ══════ -->
+            <form id="login-form" class="active" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label>Email <span class="required">*</span></label>
+                    <input type="email" class="form-input" id="login-email" placeholder="vous@entreprise.tn" required autocomplete="email">
+                </div>
+                <div class="form-group">
+                    <label>Mot de passe <span class="required">*</span></label>
+                    <input type="password" class="form-input" id="login-password" placeholder="Votre mot de passe" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="btn-primary" id="login-btn">Se connecter</button>
+            </form>
+
+            <!-- ══════ REGISTER FORM ══════ -->
+            <form id="register-form" onsubmit="handleRegister(event)">
+                <div class="register-steps">
+                    <div class="step-indicator active" id="step-ind-1"></div>
+                    <div class="step-indicator" id="step-ind-2"></div>
+                    <div class="step-indicator" id="step-ind-3"></div>
+                </div>
+
+                <!-- Step 1: Informations personnelles -->
+                <div class="register-step active" id="reg-step-1">
+                    <div class="step-title">Informations personnelles</div>
+                    <div class="step-subtitle">Créez votre compte administrateur</div>
+
+                    <div class="form-group">
+                        <label>Nom complet <span class="required">*</span></label>
+                        <input type="text" class="form-input" id="reg-name" placeholder="Votre nom complet" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Email professionnel <span class="required">*</span></label>
+                        <input type="email" class="form-input" id="reg-email" placeholder="vous@entreprise.tn" required autocomplete="email">
+                    </div>
+                    <div class="form-group">
+                        <label>Mot de passe <span class="required">*</span></label>
+                        <input type="password" class="form-input" id="reg-password" placeholder="Minimum 8 caractères" required minlength="8" oninput="updatePasswordStrength(this.value)">
+                        <div class="password-strength">
+                            <div class="password-strength-bar" id="pwd-strength-bar"></div>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-primary" onclick="nextStep(2)">Continuer</button>
+                </div>
+
+                <!-- Step 2: Secteur d'activité -->
+                <div class="register-step" id="reg-step-2">
+                    <div class="step-title">Secteur d'activité</div>
+                    <div class="step-subtitle">Sélectionnez le secteur de votre entreprise</div>
+
+                    <input type="hidden" id="reg-sector" value="">
+
+                    <div class="sector-grid" id="sector-grid"></div>
+
+                    <div class="btn-row">
+                        <button type="button" class="btn-secondary" onclick="prevStep(1)">Retour</button>
+                        <button type="button" class="btn-primary" id="step2-next" onclick="nextStep(3)">Continuer</button>
+                    </div>
+                </div>
+
+                <!-- Step 3: Profil entreprise -->
+                <div class="register-step" id="reg-step-3">
+                    <div class="step-title">Profil entreprise</div>
+                    <div class="step-subtitle">Complétez les informations de votre organisation</div>
+
+                    <div class="form-group">
+                        <label>Nom de l'entreprise <span class="required">*</span></label>
+                        <input type="text" class="form-input" id="reg-org-name" placeholder="Ex: TechnoTunisie SARL" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Taille</label>
+                            <select class="form-select" id="reg-size">
+                                <option value="">Sélectionner</option>
+                                <option value="micro">Micro (1-9)</option>
+                                <option value="small">Petite (10-49)</option>
+                                <option value="medium">Moyenne (50-249)</option>
+                                <option value="large">Grande (250+)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Nombre d'employés</label>
+                            <input type="number" class="form-input" id="reg-employees" placeholder="Ex: 50" min="1">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Juridiction</label>
+                        <select class="form-select" id="reg-jurisdiction">
+                            <option value="tunisia">Tunisie</option>
+                        </select>
+                    </div>
+
+                    <div class="btn-row">
+                        <button type="button" class="btn-secondary" onclick="prevStep(2)">Retour</button>
+                        <button type="submit" class="btn-primary" id="register-btn">Créer mon compte</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="auth-footer">
+            Daleel v1.0 — Conformité juridique intelligente
+        </div>
+    </div>
+
+    <script>
+        const API = '/api/v1';
+
+        const SECTORS = [
+            { value: 'finance', label: 'Finance' },
+            { value: 'banque', label: 'Banque' },
+            { value: 'assurance', label: 'Assurance' },
+            { value: 'industrie', label: 'Industrie' },
+            { value: 'technologie', label: 'Technologie' },
+            { value: 'telecom', label: 'Télécom' },
+            { value: 'sante', label: 'Santé' },
+            { value: 'pharma', label: 'Pharma' },
+            { value: 'transport', label: 'Transport' },
+            { value: 'btp', label: 'BTP' },
+            { value: 'commerce', label: 'Commerce' },
+            { value: 'energie', label: 'Énergie' },
+            { value: 'education', label: 'Éducation' },
+            { value: 'agriculture', label: 'Agriculture' },
+            { value: 'tourisme', label: 'Tourisme' },
+            { value: 'services', label: 'Services' },
+            { value: 'immobilier', label: 'Immobilier' },
+            { value: 'autre', label: 'Autre' },
+        ];
+
+        let currentStep = 1;
+
+        // ── Init ──
+        document.addEventListener('DOMContentLoaded', () => {
+            const token = localStorage.getItem('daleel_access_token');
+            if (token) {
+                let user = null;
+                try { user = JSON.parse(localStorage.getItem('daleel_user')); } catch {}
+                window.location.href = user?.role === 'super_admin' ? '/admin' : '/';
+                return;
+            }
+            renderSectors();
+        });
+
+        function renderSectors() {
+            const grid = document.getElementById('sector-grid');
+            grid.innerHTML = SECTORS.map(s =>
+                `<button type="button" class="sector-chip" data-value="${s.value}" onclick="selectSector('${s.value}', this)">${s.label}</button>`
+            ).join('');
+        }
+
+        function selectSector(value, el) {
+            document.querySelectorAll('.sector-chip').forEach(c => c.classList.remove('selected'));
+            el.classList.add('selected');
+            document.getElementById('reg-sector').value = value;
+        }
+
+        // ── Tab switching ──
+        function switchTab(tab) {
+            document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+            document.getElementById('login-form').classList.remove('active');
+            document.getElementById('register-form').classList.remove('active');
+
+            if (tab === 'login') {
+                document.querySelectorAll('.auth-tab')[0].classList.add('active');
+                document.getElementById('login-form').classList.add('active');
+            } else {
+                document.querySelectorAll('.auth-tab')[1].classList.add('active');
+                document.getElementById('register-form').classList.add('active');
+            }
+            hideMessages();
+        }
+
+        // ── Step navigation ──
+        function nextStep(step) {
+            if (step === 2) {
+                const name = document.getElementById('reg-name').value.trim();
+                const email = document.getElementById('reg-email').value.trim();
+                const pwd = document.getElementById('reg-password').value;
+                if (!name || !email || pwd.length < 8) {
+                    showError('Veuillez remplir tous les champs. Le mot de passe doit contenir au moins 8 caractères.');
+                    return;
+                }
+            }
+            if (step === 3) {
+                const sector = document.getElementById('reg-sector').value;
+                if (!sector) {
+                    showError('Veuillez sélectionner un secteur d\'activité.');
+                    return;
+                }
+            }
+            hideMessages();
+            currentStep = step;
+            updateSteps();
+        }
+
+        function prevStep(step) {
+            hideMessages();
+            currentStep = step;
+            updateSteps();
+        }
+
+        function updateSteps() {
+            for (let i = 1; i <= 3; i++) {
+                const stepEl = document.getElementById(`reg-step-${i}`);
+                const indEl = document.getElementById(`step-ind-${i}`);
+                stepEl.classList.toggle('active', i === currentStep);
+                indEl.classList.toggle('active', i === currentStep);
+                indEl.classList.toggle('done', i < currentStep);
+            }
+        }
+
+        // ── Password strength ──
+        function updatePasswordStrength(pwd) {
+            const bar = document.getElementById('pwd-strength-bar');
+            let score = 0;
+            if (pwd.length >= 8) score++;
+            if (pwd.length >= 12) score++;
+            if (/[A-Z]/.test(pwd)) score++;
+            if (/[0-9]/.test(pwd)) score++;
+            if (/[^A-Za-z0-9]/.test(pwd)) score++;
+
+            const pct = (score / 5) * 100;
+            bar.style.width = pct + '%';
+            if (score <= 1) bar.style.background = '#f87171';
+            else if (score <= 2) bar.style.background = '#fbbf24';
+            else if (score <= 3) bar.style.background = '#fb923c';
+            else bar.style.background = '#34d399';
+        }
+
+        // ── Messages ──
+        function showError(msg) {
+            const el = document.getElementById('error-msg');
+            el.textContent = msg;
+            el.classList.add('visible');
+            document.getElementById('success-msg').classList.remove('visible');
+        }
+
+        function showSuccess(msg) {
+            const el = document.getElementById('success-msg');
+            el.textContent = msg;
+            el.classList.add('visible');
+            document.getElementById('error-msg').classList.remove('visible');
+        }
+
+        function hideMessages() {
+            document.getElementById('error-msg').classList.remove('visible');
+            document.getElementById('success-msg').classList.remove('visible');
+        }
+
+        // ── Login ──
+        async function handleLogin(e) {
+            e.preventDefault();
+            hideMessages();
+            const btn = document.getElementById('login-btn');
+            const email = document.getElementById('login-email').value.trim();
+            const password = document.getElementById('login-password').value;
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span>Connexion...';
+
+            try {
+                const res = await fetch(`${API}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password }),
+                });
+                const data = await res.json();
+
+                if (!res.ok) {
+                    showError(data.detail || 'Email ou mot de passe incorrect');
+                    return;
+                }
+
+                localStorage.setItem('daleel_access_token', data.access_token);
+                localStorage.setItem('daleel_refresh_token', data.refresh_token);
+                localStorage.setItem('daleel_user', JSON.stringify(data.user));
+
+                if (data.user.role === 'super_admin') {
+                    window.location.href = '/admin';
+                } else {
+                    window.location.href = '/';
+                }
+            } catch (err) {
+                showError('Erreur de connexion au serveur');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Se connecter';
+            }
+        }
+
+        // ── Register ──
+        async function handleRegister(e) {
+            e.preventDefault();
+            hideMessages();
+            const btn = document.getElementById('register-btn');
+
+            const body = {
+                full_name: document.getElementById('reg-name').value.trim(),
+                email: document.getElementById('reg-email').value.trim(),
+                password: document.getElementById('reg-password').value,
+                organization_name: document.getElementById('reg-org-name').value.trim(),
+                sector: document.getElementById('reg-sector').value,
+                size: document.getElementById('reg-size').value || undefined,
+                employees: document.getElementById('reg-employees').value ? parseInt(document.getElementById('reg-employees').value) : undefined,
+                jurisdiction: document.getElementById('reg-jurisdiction').value,
+            };
+
+            if (!body.organization_name) {
+                showError('Veuillez saisir le nom de votre entreprise.');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span>Création...';
+
+            try {
+                const res = await fetch(`${API}/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                const data = await res.json();
+
+                if (!res.ok) {
+                    showError(data.detail || 'Erreur lors de l\'inscription');
+                    return;
+                }
+
+                localStorage.setItem('daleel_access_token', data.access_token);
+                localStorage.setItem('daleel_refresh_token', data.refresh_token);
+                localStorage.setItem('daleel_user', JSON.stringify(data.user));
+
+                window.location.href = '/';
+            } catch (err) {
+                showError('Erreur de connexion au serveur');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Créer mon compte';
+            }
+        }
+    </script>
+</body>
+</html>
