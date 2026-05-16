@@ -30,8 +30,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.auth import get_current_user, require_role
 from app.config import get_settings
+from app.database import mongo_db
 from app.services import auth_service
 from app.services.email_service import send_invitation_email
+from app.services.notification_service import create_notification
 from app.schemas_auth import (
     AcceptInvitationRequest,
     ChangePasswordRequest,
@@ -69,6 +71,8 @@ async def register(body: RegisterRequest):
         size=body.size,
         employees=body.employees,
         jurisdiction=body.jurisdiction,
+        subscription_type=body.subscription_type,
+        status="pending_approval",
     )
     org_id = str(org["_id"])
 
@@ -82,6 +86,23 @@ async def register(body: RegisterRequest):
     user_id = str(user["_id"])
 
     await auth_service.update_last_login(user_id)
+    await create_notification(
+        mongo_db,
+        alert_type="approval_organization",
+        title="Nouvelle inscription entreprise",
+        message=(
+            f"L'entreprise « {org['name']} » demande l'activation de son compte. "
+            "Une approbation super admin est requise."
+        ),
+        details={
+            "target_type": "organization",
+            "organization_id": org_id,
+            "organization_name": org["name"],
+            "requested_by": user_id,
+            "requested_by_email": user["email"],
+            "approval_status": "pending_approval",
+        },
+    )
 
     settings = get_settings()
     access_token = auth_service.create_access_token(user_id, "owner", org_id)
@@ -94,6 +115,7 @@ async def register(body: RegisterRequest):
         user=UserOut(
             **auth_service.serialize_user(user),
             organization_name=org["name"],
+            organization_status=org.get("status"),
         ),
     )
 
@@ -113,10 +135,27 @@ async def login(body: LoginRequest):
     await auth_service.update_last_login(user_id)
 
     org_name = None
+    org_status = None
     if org_id:
         org = await auth_service.get_organization(org_id)
         if org:
             org_name = org["name"]
+            org_status = org.get("status", "active")
+            if org_status == "pending_approval":
+                raise HTTPException(
+                    status_code=403,
+                    detail="Votre inscription entreprise est en attente d'approbation par le super admin.",
+                )
+            if org_status == "rejected":
+                raise HTTPException(
+                    status_code=403,
+                    detail="Votre inscription entreprise a été refusée par le super admin.",
+                )
+            if org_status != "active":
+                raise HTTPException(
+                    status_code=403,
+                    detail="Votre entreprise n'est pas active.",
+                )
 
     settings = get_settings()
     access_token = auth_service.create_access_token(user_id, user["role"], org_id)
@@ -129,6 +168,7 @@ async def login(body: LoginRequest):
         user=UserOut(
             **auth_service.serialize_user(user),
             organization_name=org_name,
+            organization_status=org_status,
         ),
     )
 
@@ -152,10 +192,12 @@ async def refresh_token(body: RefreshRequest):
     org_id = user.get("organization_id")
 
     org_name = None
+    org_status = None
     if org_id:
         org = await auth_service.get_organization(org_id)
         if org:
             org_name = org["name"]
+            org_status = org.get("status", "active")
 
     settings = get_settings()
     access_token = auth_service.create_access_token(user_id, user["role"], org_id)
@@ -168,6 +210,7 @@ async def refresh_token(body: RefreshRequest):
         user=UserOut(
             **auth_service.serialize_user(user),
             organization_name=org_name,
+            organization_status=org_status,
         ),
     )
 
@@ -177,11 +220,17 @@ async def refresh_token(body: RefreshRequest):
 @router.get("/me", response_model=UserOut)
 async def get_me(user: dict = Depends(get_current_user)):
     org_name = None
+    org_status = None
     if user.get("organization_id"):
         org = await auth_service.get_organization(user["organization_id"])
         if org:
             org_name = org["name"]
-    return UserOut(**auth_service.serialize_user(user), organization_name=org_name)
+            org_status = org.get("status", "active")
+    return UserOut(
+        **auth_service.serialize_user(user),
+        organization_name=org_name,
+        organization_status=org_status,
+    )
 
 
 @router.put("/me/password")
@@ -344,12 +393,26 @@ async def create_invitation(
         role="member",
         organization_id=org_id,
         invited_by=str(user["_id"]),
+        status="pending_approval",
     )
 
-    await send_invitation_email(
-        to_email=body.email,
-        org_name=org_name,
-        token=inv["token"],
+    await create_notification(
+        mongo_db,
+        alert_type="approval_invitation",
+        title="Invitation membre à approuver",
+        message=(
+            f"L'entreprise « {org_name} » souhaite inviter {body.email}. "
+            "Une approbation super admin est requise avant l'envoi."
+        ),
+        details={
+            "target_type": "invitation",
+            "invitation_id": str(inv["_id"]),
+            "organization_id": org_id,
+            "organization_name": org_name,
+            "email": body.email,
+            "requested_by": str(user["_id"]),
+            "approval_status": "pending_approval",
+        },
     )
 
     return InvitationOut(**auth_service.serialize_invitation(inv, org_name))

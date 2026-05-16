@@ -43,6 +43,7 @@
             pointer-events: none;
         }
         .container { position: relative; z-index: 1; width: 100%; max-width: 440px; padding: 20px; }
+        .invite-toolbar { display: flex; justify-content: flex-end; margin-bottom: 16px; }
         .header { text-align: center; margin-bottom: 28px; }
         .logo {
             width: 56px; height: 56px; background: var(--gradient-1); border-radius: 16px;
@@ -102,15 +103,18 @@
         .expired-state p { color: var(--text-secondary); font-size: 14px; margin-bottom: 20px; }
         .expired-state a { color: var(--accent-light); text-decoration: none; }
         .footer { text-align: center; margin-top: 18px; font-size: 12px; color: var(--text-muted); }
+        html[dir="rtl"] .form-group label { text-align: right; }
+        html[dir="rtl"] .form-input { text-align: right; }
     </style>
 </head>
 <body>
     <div class="bg-pattern"></div>
     <div class="container">
+        <div class="invite-toolbar" id="invite-language"></div>
         <div class="header">
             <div class="logo">D</div>
             <h1>Daleel — دليل</h1>
-            <p>Vous avez été invité à rejoindre une organisation</p>
+            <p data-i18n="invite.subtitle">Vous avez été invité à rejoindre une organisation</p>
         </div>
 
         <div class="card">
@@ -118,14 +122,14 @@
             <div id="success-msg" class="success-message"></div>
 
             <div id="loading-state" style="text-align:center; padding:30px 0; color:var(--text-secondary);">
-                Vérification de l'invitation...
+                <span data-i18n="invite.loading">Vérification de l'invitation...</span>
             </div>
 
             <div id="expired-state" class="expired-state" style="display:none;">
                 <div class="icon">⏰</div>
-                <h2>Invitation expirée</h2>
-                <p>Cette invitation n'est plus valide. Veuillez demander une nouvelle invitation à votre administrateur.</p>
-                <a href="/login">Retour à la connexion</a>
+                <h2 data-i18n="invite.expired.title">Invitation expirée</h2>
+                <p data-i18n="invite.expired.body">Cette invitation n'est plus valide. Veuillez demander une nouvelle invitation à votre administrateur.</p>
+                <a href="/login" data-i18n="invite.backLogin">Retour à la connexion</a>
             </div>
 
             <form id="accept-form" style="display:none;" onsubmit="handleAccept(event)">
@@ -135,27 +139,37 @@
                 </div>
 
                 <div class="form-group">
-                    <label>Nom complet <span class="required">*</span></label>
-                    <input type="text" class="form-input" id="accept-name" placeholder="Votre nom complet" required>
+                    <label><span data-i18n="invite.fullName">Nom complet</span> <span class="required">*</span></label>
+                    <input type="text" class="form-input" id="accept-name" placeholder="Votre nom complet" data-i18n-placeholder="auth.fullName.placeholder" required>
                 </div>
                 <div class="form-group">
-                    <label>Mot de passe <span class="required">*</span></label>
-                    <input type="password" class="form-input" id="accept-password" placeholder="Minimum 8 caractères" required minlength="8">
+                    <label><span data-i18n="invite.password">Mot de passe</span> <span class="required">*</span></label>
+                    <input type="password" class="form-input" id="accept-password" placeholder="Minimum 8 caractères" data-i18n-placeholder="auth.password.minPlaceholder" required minlength="8">
                 </div>
                 <div class="form-group">
-                    <label>Confirmer le mot de passe <span class="required">*</span></label>
-                    <input type="password" class="form-input" id="accept-password-confirm" placeholder="Confirmez votre mot de passe" required minlength="8">
+                    <label><span data-i18n="invite.confirmPassword">Confirmer le mot de passe</span> <span class="required">*</span></label>
+                    <input type="password" class="form-input" id="accept-password-confirm" placeholder="Confirmez votre mot de passe" data-i18n-placeholder="invite.confirmPassword" required minlength="8">
                 </div>
 
-                <button type="submit" class="btn-primary" id="accept-btn">Rejoindre l'organisation</button>
+                <button type="submit" class="btn-primary" id="accept-btn" data-i18n="invite.join">Rejoindre l'organisation</button>
             </form>
         </div>
-        <div class="footer">Daleel v1.0 — Conformité juridique intelligente</div>
+        <div class="footer" data-i18n="auth.footer">Daleel v1.0 — Conformité juridique intelligente</div>
     </div>
 
+    <script src="/static/i18n.js?v=20260516g"></script>
     <script>
         const API = '/api/v1';
         let invitationToken = '';
+
+        function tr(key, params = {}) {
+            return window.DaleelI18n ? DaleelI18n.t(key, params) : key;
+        }
+
+        function updateInviteChrome() {
+            document.title = tr('invite.title');
+            if (window.DaleelI18n) DaleelI18n.apply(document);
+        }
 
         document.addEventListener('DOMContentLoaded', () => {
             const params = new URLSearchParams(window.location.search);
@@ -168,9 +182,9 @@
             document.getElementById('loading-state').style.display = 'none';
             document.getElementById('accept-form').style.display = 'block';
 
-            const orgName = params.get('org') || 'Votre organisation';
+            const orgName = params.get('org') || tr('invite.defaultOrg');
             document.getElementById('org-name-display').textContent = orgName;
-            document.getElementById('role-display').textContent = 'Membre';
+            document.getElementById('role-display').textContent = tr('invite.member');
         });
 
         function showError(msg) {
@@ -184,11 +198,11 @@
             const pwd = document.getElementById('accept-password').value;
             const confirm = document.getElementById('accept-password-confirm').value;
 
-            if (pwd !== confirm) { showError('Les mots de passe ne correspondent pas.'); return; }
+            if (pwd !== confirm) { showError(tr('invite.error.passwordMismatch')); return; }
 
             const btn = document.getElementById('accept-btn');
             btn.disabled = true;
-            btn.innerHTML = '<span class="spinner"></span>Création du compte...';
+            btn.innerHTML = `<span class="spinner"></span>${tr('invite.loading.create')}`;
 
             try {
                 const res = await fetch(`${API}/auth/invitations/accept`, {
@@ -207,7 +221,7 @@
                         document.getElementById('accept-form').style.display = 'none';
                         document.getElementById('expired-state').style.display = 'block';
                     } else {
-                        showError(data.detail || 'Erreur lors de la création du compte');
+                        showError(data.detail || tr('invite.error.create'));
                     }
                     return;
                 }
@@ -217,12 +231,22 @@
                 localStorage.setItem('daleel_user', JSON.stringify(data.user));
                 window.location.href = '/';
             } catch (err) {
-                showError('Erreur de connexion au serveur');
+                showError(tr('invite.error.server'));
             } finally {
                 btn.disabled = false;
-                btn.textContent = 'Rejoindre l\'organisation';
+                btn.textContent = tr('invite.join');
             }
         }
+
+        DaleelI18n.init({
+            switcher: '#invite-language',
+            onChange: () => {
+                updateInviteChrome();
+                const role = document.getElementById('role-display');
+                if (role && role.textContent) role.textContent = tr('invite.member');
+            }
+        });
+        updateInviteChrome();
     </script>
 </body>
 </html>

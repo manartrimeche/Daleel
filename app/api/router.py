@@ -3,13 +3,14 @@ FastAPI routes — document upload, listing, search.
 """
 
 import logging
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from typing import Any
 
-from app.api.auth import get_current_user, require_api_key, require_admin
+from app.api.auth import get_current_user, get_optional_current_user, require_api_key, require_admin
 from app.config import get_settings
 from app.database import get_db
 from app.limiter import limiter
@@ -70,16 +71,19 @@ from app.services import (
     amendment_service,
     applicability_service,
     audit_service,
+    auth_service,
     criticality_service,
     action_service,
     document_service,
     feedback_service,
     llm_service,
     loi_service,
+    notification_service,
     recalculation_service,
     roadmap_service,
     search_service,
 )
+from app.services.email_service import send_invitation_email
 from app.services.llm_cache import llm_cache
 
 logger = logging.getLogger(__name__)
@@ -129,9 +133,12 @@ async def upload_document(
     chunk_size: int | None = Query(None, ge=100, le=5000),
     chunk_overlap: int | None = Query(None, ge=0, le=500),
     db: Any = Depends(get_db),
+    current_user: dict | None = Depends(get_optional_current_user),
     _key: str | None = Depends(require_api_key),
 ):
     """Upload and process a document (PDF or DOCX only)."""
+    if clear_db and current_user and current_user.get("role") != "super_admin":
+        raise HTTPException(403, "Seul le super admin peut vider la base documentaire")
     if clear_db:
         await document_service.clear_all_documents(db)
 
@@ -155,6 +162,34 @@ async def upload_document(
             raise HTTPException(413, f"File exceeds {settings.max_upload_mb} MB limit")
         chunks.append(chunk)
     content = b"".join(chunks)
+
+    if current_user and current_user.get("role") != "super_admin":
+        doc = await document_service.create_pending_upload(
+            db,
+            file.filename,
+            content,
+            approval_type="document_upload",
+            requested_by=str(current_user["_id"]),
+            organization_id=current_user.get("organization_id"),
+        )
+        await notification_service.create_notification(
+            db,
+            alert_type="approval_document",
+            title="Document à approuver",
+            message=(
+                f"{current_user.get('full_name', 'Un gérant')} a uploadé « {file.filename} ». "
+                "Le document attend l'approbation du super admin."
+            ),
+            details={
+                "target_type": "document",
+                "document_id": doc["id"],
+                "filename": file.filename,
+                "requested_by": str(current_user["_id"]),
+                "organization_id": current_user.get("organization_id"),
+                "approval_status": "pending_approval",
+            },
+        )
+        return doc
 
     doc = await document_service.upload_document(
         db,
@@ -184,6 +219,7 @@ async def upload_amendment(
     chunk_size: int | None = Query(None, ge=100, le=5000),
     chunk_overlap: int | None = Query(None, ge=0, le=500),
     db: Any = Depends(get_db),
+    current_user: dict | None = Depends(get_optional_current_user),
     _key: str | None = Depends(require_api_key),
 ):
     """Upload an amended document. Auto-detects the target law from the text,
@@ -204,6 +240,43 @@ async def upload_amendment(
             raise HTTPException(413, f"File exceeds {settings.max_upload_mb} MB limit")
         chunks.append(chunk)
     content = b"".join(chunks)
+
+    if current_user and current_user.get("role") != "super_admin":
+        doc = await document_service.create_pending_upload(
+            db,
+            file.filename,
+            content,
+            approval_type="amendment_upload",
+            requested_by=str(current_user["_id"]),
+            organization_id=current_user.get("organization_id"),
+            loi_id=loi_id,
+        )
+        await notification_service.create_notification(
+            db,
+            alert_type="approval_amendment",
+            title="Amendement à approuver",
+            message=(
+                f"{current_user.get('full_name', 'Un gérant')} a uploadé l'amendement « {file.filename} ». "
+                "Il attend l'approbation du super admin avant traitement."
+            ),
+            details={
+                "target_type": "amendment",
+                "document_id": doc["id"],
+                "filename": file.filename,
+                "loi_id": loi_id,
+                "requested_by": str(current_user["_id"]),
+                "organization_id": current_user.get("organization_id"),
+                "approval_status": "pending_approval",
+            },
+        )
+        return {
+            "document": doc,
+            "old_document_id": None,
+            "diff": {"added": 0, "modified": 0, "removed": 0, "unchanged": 0},
+            "operations": [],
+            "notifications_sent": 1,
+            "message": "Amendement envoyé au super admin pour approbation.",
+        }
 
     try:
         result = await document_service.upload_amendment_document(
@@ -471,6 +544,7 @@ async def ask_question(
         question=body.question,
         top_k=body.top_k,
         language_filter=body.language_filter,
+        response_language=body.response_language,
         document_id=body.document_id,
         llm_model=body.llm_model,
         temperature=body.temperature,
@@ -519,6 +593,7 @@ async def ask_question_agentic(request: Request, body: AskRequest, db: Any = Dep
         question=body.question,
         top_k=body.top_k,
         language_filter=body.language_filter,
+        response_language=body.response_language,
         document_id=body.document_id,
         temperature=body.temperature,
         history=[{"role": m.role, "content": m.content} for m in body.history],
@@ -565,6 +640,7 @@ async def ask_question_auto(request: Request, body: AskRequest, db: Any = Depend
         question=body.question,
         top_k=body.top_k,
         language_filter=body.language_filter,
+        response_language=body.response_language,
         document_id=body.document_id,
         temperature=body.temperature,
         history=[{"role": m.role, "content": m.content} for m in body.history],
@@ -1930,6 +2006,134 @@ async def get_notifications(
 
     items, total = await list_notifications(db, skip=skip, limit=limit)
     return {"notifications": items, "total": total}
+
+
+@router.post("/admin/notifications/{notification_id}/approve", dependencies=[Depends(require_admin)])
+async def approve_notification(notification_id: str, db: Any = Depends(get_db)):
+    notification = await db["notifications"].find_one({"id": notification_id})
+    if not notification:
+        raise HTTPException(404, "Notification not found")
+
+    details = notification.get("details") or {}
+    target_type = details.get("target_type")
+    result: dict[str, Any] = {"notification_id": notification_id, "target_type": target_type}
+
+    if notification.get("read"):
+        return {**result, "status": "already_processed"}
+
+    if target_type == "organization":
+        org_id = details.get("organization_id")
+        org = await auth_service.update_organization(org_id, {"status": "active"}) if org_id else None
+        if not org:
+            raise HTTPException(404, "Organization not found")
+        result.update({"status": "approved", "organization_id": org_id})
+
+    elif target_type == "invitation":
+        invitation_id = details.get("invitation_id")
+        inv = await auth_service.update_invitation_status(invitation_id, "pending") if invitation_id else None
+        if not inv:
+            raise HTTPException(404, "Invitation not found")
+        org = await auth_service.get_organization(inv["organization_id"])
+        await auth_service.update_invitation_expiry(invitation_id)
+        await send_invitation_email(
+            to_email=inv["email"],
+            org_name=(org or {}).get("name", "Organisation"),
+            token=inv["token"],
+        )
+        result.update({"status": "approved", "invitation_id": invitation_id})
+
+    elif target_type == "document":
+        doc_id = details.get("document_id")
+        if not doc_id:
+            raise HTTPException(422, "Missing document_id")
+        processed = await document_service.approve_pending_document(db, doc_id)
+        if processed.get("status") == "error":
+            raise HTTPException(422, processed.get("error_message") or "Document processing failed")
+        result.update({
+            "status": "approved",
+            "document_id": doc_id,
+            "approved_document_id": processed.get("id"),
+        })
+
+    elif target_type == "amendment":
+        doc_id = details.get("document_id")
+        if not doc_id:
+            raise HTTPException(422, "Missing document_id")
+        processed = await document_service.approve_pending_amendment(db, doc_id)
+        result.update({
+            "status": "approved",
+            "document_id": doc_id,
+            "result": processed,
+        })
+
+    else:
+        raise HTTPException(422, "Unsupported approval target")
+
+    await db["notifications"].update_one(
+        {"id": notification_id},
+        {
+            "$set": {
+                "read": True,
+                "details.approval_status": "approved",
+                "details.approved_result": result,
+                "processed_at": datetime.now(timezone.utc),
+            }
+        },
+    )
+    return result
+
+
+@router.post("/admin/notifications/{notification_id}/reject", dependencies=[Depends(require_admin)])
+async def reject_notification(notification_id: str, db: Any = Depends(get_db)):
+    notification = await db["notifications"].find_one({"id": notification_id})
+    if not notification:
+        raise HTTPException(404, "Notification not found")
+
+    details = notification.get("details") or {}
+    target_type = details.get("target_type")
+    result: dict[str, Any] = {"notification_id": notification_id, "target_type": target_type}
+
+    if notification.get("read"):
+        return {**result, "status": "already_processed"}
+
+    if target_type == "organization":
+        org_id = details.get("organization_id")
+        org = await auth_service.update_organization(org_id, {"status": "rejected"}) if org_id else None
+        if not org:
+            raise HTTPException(404, "Organization not found")
+        result.update({"status": "rejected", "organization_id": org_id})
+
+    elif target_type == "invitation":
+        invitation_id = details.get("invitation_id")
+        inv = await auth_service.update_invitation_status(invitation_id, "rejected") if invitation_id else None
+        if not inv:
+            raise HTTPException(404, "Invitation not found")
+        result.update({"status": "rejected", "invitation_id": invitation_id})
+
+    elif target_type in ("document", "amendment"):
+        doc_id = details.get("document_id")
+        if not doc_id:
+            raise HTTPException(422, "Missing document_id")
+        rejected = await document_service.reject_pending_upload(db, doc_id)
+        if not rejected:
+            raise HTTPException(404, "Pending document not found")
+        result.update({"status": "rejected", "document_id": doc_id})
+
+    else:
+        raise HTTPException(422, "Unsupported approval target")
+
+    await db["notifications"].update_one(
+        {"id": notification_id},
+        {
+            "$set": {
+                "read": True,
+                "details.approval_status": "rejected",
+                "details.rejected_result": result,
+                "processed_at": datetime.now(timezone.utc),
+            }
+        },
+    )
+    return result
 
 
 @router.get("/admin/check-index-consistency", dependencies=[Depends(require_admin)])

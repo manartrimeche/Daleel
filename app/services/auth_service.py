@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import logging
 import secrets
+from calendar import monthrange
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -23,6 +24,25 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 _users = mongo_db["users"]
 _organizations = mongo_db["organizations"]
 _invitations = mongo_db["invitations"]
+
+
+def normalize_subscription_type(subscription_type: Optional[str]) -> str:
+    value = (subscription_type or "monthly").strip().lower()
+    return value if value in {"monthly", "annual"} else "monthly"
+
+def _add_months(value: datetime, months: int) -> datetime:
+    month_index = value.month - 1 + months
+    year = value.year + month_index // 12
+    month = month_index % 12 + 1
+    day = min(value.day, monthrange(year, month)[1])
+    return value.replace(year=year, month=month, day=day)
+
+def calculate_subscription_end_date(
+    started_at: datetime,
+    subscription_type: Optional[str],
+) -> datetime:
+    months = 12 if normalize_subscription_type(subscription_type) == "annual" else 1
+    return _add_months(started_at, months)
 
 
 # ── Password helpers ──
@@ -73,8 +93,11 @@ async def create_organization(
     activities: Optional[str] = None,
     jurisdiction: str = "tunisia",
     logo_url: Optional[str] = None,
+    subscription_type: str = "monthly",
+    status: str = "active",
 ) -> dict:
     now = datetime.now(timezone.utc)
+    normalized_subscription_type = normalize_subscription_type(subscription_type)
     doc = {
         "name": name,
         "sector": sector,
@@ -83,7 +106,13 @@ async def create_organization(
         "activities": activities,
         "jurisdiction": jurisdiction,
         "logo_url": logo_url,
-        "status": "active",
+        "status": status,
+        "subscription_type": normalized_subscription_type,
+        "subscription_started_at": now,
+        "subscription_ends_at": calculate_subscription_end_date(
+            now,
+            normalized_subscription_type,
+        ),
         "created_at": now,
         "updated_at": now,
     }
@@ -101,7 +130,20 @@ async def list_organizations(skip: int = 0, limit: int = 50) -> tuple[list[dict]
     return docs, total
 
 async def update_organization(org_id: str, updates: dict) -> Optional[dict]:
-    updates["updated_at"] = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc)
+    if "subscription_type" in updates:
+        org = await get_organization(org_id)
+        if not org:
+            return None
+        subscription_type = normalize_subscription_type(updates.get("subscription_type"))
+        started_at = org.get("subscription_started_at") or org.get("created_at") or now
+        updates["subscription_type"] = subscription_type
+        updates["subscription_started_at"] = started_at
+        updates["subscription_ends_at"] = calculate_subscription_end_date(
+            started_at,
+            subscription_type,
+        )
+    updates["updated_at"] = now
     await _organizations.update_one({"_id": ObjectId(org_id)}, {"$set": updates})
     return await get_organization(org_id)
 
@@ -176,6 +218,7 @@ async def create_invitation(
     organization_id: str,
     invited_by: str,
     expires_hours: int = 72,
+    status: str = "pending",
 ) -> dict:
     now = datetime.now(timezone.utc)
     token = generate_invitation_token()
@@ -185,7 +228,7 @@ async def create_invitation(
         "organization_id": organization_id,
         "invited_by": invited_by,
         "token": token,
-        "status": "pending",
+        "status": status,
         "created_at": now,
         "expires_at": now + timedelta(hours=expires_hours),
     }
@@ -207,6 +250,19 @@ async def mark_invitation_accepted(invitation_id: str) -> None:
     await _invitations.update_one(
         {"_id": ObjectId(invitation_id)},
         {"$set": {"status": "accepted"}},
+    )
+
+async def update_invitation_status(invitation_id: str, status: str) -> Optional[dict]:
+    await _invitations.update_one(
+        {"_id": ObjectId(invitation_id)},
+        {"$set": {"status": status}},
+    )
+    return await _invitations.find_one({"_id": ObjectId(invitation_id)})
+
+async def update_invitation_expiry(invitation_id: str, expires_hours: int = 72) -> None:
+    await _invitations.update_one(
+        {"_id": ObjectId(invitation_id)},
+        {"$set": {"expires_at": datetime.now(timezone.utc) + timedelta(hours=expires_hours)}},
     )
 
 async def revoke_invitation(invitation_id: str) -> None:
@@ -250,6 +306,15 @@ def serialize_user(user: dict) -> dict:
     }
 
 def serialize_organization(org: dict, member_count: int = 0) -> dict:
+    subscription_type = normalize_subscription_type(org.get("subscription_type"))
+    subscription_started_at = org.get("subscription_started_at") or org.get("created_at")
+    subscription_ends_at = org.get("subscription_ends_at")
+    if subscription_started_at and not subscription_ends_at:
+        subscription_ends_at = calculate_subscription_end_date(
+            subscription_started_at,
+            subscription_type,
+        )
+
     return {
         "id": str(org["_id"]),
         "name": org["name"],
@@ -260,6 +325,9 @@ def serialize_organization(org: dict, member_count: int = 0) -> dict:
         "jurisdiction": org.get("jurisdiction", "tunisia"),
         "logo_url": org.get("logo_url"),
         "status": org.get("status", "active"),
+        "subscription_type": subscription_type,
+        "subscription_started_at": subscription_started_at,
+        "subscription_ends_at": subscription_ends_at,
         "member_count": member_count,
         "created_at": org["created_at"],
         "updated_at": org["updated_at"],

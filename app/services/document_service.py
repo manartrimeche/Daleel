@@ -307,6 +307,132 @@ async def _update_document(doc_id: str, updates: dict) -> None:
     await get_collection("documents").update_one({"id": doc_id}, {"$set": updates})
 
 
+async def create_pending_upload(
+    db,
+    filename: str,
+    file_bytes: bytes,
+    *,
+    approval_type: str,
+    requested_by: Optional[str] = None,
+    organization_id: Optional[str] = None,
+    loi_id: Optional[str] = None,
+) -> dict:
+    upload_dir = settings.upload_dir
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    doc_id = str(uuid.uuid4())
+    ext = Path(filename).suffix.lower()
+    saved_path = upload_dir / f"{doc_id}{ext}"
+    saved_path.write_bytes(file_bytes)
+    now = datetime.now(timezone.utc)
+    file_hash = hashlib.sha256(file_bytes).hexdigest()
+
+    doc_doc = {
+        "id": doc_id,
+        "filename": filename,
+        "file_type": ext.lstrip("."),
+        "file_size": len(file_bytes),
+        "status": "pending_approval",
+        "approval_type": approval_type,
+        "requested_by": requested_by,
+        "organization_id": organization_id,
+        "loi_id": loi_id,
+        "created_at": now,
+        "updated_at": now,
+        "language": None,
+        "total_pages": 0,
+        "total_chunks": 0,
+        "ocr_used": False,
+        "error_message": None,
+    }
+    await get_collection("documents").insert_one(doc_doc)
+    await get_collection("document_sources").insert_one({
+        "id": str(uuid.uuid4()),
+        "document_id": doc_id,
+        "source_path": str(saved_path),
+        "file_hash": f"pending:{doc_id}:{file_hash}",
+        "original_file_hash": file_hash,
+        "language": None,
+        "uploaded_at": now,
+    })
+    return _doc_to_out(doc_doc)
+
+
+async def reject_pending_upload(db, doc_id: str, reason: str = "Refusé par le super admin") -> dict | None:
+    doc = await get_collection("documents").find_one({"id": doc_id})
+    if not doc or doc.get("status") != "pending_approval":
+        return None
+    await _update_document(doc_id, {"status": "rejected", "error_message": reason})
+    return _doc_to_out(await get_collection("documents").find_one({"id": doc_id}))
+
+
+async def approve_pending_document(
+    db,
+    doc_id: str,
+    *,
+    chunk_size: int | None = None,
+    chunk_overlap: int | None = None,
+) -> dict:
+    doc = await get_collection("documents").find_one({"id": doc_id})
+    if not doc or doc.get("status") != "pending_approval":
+        raise ValueError("Demande de document introuvable ou déjà traitée")
+    if doc.get("approval_type") != "document_upload":
+        raise ValueError("Cette demande n'est pas un upload de document standard")
+
+    source = await get_collection("document_sources").find_one({"document_id": doc_id})
+    if not source or not source.get("source_path"):
+        raise ValueError("Fichier source introuvable pour cette demande")
+
+    source_path = Path(source["source_path"])
+    if not source_path.exists():
+        raise ValueError("Fichier source introuvable sur le disque")
+
+    file_bytes = source_path.read_bytes()
+    filename = doc["filename"]
+    await delete_document(db, doc_id)
+    return await upload_document(
+        db,
+        filename,
+        file_bytes,
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+    )
+
+
+async def approve_pending_amendment(
+    db,
+    doc_id: str,
+    *,
+    chunk_size: int | None = None,
+    chunk_overlap: int | None = None,
+) -> dict:
+    doc = await get_collection("documents").find_one({"id": doc_id})
+    if not doc or doc.get("status") != "pending_approval":
+        raise ValueError("Demande d'amendement introuvable ou déjà traitée")
+    if doc.get("approval_type") != "amendment_upload":
+        raise ValueError("Cette demande n'est pas un upload d'amendement")
+
+    source = await get_collection("document_sources").find_one({"document_id": doc_id})
+    if not source or not source.get("source_path"):
+        raise ValueError("Fichier source introuvable pour cette demande")
+
+    source_path = Path(source["source_path"])
+    if not source_path.exists():
+        raise ValueError("Fichier source introuvable sur le disque")
+
+    file_bytes = source_path.read_bytes()
+    filename = doc["filename"]
+    loi_id = doc.get("loi_id")
+    await delete_document(db, doc_id)
+    return await upload_amendment_document(
+        db,
+        filename,
+        file_bytes,
+        loi_id=loi_id,
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+    )
+
+
 async def upload_document(
     db,
     filename: str,

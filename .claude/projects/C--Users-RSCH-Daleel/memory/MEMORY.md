@@ -1,0 +1,4 @@
+- [PFE ingénieur](user_pfe.md) — Manar, PFE Polytechnique Tunisie, soutenance devant jury
+- [Modules validés](project_modules.md) — 7 modules fonctionnels avec auth multi-entreprise et rôles
+- [Architecture auth](project_auth_architecture.md) — Flux auth multi-tenant : login → sélection tenant → permissions scoped
+- [Règles métier](feedback_regles_metier.md) — Isolation données par tenant, PDF only, processing auto à l'upload

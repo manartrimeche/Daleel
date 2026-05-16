@@ -22,6 +22,7 @@ from typing import Optional
 from app.database import get_collection
 
 logger = logging.getLogger(__name__)
+_collection = get_collection
 
 
 
@@ -89,7 +90,7 @@ async def log_event(
         "details": details or {},
         "created_at": datetime.now(timezone.utc),
     }
-    await get_collection("audit_logs").insert_one(log)
+    await _collection("audit_logs").insert_one(log)
 
     logger.info(
         f"AuditLog [{event_type}] actor={actor} "
@@ -124,8 +125,8 @@ async def get_audit_logs(
     if event_type:
         query["event_type"] = event_type
 
-    total = await get_collection("audit_logs").count_documents(query)
-    cursor = get_collection("audit_logs").find(query).sort("created_at", -1).skip(skip).limit(limit)
+    total = await _collection("audit_logs").count_documents(query)
+    cursor = _collection("audit_logs").find(query).sort("created_at", -1).skip(skip).limit(limit)
     logs = [_log_to_dict(log) async for log in cursor]
 
     return logs, int(total)

@@ -205,6 +205,7 @@ class AskRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=2000)
     top_k: int = Field(default=5, ge=1, le=20)
     language_filter: Optional[str] = Field(default=None, pattern=r"^(ar|fr|en|ar\+fr|unknown)$")
+    response_language: Optional[str] = Field(default=None, pattern=r"^(ar|fr|en)$")
     document_id: Optional[str] = None
     llm_model: Optional[str] = Field(default=None, min_length=1, max_length=120)
     temperature: float = Field(default=0.3, ge=0.0, le=1.0)

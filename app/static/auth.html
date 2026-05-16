@@ -39,7 +39,8 @@
             align-items: center;
             justify-content: center;
             position: relative;
-            overflow: hidden;
+            /* Allow scrolling when content is larger than viewport */
+            overflow: auto;
         }
 
         .bg-pattern {
@@ -63,6 +64,14 @@
         .auth-header {
             text-align: center;
             margin-bottom: 38px;
+        }
+
+        .auth-toolbar {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: flex-end;
         }
 
         .auth-logo {
@@ -462,6 +471,22 @@
         .btn-row .btn-secondary { flex: 1; }
         .btn-row .btn-primary { flex: 2; margin-top: 0; }
 
+        html[dir="rtl"] .auth-toolbar {
+            right: auto;
+            left: 20px;
+        }
+
+        html[dir="rtl"] .form-group label,
+        html[dir="rtl"] .step-title,
+        html[dir="rtl"] .step-subtitle {
+            text-align: right;
+        }
+
+        html[dir="rtl"] .form-input,
+        html[dir="rtl"] .form-select {
+            text-align: right;
+        }
+
         @media (max-width: 520px) {
             .auth-container { padding: 16px; }
             .auth-card { padding: 24px; }
@@ -474,16 +499,17 @@
     <div class="bg-pattern"></div>
 
     <div class="auth-container">
+        <div class="auth-toolbar" id="auth-language"></div>
         <div class="auth-header">
             <div class="auth-logo">D</div>
             <h1>Daleel — دليل</h1>
-            <p>Plateforme de conformité juridique tunisienne</p>
+            <p data-i18n="auth.subtitle">Plateforme de conformité juridique tunisienne</p>
         </div>
 
         <div class="auth-card">
             <div class="auth-tabs">
-                <button class="auth-tab active" onclick="switchTab('login')">Connexion</button>
-                <button class="auth-tab" onclick="switchTab('register')">Inscription</button>
+                <button class="auth-tab active" onclick="switchTab('login')" data-i18n="auth.loginTab">Connexion</button>
+                <button class="auth-tab" onclick="switchTab('register')" data-i18n="auth.registerTab">Inscription</button>
             </div>
 
             <div id="error-msg" class="error-message"></div>
@@ -492,14 +518,14 @@
             <!-- ══════ LOGIN FORM ══════ -->
             <form id="login-form" class="active" onsubmit="handleLogin(event)">
                 <div class="form-group">
-                    <label>Email <span class="required">*</span></label>
+                    <label><span data-i18n="auth.email">Email</span> <span class="required">*</span></label>
                     <input type="email" class="form-input" id="login-email" placeholder="vous@entreprise.tn" required autocomplete="email">
                 </div>
                 <div class="form-group">
-                    <label>Mot de passe <span class="required">*</span></label>
-                    <input type="password" class="form-input" id="login-password" placeholder="Votre mot de passe" required autocomplete="current-password">
+                    <label><span data-i18n="auth.password">Mot de passe</span> <span class="required">*</span></label>
+                    <input type="password" class="form-input" id="login-password" placeholder="Votre mot de passe" data-i18n-placeholder="auth.password.placeholder" required autocomplete="current-password">
                 </div>
-                <button type="submit" class="btn-primary" id="login-btn">Se connecter</button>
+                <button type="submit" class="btn-primary" id="login-btn" data-i18n="auth.login">Se connecter</button>
             </form>
 
             <!-- ══════ REGISTER FORM ══════ -->
@@ -512,54 +538,65 @@
 
                 <!-- Step 1: Informations personnelles -->
                 <div class="register-step active" id="reg-step-1">
-                    <div class="step-title">Informations personnelles</div>
-                    <div class="step-subtitle">Créez votre compte administrateur</div>
+                    <div class="step-title" data-i18n="auth.personalInfo">Informations personnelles</div>
+                    <div class="step-subtitle" data-i18n="auth.personalInfo.subtitle">Créez votre compte administrateur</div>
 
                     <div class="form-group">
-                        <label>Nom complet <span class="required">*</span></label>
-                        <input type="text" class="form-input" id="reg-name" placeholder="Votre nom complet" required>
+                        <label><span data-i18n="auth.fullName">Nom complet</span> <span class="required">*</span></label>
+                        <input type="text" class="form-input" id="reg-name" placeholder="Votre nom complet" data-i18n-placeholder="auth.fullName.placeholder" required>
                     </div>
                     <div class="form-group">
-                        <label>Email professionnel <span class="required">*</span></label>
+                        <label><span data-i18n="auth.workEmail">Email professionnel</span> <span class="required">*</span></label>
                         <input type="email" class="form-input" id="reg-email" placeholder="vous@entreprise.tn" required autocomplete="email">
                     </div>
                     <div class="form-group">
-                        <label>Mot de passe <span class="required">*</span></label>
-                        <input type="password" class="form-input" id="reg-password" placeholder="Minimum 8 caractères" required minlength="8" oninput="updatePasswordStrength(this.value)">
+                        <label><span data-i18n="auth.password">Mot de passe</span> <span class="required">*</span></label>
+                        <input type="password" class="form-input" id="reg-password" placeholder="Minimum 8 caractères" data-i18n-placeholder="auth.password.minPlaceholder" required minlength="8" autocomplete="new-password" oninput="updatePasswordStrength(this.value)">
                         <div class="password-strength">
                             <div class="password-strength-bar" id="pwd-strength-bar"></div>
                         </div>
                     </div>
-                    <button type="button" class="btn-primary" onclick="nextStep(2)">Continuer</button>
+                    <div class="form-group">
+                        <label><span data-i18n="auth.confirmPassword">Confirmer le mot de passe</span> <span class="required">*</span></label>
+                        <input type="password" class="form-input" id="reg-password-confirm" placeholder="Confirmez votre mot de passe" data-i18n-placeholder="auth.confirmPassword.placeholder" required minlength="8" autocomplete="new-password">
+                    </div>
+                    <button type="button" class="btn-primary" onclick="nextStep(2)" data-i18n="common.continue">Continuer</button>
                 </div>
 
                 <!-- Step 2: Secteur d'activité -->
                 <div class="register-step" id="reg-step-2">
-                    <div class="step-title">Secteur d'activité</div>
-                    <div class="step-subtitle">Sélectionnez le secteur de votre entreprise</div>
+                    <div class="step-title" data-i18n="auth.sector.title">Secteur d'activité</div>
+                    <div class="step-subtitle" data-i18n="auth.sector.subtitle">Sélectionnez le secteur de votre entreprise</div>
 
                     <input type="hidden" id="reg-sector" value="">
 
                     <div class="sector-grid" id="sector-grid"></div>
 
                     <div class="btn-row">
-                        <button type="button" class="btn-secondary" onclick="prevStep(1)">Retour</button>
-                        <button type="button" class="btn-primary" id="step2-next" onclick="nextStep(3)">Continuer</button>
+                        <button type="button" class="btn-secondary" onclick="prevStep(1)" data-i18n="common.back">Retour</button>
+                        <button type="button" class="btn-primary" id="step2-next" onclick="nextStep(3)" data-i18n="common.continue">Continuer</button>
                     </div>
                 </div>
 
                 <!-- Step 3: Profil entreprise -->
                 <div class="register-step" id="reg-step-3">
-                    <div class="step-title">Profil entreprise</div>
-                    <div class="step-subtitle">Complétez les informations de votre organisation</div>
+                    <div class="step-title" data-i18n="auth.company.title">Profil entreprise</div>
+                    <div class="step-subtitle" data-i18n="auth.company.subtitle">Complétez les informations de votre organisation</div>
 
                     <div class="form-group">
-                        <label>Nom de l'entreprise <span class="required">*</span></label>
-                        <input type="text" class="form-input" id="reg-org-name" placeholder="Ex: TechnoTunisie SARL" required>
+                        <label><span data-i18n="auth.company.name">Nom de l'entreprise</span> <span class="required">*</span></label>
+                        <input type="text" class="form-input" id="reg-org-name" placeholder="Ex: TechnoTunisie SARL" data-i18n-placeholder="auth.company.placeholder" required>
+                    </div>
+                    <div class="form-group">
+                        <label><span data-i18n="auth.subscription.type">Type d'abonnement</span> <span class="required">*</span></label>
+                        <select class="form-select" id="reg-subscription-type" required>
+                            <option value="monthly">Mensuel</option>
+                            <option value="annual">Annuel</option>
+                        </select>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Taille</label>
+                            <label data-i18n="auth.size">Taille</label>
                             <select class="form-select" id="reg-size">
                                 <option value="">Sélectionner</option>
                                 <option value="micro">Micro (1-9)</option>
@@ -569,52 +606,62 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>Nombre d'employés</label>
-                            <input type="number" class="form-input" id="reg-employees" placeholder="Ex: 50" min="1">
+                            <label data-i18n="auth.employees">Nombre d'employés</label>
+                            <input type="number" class="form-input" id="reg-employees" placeholder="Ex: 50" data-i18n-placeholder="auth.employees.placeholder" min="1">
                         </div>
                     </div>
                     <div class="form-group">
-                        <label>Juridiction</label>
+                        <label data-i18n="auth.jurisdiction">Juridiction</label>
                         <select class="form-select" id="reg-jurisdiction">
-                            <option value="tunisia">Tunisie</option>
+                            <option value="tunisia" data-i18n="auth.tunisia">Tunisie</option>
                         </select>
                     </div>
 
                     <div class="btn-row">
-                        <button type="button" class="btn-secondary" onclick="prevStep(2)">Retour</button>
-                        <button type="submit" class="btn-primary" id="register-btn">Créer mon compte</button>
+                        <button type="button" class="btn-secondary" onclick="prevStep(2)" data-i18n="common.back">Retour</button>
+                        <button type="submit" class="btn-primary" id="register-btn" data-i18n="auth.createAccount">Créer mon compte</button>
                     </div>
                 </div>
             </form>
         </div>
 
-        <div class="auth-footer">
+        <div class="auth-footer" data-i18n="auth.footer">
             Daleel v1.0 — Conformité juridique intelligente
         </div>
     </div>
 
+    <script src="/static/i18n.js?v=20260516g"></script>
     <script>
         const API = '/api/v1';
 
+        function tr(key, params = {}) {
+            return window.DaleelI18n ? DaleelI18n.t(key, params) : key;
+        }
+
+        function updateAuthChrome() {
+            document.title = tr('auth.title');
+            if (window.DaleelI18n) DaleelI18n.apply(document);
+        }
+
         const SECTORS = [
-            { value: 'finance', label: 'Finance' },
-            { value: 'banque', label: 'Banque' },
-            { value: 'assurance', label: 'Assurance' },
-            { value: 'industrie', label: 'Industrie' },
-            { value: 'technologie', label: 'Technologie' },
-            { value: 'telecom', label: 'Télécom' },
-            { value: 'sante', label: 'Santé' },
-            { value: 'pharma', label: 'Pharma' },
-            { value: 'transport', label: 'Transport' },
-            { value: 'btp', label: 'BTP' },
-            { value: 'commerce', label: 'Commerce' },
-            { value: 'energie', label: 'Énergie' },
-            { value: 'education', label: 'Éducation' },
-            { value: 'agriculture', label: 'Agriculture' },
-            { value: 'tourisme', label: 'Tourisme' },
-            { value: 'services', label: 'Services' },
-            { value: 'immobilier', label: 'Immobilier' },
-            { value: 'autre', label: 'Autre' },
+            { value: 'finance', labelKey: 'auth.sector.finance' },
+            { value: 'banque', labelKey: 'auth.sector.banque' },
+            { value: 'assurance', labelKey: 'auth.sector.assurance' },
+            { value: 'industrie', labelKey: 'auth.sector.industrie' },
+            { value: 'technologie', labelKey: 'auth.sector.technologie' },
+            { value: 'telecom', labelKey: 'auth.sector.telecom' },
+            { value: 'sante', labelKey: 'auth.sector.sante' },
+            { value: 'pharma', labelKey: 'auth.sector.pharma' },
+            { value: 'transport', labelKey: 'auth.sector.transport' },
+            { value: 'btp', labelKey: 'auth.sector.btp' },
+            { value: 'commerce', labelKey: 'auth.sector.commerce' },
+            { value: 'energie', labelKey: 'auth.sector.energie' },
+            { value: 'education', labelKey: 'auth.sector.education' },
+            { value: 'agriculture', labelKey: 'auth.sector.agriculture' },
+            { value: 'tourisme', labelKey: 'auth.sector.tourisme' },
+            { value: 'services', labelKey: 'auth.sector.services' },
+            { value: 'immobilier', labelKey: 'auth.sector.immobilier' },
+            { value: 'autre', labelKey: 'auth.sector.autre' },
         ];
 
         let currentStep = 1;
@@ -629,13 +676,40 @@
                 return;
             }
             renderSectors();
+            renderSizeOptions();
+            renderSubscriptionOptions();
+            updateAuthChrome();
         });
 
         function renderSectors() {
             const grid = document.getElementById('sector-grid');
+            const selected = document.getElementById('reg-sector').value;
             grid.innerHTML = SECTORS.map(s =>
-                `<button type="button" class="sector-chip" data-value="${s.value}" onclick="selectSector('${s.value}', this)">${s.label}</button>`
+                `<button type="button" class="sector-chip ${s.value === selected ? 'selected' : ''}" data-value="${s.value}" onclick="selectSector('${s.value}', this)">${tr(s.labelKey)}</button>`
             ).join('');
+        }
+
+        function renderSizeOptions() {
+            const select = document.getElementById('reg-size');
+            const current = select.value;
+            select.innerHTML = `
+                <option value="">${tr('common.select')}</option>
+                <option value="micro">${tr('auth.size.micro')}</option>
+                <option value="small">${tr('auth.size.small')}</option>
+                <option value="medium">${tr('auth.size.medium')}</option>
+                <option value="large">${tr('auth.size.large')}</option>
+            `;
+            select.value = current;
+        }
+
+        function renderSubscriptionOptions() {
+            const select = document.getElementById('reg-subscription-type');
+            const current = select.value || 'monthly';
+            select.innerHTML = `
+                <option value="monthly">${tr('subscription.monthly')}</option>
+                <option value="annual">${tr('subscription.annual')}</option>
+            `;
+            select.value = current;
         }
 
         function selectSector(value, el) {
@@ -666,15 +740,20 @@
                 const name = document.getElementById('reg-name').value.trim();
                 const email = document.getElementById('reg-email').value.trim();
                 const pwd = document.getElementById('reg-password').value;
-                if (!name || !email || pwd.length < 8) {
-                    showError('Veuillez remplir tous les champs. Le mot de passe doit contenir au moins 8 caractères.');
+                const confirmPwd = document.getElementById('reg-password-confirm').value;
+                if (!name || !email || pwd.length < 8 || confirmPwd.length < 8) {
+                    showError(tr('auth.error.required'));
+                    return;
+                }
+                if (pwd !== confirmPwd) {
+                    showError(tr('auth.error.passwordMismatch'));
                     return;
                 }
             }
             if (step === 3) {
                 const sector = document.getElementById('reg-sector').value;
                 if (!sector) {
-                    showError('Veuillez sélectionner un secteur d\'activité.');
+                    showError(tr('auth.error.sector'));
                     return;
                 }
             }
@@ -746,7 +825,7 @@
             const password = document.getElementById('login-password').value;
 
             btn.disabled = true;
-            btn.innerHTML = '<span class="spinner"></span>Connexion...';
+            btn.innerHTML = `<span class="spinner"></span>${tr('auth.loading.login')}`;
 
             try {
                 const res = await fetch(`${API}/auth/login`, {
@@ -757,7 +836,7 @@
                 const data = await res.json();
 
                 if (!res.ok) {
-                    showError(data.detail || 'Email ou mot de passe incorrect');
+                    showError(data.detail || tr('auth.error.login'));
                     return;
                 }
 
@@ -771,10 +850,10 @@
                     window.location.href = '/';
                 }
             } catch (err) {
-                showError('Erreur de connexion au serveur');
+                showError(tr('auth.error.server'));
             } finally {
                 btn.disabled = false;
-                btn.textContent = 'Se connecter';
+                btn.textContent = tr('auth.login');
             }
         }
 
@@ -793,15 +872,22 @@
                 size: document.getElementById('reg-size').value || undefined,
                 employees: document.getElementById('reg-employees').value ? parseInt(document.getElementById('reg-employees').value) : undefined,
                 jurisdiction: document.getElementById('reg-jurisdiction').value,
+                subscription_type: document.getElementById('reg-subscription-type').value,
             };
+            const confirmPassword = document.getElementById('reg-password-confirm').value;
+
+            if (body.password !== confirmPassword) {
+                showError(tr('auth.error.passwordMismatch'));
+                return;
+            }
 
             if (!body.organization_name) {
-                showError('Veuillez saisir le nom de votre entreprise.');
+                showError(tr('auth.error.organization'));
                 return;
             }
 
             btn.disabled = true;
-            btn.innerHTML = '<span class="spinner"></span>Création...';
+            btn.innerHTML = `<span class="spinner"></span>${tr('auth.loading.register')}`;
 
             try {
                 const res = await fetch(`${API}/auth/register`, {
@@ -812,7 +898,15 @@
                 const data = await res.json();
 
                 if (!res.ok) {
-                    showError(data.detail || 'Erreur lors de l\'inscription');
+                    showError(data.detail || tr('auth.error.register'));
+                    return;
+                }
+
+                if (data.user?.organization_status === 'pending_approval') {
+                    localStorage.removeItem('daleel_access_token');
+                    localStorage.removeItem('daleel_refresh_token');
+                    localStorage.removeItem('daleel_user');
+                    showSuccess(tr('auth.registrationPending'));
                     return;
                 }
 
@@ -822,12 +916,23 @@
 
                 window.location.href = '/';
             } catch (err) {
-                showError('Erreur de connexion au serveur');
+                showError(tr('auth.error.server'));
             } finally {
                 btn.disabled = false;
-                btn.textContent = 'Créer mon compte';
+                btn.textContent = tr('auth.createAccount');
             }
         }
+
+        DaleelI18n.init({
+            switcher: '#auth-language',
+            onChange: () => {
+                updateAuthChrome();
+                renderSectors();
+                renderSizeOptions();
+                renderSubscriptionOptions();
+            }
+        });
+        updateAuthChrome();
     </script>
 </body>
 </html>

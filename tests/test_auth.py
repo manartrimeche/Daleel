@@ -4,11 +4,17 @@ Unit tests for app.api.auth — API key and admin authentication.
 
 import asyncio
 import unittest
+from datetime import datetime, timezone
 from unittest.mock import patch, MagicMock
 
 from fastapi import HTTPException
 
 from app.api.auth import _constant_time_compare, require_api_key, require_admin
+from app.services.auth_service import (
+    calculate_subscription_end_date,
+    normalize_subscription_type,
+    serialize_organization,
+)
 
 
 def _run(coro):
@@ -93,6 +99,48 @@ class TestRequireAdmin(unittest.TestCase):
             with self.assertRaises(HTTPException) as ctx:
                 _run(require_admin(api_key=None))
             self.assertEqual(ctx.exception.status_code, 401)
+
+
+class TestSubscriptionHelpers(unittest.TestCase):
+    def test_monthly_subscription_adds_one_month(self):
+        start = datetime(2026, 5, 16, 10, 30, tzinfo=timezone.utc)
+        end = calculate_subscription_end_date(start, "monthly")
+        self.assertEqual(end, datetime(2026, 6, 16, 10, 30, tzinfo=timezone.utc))
+
+    def test_annual_subscription_adds_one_year(self):
+        start = datetime(2026, 5, 16, 10, 30, tzinfo=timezone.utc)
+        end = calculate_subscription_end_date(start, "annual")
+        self.assertEqual(end, datetime(2027, 5, 16, 10, 30, tzinfo=timezone.utc))
+
+    def test_month_end_is_clamped(self):
+        start = datetime(2025, 1, 31, 10, 30, tzinfo=timezone.utc)
+        end = calculate_subscription_end_date(start, "monthly")
+        self.assertEqual(end, datetime(2025, 2, 28, 10, 30, tzinfo=timezone.utc))
+
+    def test_unknown_subscription_defaults_to_monthly(self):
+        self.assertEqual(normalize_subscription_type("bad"), "monthly")
+
+    def test_existing_organization_without_subscription_gets_default(self):
+        created_at = datetime(2026, 5, 16, 10, 30, tzinfo=timezone.utc)
+        org = {
+            "_id": "org-id",
+            "name": "Ancienne SARL",
+            "sector": "services",
+            "jurisdiction": "tunisia",
+            "status": "active",
+            "created_at": created_at,
+            "updated_at": created_at,
+        }
+        data = serialize_organization(org)
+        self.assertEqual(data["subscription_type"], "monthly")
+        self.assertEqual(
+            data["subscription_started_at"],
+            created_at,
+        )
+        self.assertEqual(
+            data["subscription_ends_at"],
+            datetime(2026, 6, 16, 10, 30, tzinfo=timezone.utc),
+        )
 
 
 if __name__ == "__main__":

@@ -70,6 +70,23 @@ async def get_current_user(
     return user
 
 
+async def get_optional_current_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Security(_bearer_scheme),
+) -> Optional[dict]:
+    if not credentials:
+        return None
+    try:
+        payload = auth_service.decode_token(credentials.credentials)
+    except Exception:
+        return None
+    if payload.get("type") != "access":
+        return None
+    user = await auth_service.get_user_by_id(payload["sub"])
+    if not user or not user.get("is_active", True):
+        return None
+    return user
+
+
 def require_role(*allowed_roles: str):
     async def _check(user: dict = Depends(get_current_user)) -> dict:
         if user["role"] not in allowed_roles:
@@ -103,7 +120,12 @@ def get_user_org_id(user: dict = Depends(get_current_user)) -> Optional[str]:
 
 async def require_api_key(
     api_key: str | None = Security(_api_key_header),
+    credentials: Optional[HTTPAuthorizationCredentials] = Security(_bearer_scheme),
 ) -> str | None:
+    user = await get_optional_current_user(credentials)
+    if user:
+        return "jwt"
+
     settings = get_settings()
     expected = settings.api_key
     if not expected:
@@ -124,7 +146,17 @@ async def require_api_key(
 
 async def require_admin(
     api_key: str | None = Security(_api_key_header),
+    credentials: Optional[HTTPAuthorizationCredentials] = Security(_bearer_scheme),
 ) -> str | None:
+    user = await get_optional_current_user(credentials)
+    if user and user.get("role") == "super_admin":
+        return "jwt"
+    if user:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Super admin role required",
+        )
+
     settings = get_settings()
     expected = settings.admin_api_key or settings.api_key
     if not expected:

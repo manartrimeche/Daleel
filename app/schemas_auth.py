@@ -26,8 +26,9 @@ SECTOR_CHOICES = (
     "services", "conseil",
     "autre",
 )
-ORG_STATUS_CHOICES = ("active", "inactive", "suspended")
-INVITATION_STATUS_CHOICES = ("pending", "accepted", "expired", "revoked")
+ORG_STATUS_CHOICES = ("active", "inactive", "suspended", "pending_approval", "rejected")
+INVITATION_STATUS_CHOICES = ("pending", "accepted", "expired", "revoked", "pending_approval", "rejected")
+SUBSCRIPTION_TYPE_CHOICES = ("monthly", "annual")
 
 
 # ── Authentication ──
@@ -41,6 +42,7 @@ class RegisterRequest(BaseModel):
     size: Optional[str] = Field(None, pattern=r"^(micro|small|medium|large)$")
     employees: Optional[int] = Field(None, ge=1)
     jurisdiction: str = Field(default="tunisia", max_length=64)
+    subscription_type: str = Field(default="monthly", pattern=r"^(monthly|annual)$")
 
 class LoginRequest(BaseModel):
     email: EmailStr
@@ -67,6 +69,7 @@ class OrganizationCreate(BaseModel):
     activities: Optional[str] = Field(None, max_length=1000)
     jurisdiction: str = Field(default="tunisia", max_length=64)
     logo_url: Optional[str] = None
+    subscription_type: str = Field(default="monthly", pattern=r"^(monthly|annual)$")
 
 class OrganizationUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=2, max_length=256)
@@ -76,7 +79,8 @@ class OrganizationUpdate(BaseModel):
     activities: Optional[str] = Field(None, max_length=1000)
     jurisdiction: Optional[str] = Field(None, max_length=64)
     logo_url: Optional[str] = None
-    status: Optional[str] = Field(None, pattern=r"^(active|inactive|suspended)$")
+    status: Optional[str] = Field(None, pattern=r"^(active|inactive|suspended|pending_approval|rejected)$")
+    subscription_type: Optional[str] = Field(None, pattern=r"^(monthly|annual)$")
 
 class OrganizationOut(BaseModel):
     id: str
@@ -88,6 +92,9 @@ class OrganizationOut(BaseModel):
     jurisdiction: str
     logo_url: Optional[str] = None
     status: str
+    subscription_type: Optional[str] = None
+    subscription_started_at: Optional[datetime] = None
+    subscription_ends_at: Optional[datetime] = None
     member_count: int = 0
     created_at: datetime
     updated_at: datetime
@@ -106,6 +113,7 @@ class UserOut(BaseModel):
     role: str
     organization_id: Optional[str] = None
     organization_name: Optional[str] = None
+    organization_status: Optional[str] = None
     is_active: bool
     last_login: Optional[datetime] = None
     created_at: datetime

@@ -1972,6 +1972,7 @@ async def ask(
     question: str,
     top_k: int = 5,
     language_filter: Optional[str] = None,
+    response_language: Optional[str] = None,
     document_id: Optional[str] = None,
     llm_model: Optional[str] = None,
     temperature: float = 0.3,
@@ -1998,7 +1999,7 @@ async def ask(
     model_name = (llm_model or settings.llm_model).strip()
 
     # Étape 0: détecter la langue de la question
-    detected_lang = _detect_query_language(question)
+    detected_lang = response_language if response_language in {"ar", "fr", "en"} else _detect_query_language(question)
     lang_name, lang_instruction = _LANG_LABELS.get(detected_lang, _LANG_LABELS["en"])
     logger.info(f"Detected query language: {detected_lang} ({lang_name})")
 
@@ -2394,6 +2395,7 @@ async def ask_agentic(
     question: str,
     top_k: int = 5,
     language_filter: Optional[str] = None,
+    response_language: Optional[str] = None,
     document_id: Optional[str] = None,
     llm_model: Optional[str] = None,
     temperature: float = 0.3,
@@ -2417,7 +2419,7 @@ async def ask_agentic(
     t0 = time.perf_counter()
     settings = get_settings()
     model_name = (llm_model or settings.llm_model).strip()
-    detected_lang = _detect_query_language(question)
+    detected_lang = response_language if response_language in {"ar", "fr", "en"} else _detect_query_language(question)
     lang_name, lang_instruction = _LANG_LABELS.get(detected_lang, _LANG_LABELS["en"])
     intent = _detect_intent(question, detected_lang)
     route_cfg = _route_config_for_intent(intent)
@@ -2897,6 +2899,7 @@ async def ask_auto(
     question: str,
     top_k: int = 5,
     language_filter: Optional[str] = None,
+    response_language: Optional[str] = None,
     document_id: Optional[str] = None,
     llm_model: Optional[str] = None,
     temperature: float = 0.3,
@@ -2908,7 +2911,7 @@ async def ask_auto(
     """Sélectionne automatiquement le mode classique ou agentique."""
     t0 = time.perf_counter()
     settings = get_settings()
-    detected_lang = _detect_query_language(question)
+    detected_lang = response_language if response_language in {"ar", "fr", "en"} else _detect_query_language(question)
     intent = _detect_intent(question, detected_lang)
     selected_mode, reason = _select_mode_for_auto(question, intent, settings)
 
@@ -2918,6 +2921,7 @@ async def ask_auto(
             question=question,
             top_k=top_k,
             language_filter=language_filter,
+            response_language=response_language,
             document_id=document_id,
             llm_model=llm_model,
             temperature=temperature,
@@ -2935,6 +2939,7 @@ async def ask_auto(
         question=question,
         top_k=top_k,
         language_filter=language_filter,
+        response_language=response_language,
         document_id=document_id,
         llm_model=llm_model,
         temperature=temperature,

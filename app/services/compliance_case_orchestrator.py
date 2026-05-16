@@ -77,6 +77,7 @@ from app.services import (
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+_collection = get_collection
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -423,7 +424,7 @@ async def _evaluate_applicability(
         # This is a simplified approach - in practice, you'd use more sophisticated matching
         exigence_query["article_reference"] = {"$in": ctx.article_references}
 
-    exigences = await get_collection("exigences").find(exigence_query).to_list(length=50)
+    exigences = await _collection("exigences").find(exigence_query).to_list(length=50)
 
     if not exigences:
         # Fallback: get exigences for matter type
@@ -460,22 +461,22 @@ async def _get_generic_exigences_for_matter(matter_type: str) -> list[dict]:
     if not loi_code:
         return []
 
-    loi = await get_collection("lois").find_one({"code": loi_code})
+    loi = await _collection("lois").find_one({"code": loi_code})
     if not loi:
         return []
 
     # Get some key articles
-    articles = await get_collection("articles").find(
+    articles = await _collection("articles").find(
         {"loi_id": loi["id"]}
     ).limit(10).to_list(length=None)
 
     article_ids = [a["id"] for a in articles]
-    versions = await get_collection("article_versions").find(
+    versions = await _collection("article_versions").find(
         {"article_id": {"$in": article_ids}, "status": "active"}
     ).to_list(length=None)
 
     version_ids = [v["id"] for v in versions]
-    exigences = await get_collection("exigences").find(
+    exigences = await _collection("exigences").find(
         {"article_version_id": {"$in": version_ids}}
     ).limit(20).to_list(length=None)
 

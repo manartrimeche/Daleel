@@ -26,6 +26,7 @@ from app.services import audit_service, case_service
 from app.services.llm_service import call_ollama, _detect_query_language
 
 logger = logging.getLogger(__name__)
+_collection = get_collection
 
 
 # ─────────────────────────────────────────────────────────────
@@ -281,7 +282,7 @@ async def extract_context_from_conversation(
 async def _save_conversation_context(case_id: str, context: dict) -> None:
     """Persist the extracted conversation context on the case document."""
     context["updated_at"] = _now()
-    await get_collection("compliance_cases").update_one(
+    await _collection("compliance_cases").update_one(
         {"id": case_id},
         {"$set": {
             "conversation_context": context,
@@ -292,7 +293,7 @@ async def _save_conversation_context(case_id: str, context: dict) -> None:
 
 async def _load_conversation_context(case_id: str) -> dict:
     """Load the stored conversation context from the case document."""
-    case = await get_collection("compliance_cases").find_one({"id": case_id})
+    case = await _collection("compliance_cases").find_one({"id": case_id})
     if not case:
         return {}
     return case.get("conversation_context") or {}

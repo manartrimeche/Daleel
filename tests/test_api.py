@@ -190,6 +190,11 @@ class TestCompanyProfileEndpoints(unittest.TestCase):
 
 def _make_client_with_auth(api_key="test-secret"):
     """Create a TestClient with auth enabled."""
+    env_patcher = patch.dict(
+        os.environ,
+        {"DALEEL_API_KEY": api_key, "DALEEL_ADMIN_API_KEY": api_key},
+    )
+    env_patcher.start()
     with patch("app.database.init_db", new_callable=AsyncMock), \
          patch("app.database.close_db", new_callable=AsyncMock), \
          patch("app.services.faiss_index.faiss_manager") as mock_faiss:
@@ -197,12 +202,10 @@ def _make_client_with_auth(api_key="test-secret"):
         mock_faiss.size = 0
         import app.config
         app.config.get_settings.cache_clear()
-        with patch.dict("os.environ", {"DALEEL_API_KEY": api_key, "DALEEL_ADMIN_API_KEY": api_key}):
-            app.config.get_settings.cache_clear()
-            from app.main import app
-            client = TestClient(app, raise_server_exceptions=False)
-            app.config.get_settings.cache_clear()
-            return client, api_key
+        from app.main import app
+        client = TestClient(app, raise_server_exceptions=False)
+        app.config.get_settings.cache_clear()
+        return client, api_key, env_patcher
 
 
 class TestAuthEnforcement(unittest.TestCase):
@@ -210,11 +213,12 @@ class TestAuthEnforcement(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.client, cls.api_key = _make_client_with_auth()
+        cls.client, cls.api_key, cls._env_patcher = _make_client_with_auth()
 
     @classmethod
     def tearDownClass(cls):
         import app.config
+        cls._env_patcher.stop()
         app.config.get_settings.cache_clear()
 
     def _headers(self):

@@ -153,6 +153,8 @@ _COLLECTION_INDEXES: dict[str, list[dict[str, Any]]] = {
         {"fields": [("name", 1)]},
         {"fields": [("sector", 1)]},
         {"fields": [("status", 1)]},
+        {"fields": [("subscription_type", 1)]},
+        {"fields": [("subscription_ends_at", 1)]},
         {"fields": [("created_at", -1)]},
     ],
     "invitations": [
@@ -160,6 +162,11 @@ _COLLECTION_INDEXES: dict[str, list[dict[str, Any]]] = {
         {"fields": [("email", 1)]},
         {"fields": [("organization_id", 1)]},
         {"fields": [("status", 1)]},
+    ],
+    "notifications": [
+        {"fields": [("created_at", -1)]},
+        {"fields": [("read", 1), ("created_at", -1)]},
+        {"fields": [("alert_type", 1), ("created_at", -1)]},
     ],
 }
 
