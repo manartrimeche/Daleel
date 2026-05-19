@@ -28,6 +28,7 @@ jobs:
       DALEEL_MONGODB_URL: mongodb://localhost:27017
       DALEEL_MONGODB_DB_NAME: daleel_test
       DALEEL_VECTOR_SEARCH_BACKEND: python-cosine
+      PYTHONPATH: backend
 
     steps:
       - uses: actions/checkout@v4
@@ -52,8 +53,8 @@ jobs:
 
       - name: Run unit tests with coverage
         run: |
-          python -m pytest tests/ -v --tb=short -x \
-            --cov=app --cov-report=term-missing --cov-fail-under=30
+          python -m pytest backend/tests/ -v --tb=short -x \
+            --cov=backend/app --cov-report=term-missing --cov-fail-under=30
 
       - name: Upload coverage report
         if: matrix.python-version == '3.12'
@@ -76,7 +77,7 @@ jobs:
         run: pip install ruff bandit
 
       - name: Lint
-        run: ruff check app/ tests/ --select E,W,F --ignore E501
+        run: ruff check app/ backend/app/ backend/tests/ --select E,W,F --ignore E501
 
       - name: Security scan (bandit)
-        run: bandit -r app/ -ll --exclude app/tests
+        run: bandit -r backend/app/ -ll --exclude backend/tests

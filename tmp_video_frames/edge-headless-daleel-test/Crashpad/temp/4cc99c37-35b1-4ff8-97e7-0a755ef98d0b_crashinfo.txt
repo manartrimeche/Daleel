@@ -1,0 +1,51 @@
+BrowserMainParts-state=PostBrowserStart
+BrowserProcessImpl-shutdownstate=running
+IsOfficialBuild=1
+KeepAliveCount=2
+KeepAliveRestartCount=0
+KeepAliveShuttingDown=0
+KeepAlives=HEADLESS_COMMAND (1), BROWSER (1)
+LOG_FATAL=gpu_data_manager_impl_private.cc:427: GPU process isn't usable. Goodbye.
+
+LocaleDataPakExists-found_attrs=32
+LocaleDataPakExists-found_path=C:\Program Files (x86)\Microsoft\Edge\Application\148.0.3967.54\Locales\en-US.pak
+ap=-full
+breadcrumbs=0:00:05 Microsoft.BrowserList.AddBrowser
+0:00:05 Microsoft.NewBrowser_Normal
+0:00:00 Microsoft.DeleteProfileHelper.CleanUpDeletedProfiles
+0:00:00 Microsoft.DeleteProfileHelper.CleanUpEphemeralProfiles
+0:00:00 Startup
+
+browser_window_count=1
+chrome-trace-id=6281438025070042664
+chromium-version=148.0.7778.97
+exception_code=0x80000003
+exception_module_path=C:\Program Files (x86)\Microsoft\Edge\Application\148.0.3967.54\msedge.dll
+exception_module_version=148.0.3967.54
+exe=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe
+guid=ee95b083-86a6-4dda-8a8f-e53de85343ad
+metrics_client_id_hash=-3748141387808313064
+metrics_session_id=0
+module_offset=170018749
+num-experiments=14
+num-extensions=0
+num-switches=10
+osarch=x86_64
+pid=38416
+plat=Win64
+process_id=38416
+prod=Edge
+ptype=browser
+reentry_guard_tls_slot=unused
+ss_ver=1.2.2601.2
+switch-1=--headless=new
+switch-2=--disable-gpu
+switch-3=--no-first-run
+switch-4=--disable-extensions
+switch-5=--user-data-dir=C:\Users\RSCH\Daleel\tmp_video_frames\edge-headless-daleel-test
+switch-6=--screenshot=C:\Users\RSCH\Daleel\tmp_video_frames\daleel_login_test.png
+switch-7=--noerrdialogs
+switch-8=http://127.0.0.1:8001/login
+third_party_modules=icu.dll
+variations=b6f29041-ca7d8d80,b357b792-3d47f4f4,f4f00e05-ca7d8d80,9481ce98-3d47f4f4,2a426c03-3d47f4f4,4b935545-3d47f4f4,9a38bae3-3d47f4f4,41ad04e1-16e9df14,2d1e43a3-3d47f4f4,370ace14-3f4a17df,386dc267-3d47f4f4,d69d967d-4866ef6e,a4406b35-1657e2d6,408da146-1657e2d6,
+ver=148.0.3967.54

@@ -1,0 +1,8 @@
+{
+  "base_model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "lora_r": 8,
+  "epochs": 3,
+  "train_size": 4,
+  "eval_size": 1,
+  "max_seq_length": 1024
+}

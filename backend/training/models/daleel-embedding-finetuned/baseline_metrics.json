@@ -1,0 +1,869 @@
+{
+  "model": "sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
+  "dimension": 768,
+  "device": "cpu",
+  "n_articles": 2344,
+  "n_queries": 25,
+  "timings": {
+    "encode_corpus_s": 204.91,
+    "encode_queries_s": 0.82
+  },
+  "summary": {
+    "recall@1": 0.2,
+    "recall@5": 0.32,
+    "recall@10": 0.4,
+    "recall@20": 0.4,
+    "hit@1": 0.2,
+    "hit@5": 0.32,
+    "hit@10": 0.4,
+    "hit@20": 0.4,
+    "mrr@1": 0.2,
+    "mrr@5": 0.24,
+    "mrr@10": 0.2507,
+    "mrr@20": 0.2507,
+    "ndcg@1": 0.2,
+    "ndcg@5": 0.2597,
+    "ndcg@10": 0.2856,
+    "ndcg@20": 0.2856
+  },
+  "summary_by_language": {
+    "fr": {
+      "recall@1": 0.3333,
+      "hit@1": 0.3333,
+      "mrr@1": 0.3333,
+      "ndcg@1": 0.3333,
+      "recall@5": 0.5333,
+      "hit@5": 0.5333,
+      "mrr@5": 0.4,
+      "ndcg@5": 0.4328,
+      "recall@10": 0.6667,
+      "hit@10": 0.6667,
+      "mrr@10": 0.4179,
+      "ndcg@10": 0.4761,
+      "recall@20": 0.6667,
+      "hit@20": 0.6667,
+      "mrr@20": 0.4179,
+      "ndcg@20": 0.4761
+    },
+    "ar": {
+      "recall@1": 0.0,
+      "hit@1": 0.0,
+      "mrr@1": 0.0,
+      "ndcg@1": 0.0,
+      "recall@5": 0.0,
+      "hit@5": 0.0,
+      "mrr@5": 0.0,
+      "ndcg@5": 0.0,
+      "recall@10": 0.0,
+      "hit@10": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@10": 0.0,
+      "recall@20": 0.0,
+      "hit@20": 0.0,
+      "mrr@20": 0.0,
+      "ndcg@20": 0.0
+    }
+  },
+  "per_query": [
+    {
+      "query": "Quel type de personne peut effectuer le traitement des données à caractère personnel relatives à la santé selon l'article 63 ?",
+      "language": "fr",
+      "gold": [
+        "26e6d08e-6c70-4cee-b7bd-84ad8580905a"
+      ],
+      "top5": [
+        "32053143-98dd-4b8b-8ad0-61aaee41d2d4",
+        "331765e5-e452-404e-8110-6cb7dcfb4059",
+        "2ef0b9f9-37d2-45cd-bfe1-295bbe95e4df",
+        "9d25f109-f679-4150-a5cf-98fbfc132b18",
+        "498a42c0-848a-4213-9b23-6165ca94c0d0"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 0.0,
+        "hit@5": 0.0,
+        "mrr@5": 0.0,
+        "ndcg@5": 0.0,
+        "recall@10": 0.0,
+        "hit@10": 0.0,
+        "mrr@10": 0.0,
+        "ndcg@10": 0.0,
+        "recall@20": 0.0,
+        "hit@20": 0.0,
+        "mrr@20": 0.0,
+        "ndcg@20": 0.0
+      }
+    },
+    {
+      "query": "Quels moyens la personne concernée peut-elle utiliser pour présenter sa demande d'accès aux données selon l'article 38 ?",
+      "language": "fr",
+      "gold": [
+        "ef7ae039-edba-4d2e-b088-7e69ab1b68f7"
+      ],
+      "top5": [
+        "0a2a764f-32f8-4655-9bb3-b89197e644f8",
+        "1c138882-68ee-4ce6-bce8-4cc1867d4cb0",
+        "f40d8559-b868-4fd0-93c8-ba0b08f7d804",
+        "ef7ae039-edba-4d2e-b088-7e69ab1b68f7",
+        "2d0d94d7-3616-452f-8ecf-2790ca3cb846"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 0.25,
+        "ndcg@5": 0.43067655807339306,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 0.25,
+        "ndcg@10": 0.43067655807339306,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 0.25,
+        "ndcg@20": 0.43067655807339306
+      }
+    },
+    {
+      "query": "Quelle est la peine pour le responsable du traitement qui continue de traiter des données à caractère personnel malgré l'opposition de la personne concernée ?",
+      "language": "fr",
+      "gold": [
+        "0a8c922f-3dd6-47a7-afb9-70a8cea748be"
+      ],
+      "top5": [
+        "9d25f109-f679-4150-a5cf-98fbfc132b18",
+        "2d0d94d7-3616-452f-8ecf-2790ca3cb846",
+        "fc7ff889-0576-41ab-ac97-8463cb081d22",
+        "32053143-98dd-4b8b-8ad0-61aaee41d2d4",
+        "024c8991-1128-4794-93c1-c51969caf0aa"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 0.0,
+        "hit@5": 0.0,
+        "mrr@5": 0.0,
+        "ndcg@5": 0.0,
+        "recall@10": 0.0,
+        "hit@10": 0.0,
+        "mrr@10": 0.0,
+        "ndcg@10": 0.0,
+        "recall@20": 0.0,
+        "hit@20": 0.0,
+        "mrr@20": 0.0,
+        "ndcg@20": 0.0
+      }
+    },
+    {
+      "query": "Quelles mesures doit prendre la personne qui traite les données personnelles pour assurer leur sécurité selon l'article 18 ?",
+      "language": "fr",
+      "gold": [
+        "fc7ff889-0576-41ab-ac97-8463cb081d22"
+      ],
+      "top5": [
+        "fc7ff889-0576-41ab-ac97-8463cb081d22",
+        "de28c41a-78b6-4c5b-b21a-ba4f38a5a7a7",
+        "32053143-98dd-4b8b-8ad0-61aaee41d2d4",
+        "2be7cd96-42a2-494e-8caa-cbd29211dfa6",
+        "9bdb37ae-9646-41af-ae7f-ed740aae7fce"
+      ],
+      "metrics": {
+        "recall@1": 1.0,
+        "hit@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 1.0,
+        "ndcg@20": 1.0
+      }
+    },
+    {
+      "query": "Quelles sont les conséquences si l'accord de la personne concernée n'est pas obtenu dans le délai imparti ?",
+      "language": "fr",
+      "gold": [
+        "0010bf71-3563-4553-9bff-1bbab8de1327"
+      ],
+      "top5": [
+        "9eeedc7b-994a-4619-b6ee-f629b677fe4e",
+        "bd37e3a6-4014-49e0-a0ee-ff8daea06cc9",
+        "d846b47d-abf9-446b-a310-6784e693aaba",
+        "eb28151f-215c-47bb-8ea4-9926fb637fc9",
+        "cdcbcb25-1b1a-4f66-bbfa-c8ced02be09f"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 0.0,
+        "hit@5": 0.0,
+        "mrr@5": 0.0,
+        "ndcg@5": 0.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 0.14285714285714285,
+        "ndcg@10": 0.3333333333333333,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 0.14285714285714285,
+        "ndcg@20": 0.3333333333333333
+      }
+    },
+    {
+      "query": "Quelle est la durée maximale de l'ajournement pour l'échange des conclusions selon l'article 210 modifié ?",
+      "language": "fr",
+      "gold": [
+        "b07c8eb6-2637-4ac5-a42c-2a13f9c9679a"
+      ],
+      "top5": [
+        "b07c8eb6-2637-4ac5-a42c-2a13f9c9679a",
+        "32fddaf9-f021-4eb6-9dca-bae3f7b3adf6",
+        "68d6e0b0-e671-4289-bba1-8c1f83942e5b",
+        "befd302e-6297-4a18-a41d-bbe4e42eb2ab",
+        "579eca4e-3132-419e-b9ee-d633f53407b1"
+      ],
+      "metrics": {
+        "recall@1": 1.0,
+        "hit@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 1.0,
+        "ndcg@20": 1.0
+      }
+    },
+    {
+      "query": "Quelle est la limitation maximale d'arrêt de l'activité de l'entreprise lors de l'octroi de jours fériés, chômés et payés ?",
+      "language": "fr",
+      "gold": [
+        "cbb581db-da3e-493c-a656-fac8da0c79f4"
+      ],
+      "top5": [
+        "77285be6-d891-4e5d-8b25-73ebfb5678a7",
+        "6652b7db-d596-41f5-b33f-040ba5d65c4c",
+        "e08fb5f0-f2bb-49df-bef9-c5624282a563",
+        "cbb581db-da3e-493c-a656-fac8da0c79f4",
+        "6b76a307-c7e6-4427-b398-4ec2ac37666c"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 0.25,
+        "ndcg@5": 0.43067655807339306,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 0.25,
+        "ndcg@10": 0.43067655807339306,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 0.25,
+        "ndcg@20": 0.43067655807339306
+      }
+    },
+    {
+      "query": "Quelle est la condition minimum pour que le conseil de prud'hommes soit obligatoirement saisi pour déterminer la gratification due ?",
+      "language": "fr",
+      "gold": [
+        "bb1afb6d-1ad6-42cb-bf2b-ee629d76ea68"
+      ],
+      "top5": [
+        "8aced1c9-b9f6-48b9-8de7-8f9cbdb2c773",
+        "c9ea8aef-a053-4357-bc06-67e56bb884df",
+        "d30036d2-ab23-4d74-bc8b-d027e19f00ee",
+        "588260c8-f930-48a3-81ca-6d9a47773505",
+        "91216020-e9e7-4565-bd65-4996cb2ce891"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 0.0,
+        "hit@5": 0.0,
+        "mrr@5": 0.0,
+        "ndcg@5": 0.0,
+        "recall@10": 0.0,
+        "hit@10": 0.0,
+        "mrr@10": 0.0,
+        "ndcg@10": 0.0,
+        "recall@20": 0.0,
+        "hit@20": 0.0,
+        "mrr@20": 0.0,
+        "ndcg@20": 0.0
+      }
+    },
+    {
+      "query": "Quel représentant remplace le représentant des employeurs dans une entreprise publique ?",
+      "language": "fr",
+      "gold": [
+        "b7a6e284-3e77-4a2b-a3dc-4f35495820b8"
+      ],
+      "top5": [
+        "0ae10760-6866-44f1-8413-e33a0cea968f",
+        "f713fa78-48df-49d9-984c-edbf3ac5cf55",
+        "dcae7845-0cd5-449b-b3af-299e6dd96e64",
+        "1692efc9-e492-4e0b-8a15-2ca33bab7f5d",
+        "628b5e86-df0a-4ec1-835b-082d37b5e115"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 0.0,
+        "hit@5": 0.0,
+        "mrr@5": 0.0,
+        "ndcg@5": 0.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 0.125,
+        "ndcg@10": 0.31546487678572877,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 0.125,
+        "ndcg@20": 0.31546487678572877
+      }
+    },
+    {
+      "query": "Quel article du code pénal est appliqué en cas d'infraction aux dispositions de l'article 333 ?",
+      "language": "fr",
+      "gold": [
+        "1618879a-2eb1-49e0-9824-18882a1ffe5b"
+      ],
+      "top5": [
+        "1411127d-82e9-4377-953b-19b65766b5ea",
+        "1618879a-2eb1-49e0-9824-18882a1ffe5b",
+        "c5eda095-2ec3-4bbe-ab2e-1c750ad725a5",
+        "54827381-04e3-489c-9142-b3fb5ef39694",
+        "e28dbfe1-309e-4c77-85cc-49c439a3e6b8"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 0.5,
+        "ndcg@5": 0.6309297535714575,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 0.5,
+        "ndcg@10": 0.6309297535714575,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 0.5,
+        "ndcg@20": 0.6309297535714575
+      }
+    },
+    {
+      "query": "Quels actes nécessitent des formalités de dépôt et de publicité selon l'article 16 ?",
+      "language": "fr",
+      "gold": [
+        "28bb5d8a-e84b-4f8b-83db-3850de96264b"
+      ],
+      "top5": [
+        "28bb5d8a-e84b-4f8b-83db-3850de96264b",
+        "efb7efc5-f1dd-41d6-a24f-f922e506c21d",
+        "030026cb-6307-4a29-a144-658dde1c00b0",
+        "68da3ed1-4d43-4e37-8913-04dccdd859cb",
+        "8aced1c9-b9f6-48b9-8de7-8f9cbdb2c773"
+      ],
+      "metrics": {
+        "recall@1": 1.0,
+        "hit@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 1.0,
+        "ndcg@20": 1.0
+      }
+    },
+    {
+      "query": "Quels sont les obligations de la société acquéreuse en cas d'inobservation des dispositions de l'article ?",
+      "language": "fr",
+      "gold": [
+        "6288d7a4-bee6-4855-ba66-899c1ae29e47"
+      ],
+      "top5": [
+        "a8466b1d-9953-4f71-9387-7df5bb3215d1",
+        "a566fc3a-23bf-4524-ba4d-82670aba03f1",
+        "650c5635-363c-4589-9907-2afd36cead86",
+        "221c5dcd-630d-4ad9-92ce-05716d042601",
+        "99cf6fc4-5d79-460b-bdc4-0fec0049d147"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 0.0,
+        "hit@5": 0.0,
+        "mrr@5": 0.0,
+        "ndcg@5": 0.0,
+        "recall@10": 0.0,
+        "hit@10": 0.0,
+        "mrr@10": 0.0,
+        "ndcg@10": 0.0,
+        "recall@20": 0.0,
+        "hit@20": 0.0,
+        "mrr@20": 0.0,
+        "ndcg@20": 0.0
+      }
+    },
+    {
+      "query": "Quels types de sociétés sont exemptées des restrictions concernant le nombre de conseils d'administration qu'une personne peut occuper ?",
+      "language": "fr",
+      "gold": [
+        "0e26445b-6e7b-4bd1-a925-8a0241c8ed0c"
+      ],
+      "top5": [
+        "686fdc18-e8b2-4390-ba8a-5fb9df02ad28",
+        "96dcc5e7-17f3-44d3-b143-4d1cd0ea5f8d",
+        "0c1ecd8f-23dd-400d-ba7d-ce853f20ca98",
+        "4d416a9f-5e5a-4b89-8d05-d461e33ca09f",
+        "6d14cc99-bf10-4692-a29a-e2c76fd3b7d0"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 0.0,
+        "hit@5": 0.0,
+        "mrr@5": 0.0,
+        "ndcg@5": 0.0,
+        "recall@10": 0.0,
+        "hit@10": 0.0,
+        "mrr@10": 0.0,
+        "ndcg@10": 0.0,
+        "recall@20": 0.0,
+        "hit@20": 0.0,
+        "mrr@20": 0.0,
+        "ndcg@20": 0.0
+      }
+    },
+    {
+      "query": "Quel est le nombre de voix que dispose un associé selon l'article 129 ?",
+      "language": "fr",
+      "gold": [
+        "ef3758e7-b6c6-4e94-b7db-d40f87bdf840"
+      ],
+      "top5": [
+        "ef3758e7-b6c6-4e94-b7db-d40f87bdf840",
+        "fb195aae-096d-492b-843f-2aa74e1f983e",
+        "c5922ba7-d180-4e13-8207-1121aecb323d",
+        "e3e1aa61-606e-4b1c-adec-ea6be75af85f",
+        "0c3fa04b-32ee-48a9-b042-9117c620090e"
+      ],
+      "metrics": {
+        "recall@1": 1.0,
+        "hit@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 1.0,
+        "ndcg@20": 1.0
+      }
+    },
+    {
+      "query": "Qu'arrive-t-il au contrat lorsqu'une société en participation est révélée aux tiers ?",
+      "language": "fr",
+      "gold": [
+        "ecaacc9b-74f2-4efc-8f02-a3b0d9adbe1e"
+      ],
+      "top5": [
+        "ecaacc9b-74f2-4efc-8f02-a3b0d9adbe1e",
+        "62a53f00-8a79-4175-ba98-7c6e032af7d1",
+        "a8466b1d-9953-4f71-9387-7df5bb3215d1",
+        "9cabdd5d-365c-45c6-acd8-07fc4b5291f4",
+        "4d416a9f-5e5a-4b89-8d05-d461e33ca09f"
+      ],
+      "metrics": {
+        "recall@1": 1.0,
+        "hit@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 1.0,
+        "ndcg@20": 1.0
+      }
+    },
+    {
+      "query": "ما هو التاريخ المحدد الذي تم بموجبه دعم القانون رقم 530 لسنة 1989؟",
+      "language": "ar",
+      "gold": [
+        "e3ce4ee4-99a3-4d5f-8c10-aee9e06e0ec1"
+      ],
+      "top5": [
+        "2662fb0d-ae2c-4bee-8a60-52470ae865cd",
+        "f3585b57-8707-4921-83a5-e7f9d96d38e3",
+        "2fa86332-18ba-4d99-867f-a93c1614b4e8",
+        "6e33d12c-70a6-4690-8f2d-0b660fe87d14",
+        "a4eebb85-bfad-44db-94ed-bb83627be11a"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 0.0,
+        "hit@5": 0.0,
+        "mrr@5": 0.0,
+        "ndcg@5": 0.0,
+        "recall@10": 0.0,
+        "hit@10": 0.0,
+        "mrr@10": 0.0,
+        "ndcg@10": 0.0,
+        "recall@20": 0.0,
+        "hit@20": 0.0,
+        "mrr@20": 0.0,
+        "ndcg@20": 0.0
+      }
+    },
+    {
+      "query": "كم عدد الأيام التي يمكن العمل بها وفقًا للنص؟",
+      "language": "ar",
+      "gold": [
+        "b7c1a8ea-b063-4e1d-abbc-0c132a207463"
+      ],
+      "top5": [
+        "6d6566d9-3e6f-42ef-ab46-856675e43da0",
+        "69b0e82d-1f05-4098-8334-154ff62e80df",
+        "67b721f6-8ffe-4a6e-be9a-e4d8677c2f57",
+        "6652b7db-d596-41f5-b33f-040ba5d65c4c",
+        "e08fb5f0-f2bb-49df-bef9-c5624282a563"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 0.0,
+        "hit@5": 0.0,
+        "mrr@5": 0.0,
+        "ndcg@5": 0.0,
+        "recall@10": 0.0,
+        "hit@10": 0.0,
+        "mrr@10": 0.0,
+        "ndcg@10": 0.0,
+        "recall@20": 0.0,
+        "hit@20": 0.0,
+        "mrr@20": 0.0,
+        "ndcg@20": 0.0
+      }
+    },
+    {
+      "query": "ما عدد السنوات التي تم تحديدها في هذا النص بالنسبة لمدد الحكم؟",
+      "language": "ar",
+      "gold": [
+        "1f249002-aa80-4737-a4cb-035f0d67a276"
+      ],
+      "top5": [
+        "df3ba813-86e2-4431-83dc-a2e9e13bac2a",
+        "abe81272-5efe-4f26-9fa5-e53b47818624",
+        "eb28151f-215c-47bb-8ea4-9926fb637fc9",
+        "d1578055-e2e6-4074-8ac4-f671da6e6f0e",
+        "a48cfe7b-c840-44d1-89a4-f8e633ae01fe"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 0.0,
+        "hit@5": 0.0,
+        "mrr@5": 0.0,
+        "ndcg@5": 0.0,
+        "recall@10": 0.0,
+        "hit@10": 0.0,
+        "mrr@10": 0.0,
+        "ndcg@10": 0.0,
+        "recall@20": 0.0,
+        "hit@20": 0.0,
+        "mrr@20": 0.0,
+        "ndcg@20": 0.0
+      }
+    },
+    {
+      "query": "ما هو المعدل الذي يجب أن يكون متيلاً لقيصري قيقحت في هذا النص؟",
+      "language": "ar",
+      "gold": [
+        "46fd6bf9-0213-4122-808b-48597f0a7dcb"
+      ],
+      "top5": [
+        "35d02e3c-9b43-4b0a-ba96-dd31e966a27c",
+        "5c4bc039-ba5e-4391-b1f2-65ccf51bbe4b",
+        "39dfebcb-f65c-45ac-b678-d7ea6d7ba7df",
+        "a5e19a91-64ae-4bce-8d31-5ccded80c745",
+        "c103af5c-5747-4045-9a1f-71318e8d7f92"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 0.0,
+        "hit@5": 0.0,
+        "mrr@5": 0.0,
+        "ndcg@5": 0.0,
+        "recall@10": 0.0,
+        "hit@10": 0.0,
+        "mrr@10": 0.0,
+        "ndcg@10": 0.0,
+        "recall@20": 0.0,
+        "hit@20": 0.0,
+        "mrr@20": 0.0,
+        "ndcg@20": 0.0
+      }
+    },
+    {
+      "query": "ما هو عدد الرشوات المذكورة في هذا النص وقيمتها؟",
+      "language": "ar",
+      "gold": [
+        "5f993bae-0ae2-4bbb-8e1b-b27311710867"
+      ],
+      "top5": [
+        "e05baff8-928c-482b-888f-ac28e4de67f3",
+        "cfe770fa-64a8-4d4d-a381-2d886ad36257",
+        "0e2e7f99-a680-4297-bdfd-676a193fccd2",
+        "20afae74-cb6a-46b9-8dd8-bcf0b21303a7",
+        "df89218a-6b7e-4f8f-a14c-fe00e182dcb0"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 0.0,
+        "hit@5": 0.0,
+        "mrr@5": 0.0,
+        "ndcg@5": 0.0,
+        "recall@10": 0.0,
+        "hit@10": 0.0,
+        "mrr@10": 0.0,
+        "ndcg@10": 0.0,
+        "recall@20": 0.0,
+        "hit@20": 0.0,
+        "mrr@20": 0.0,
+        "ndcg@20": 0.0
+      }
+    },
+    {
+      "query": "ما هي السنوات التي تم فيها النشر في الجريدة الرسمية لكل من القانون رقم 220 وقانون رقم 221؟",
+      "language": "ar",
+      "gold": [
+        "91f6ceea-076b-424d-98ea-6ca7c224582d"
+      ],
+      "top5": [
+        "01bae8ea-eb71-4df1-957f-9df11c328b11",
+        "0bf2a658-e7da-477e-a95e-b8c20315f572",
+        "bf9183e1-43a8-4171-8dbf-381c2551c5dd",
+        "fe2d4547-c340-4208-b95d-4e3850c8a98c",
+        "9e82e26d-842e-4fdd-8882-2a158ad800a0"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 0.0,
+        "hit@5": 0.0,
+        "mrr@5": 0.0,
+        "ndcg@5": 0.0,
+        "recall@10": 0.0,
+        "hit@10": 0.0,
+        "mrr@10": 0.0,
+        "ndcg@10": 0.0,
+        "recall@20": 0.0,
+        "hit@20": 0.0,
+        "mrr@20": 0.0,
+        "ndcg@20": 0.0
+      }
+    },
+    {
+      "query": "ما هو التاريخ المذكور في النص لصدور القانون؟",
+      "language": "ar",
+      "gold": [
+        "d5b901c5-5af8-4f29-810f-1bb2209fc9f2"
+      ],
+      "top5": [
+        "519cb9bf-4bff-4c72-a6e1-0f5ffe9ab84b",
+        "0aba9b9b-bd2d-433e-a2b9-ecd8b58e25d5",
+        "54827381-04e3-489c-9142-b3fb5ef39694",
+        "515a8da6-7d58-4e9d-8104-8b2f91a256d0",
+        "a4eebb85-bfad-44db-94ed-bb83627be11a"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 0.0,
+        "hit@5": 0.0,
+        "mrr@5": 0.0,
+        "ndcg@5": 0.0,
+        "recall@10": 0.0,
+        "hit@10": 0.0,
+        "mrr@10": 0.0,
+        "ndcg@10": 0.0,
+        "recall@20": 0.0,
+        "hit@20": 0.0,
+        "mrr@20": 0.0,
+        "ndcg@20": 0.0
+      }
+    },
+    {
+      "query": "ما هي الفقرات التي تحتوي على أرقام السنة واليوم لتحديد مواعيد تنفيذ权利，请使用中文输入。",
+      "language": "ar",
+      "gold": [
+        "bcc1fd45-625f-4f64-85e8-aaa5a42afd0c"
+      ],
+      "top5": [
+        "f4c1f548-e1d9-4839-a48f-13bc30926473",
+        "0bf2a658-e7da-477e-a95e-b8c20315f572",
+        "50961612-79ce-451f-b026-9670388c7e33",
+        "20dbf479-da2b-4a21-8626-ca6fbabbe670",
+        "9d31ebb9-d655-4b66-a36f-5c1e6b1f64f3"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 0.0,
+        "hit@5": 0.0,
+        "mrr@5": 0.0,
+        "ndcg@5": 0.0,
+        "recall@10": 0.0,
+        "hit@10": 0.0,
+        "mrr@10": 0.0,
+        "ndcg@10": 0.0,
+        "recall@20": 0.0,
+        "hit@20": 0.0,
+        "mrr@20": 0.0,
+        "ndcg@20": 0.0
+      }
+    },
+    {
+      "query": "ما هي الفترات الزمنية المحددة في القانون المذكور لريسوتفت؟",
+      "language": "ar",
+      "gold": [
+        "b21f6c5e-ee75-42aa-bfea-fc7a91697501"
+      ],
+      "top5": [
+        "f3585b57-8707-4921-83a5-e7f9d96d38e3",
+        "d846b47d-abf9-446b-a310-6784e693aaba",
+        "e1235fc7-0102-465c-b86a-a5644395972a",
+        "648d6e31-56a4-4be6-86b6-ee95ba967d33",
+        "e6f7d16c-00bd-4a2d-8021-f682010cccde"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 0.0,
+        "hit@5": 0.0,
+        "mrr@5": 0.0,
+        "ndcg@5": 0.0,
+        "recall@10": 0.0,
+        "hit@10": 0.0,
+        "mrr@10": 0.0,
+        "ndcg@10": 0.0,
+        "recall@20": 0.0,
+        "hit@20": 0.0,
+        "mrr@20": 0.0,
+        "ndcg@20": 0.0
+      }
+    },
+    {
+      "query": "ما عدد الأرقام القانونية المذكورة في هذا النص؟",
+      "language": "ar",
+      "gold": [
+        "edef3b64-52df-46d3-857e-47fb892414ac"
+      ],
+      "top5": [
+        "98861067-6a75-4c1b-a9a8-9aad320187f6",
+        "2a8ded3d-ab8e-4bb6-aef0-92528c38cdfa",
+        "ea206fce-418e-4f44-a4fa-d17a0b98e54b",
+        "0aba9b9b-bd2d-433e-a2b9-ecd8b58e25d5",
+        "05a82903-9a9a-446d-b5b8-c13326f9426e"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 0.0,
+        "hit@5": 0.0,
+        "mrr@5": 0.0,
+        "ndcg@5": 0.0,
+        "recall@10": 0.0,
+        "hit@10": 0.0,
+        "mrr@10": 0.0,
+        "ndcg@10": 0.0,
+        "recall@20": 0.0,
+        "hit@20": 0.0,
+        "mrr@20": 0.0,
+        "ndcg@20": 0.0
+      }
+    }
+  ]
+}

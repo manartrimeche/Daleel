@@ -250,7 +250,9 @@ pre{background:var(--bg3);border:1px solid var(--border);border-radius:8px;paddi
 <div class="toast-container" id="toasts"></div>
 
 <script src="/static/auth-guard.js"></script>
-<script src="/static/i18n.js?v=20260516g"></script>
+<script>if(typeof AuthGuard==='undefined')document.write('<script src="./auth-guard.js"><\/script>');</script>
+<script src="/static/i18n.js?v=20260518c"></script>
+<script>if(typeof DaleelI18n==='undefined')document.write('<script src="./i18n.js?v=20260518c"><\/script>');</script>
 <script>
 const API = '/api/v1';
 let currentSection = 'dashboard';
@@ -315,6 +317,13 @@ const api = {
   post: (p, b) => apiFetch(p, {method:'POST', body: b !== undefined ? JSON.stringify(b) : undefined}),
   patch: (p, b) => apiFetch(p, {method:'PATCH', body: JSON.stringify(b)}),
   del: (p) => apiFetch(p, {method:'DELETE'}),
+  upload: async (p, formData) => {
+    const request = typeof AuthGuard !== 'undefined' ? AuthGuard.authFetch : fetch;
+    const r = await request(API + p, {method:'POST', body: formData});
+    if(!r.ok){ const e = await r.json().catch(()=>({detail:r.statusText})); throw new Error(e.detail||r.statusText); }
+    if(r.status===204) return null;
+    return r.json();
+  },
 };
 
 async function authApiFetch(path, opts={}) {
@@ -362,13 +371,14 @@ function toggleNotificationMenu() {
 async function loadHeaderNotifications() {
   const currentUser = typeof AuthGuard !== 'undefined' ? AuthGuard.getUser() : null;
   const wrap = document.getElementById('notification-wrap');
-  if (!wrap || currentUser?.role !== 'super_admin') return;
+  if (!wrap || !['super_admin', 'owner', 'admin'].includes(currentUser?.role)) return;
   wrap.style.display = 'block';
 
   const countEl = document.getElementById('notification-count');
   const listEl = document.getElementById('notification-list');
   try {
-    const data = await api.get('/admin/notifications?limit=30');
+    const notifEndpoint = currentUser?.role === 'super_admin' ? '/admin/notifications?limit=30' : '/notifications/mine?limit=30';
+    const data = await api.get(notifEndpoint);
     const notifications = data.notifications || [];
     const approvals = notifications.filter(isApprovalNotification);
     countEl.textContent = approvals.length;
@@ -424,13 +434,15 @@ document.addEventListener('click', (event) => {
 const ALL_ROLES = ['super_admin', 'owner', 'admin', 'member', 'viewer'];
 const SIDEBAR_ITEMS = [
   {section:'dashboard', label:'Dashboard', labelKey:'admin.nav.dashboard', icon:'📊', group:'main', roles: ALL_ROLES},
-  {section:'documents', label:'Documents', labelKey:'admin.nav.documents', icon:'📄', group:'main', roles:['super_admin', 'owner', 'admin', 'member']},
+  {section:'documents', label:'Documents', labelKey:'admin.nav.documents', icon:'📄', group:'main', roles:['super_admin', 'owner', 'admin']},
   {section:'amendements', label:'Amendements', labelKey:'admin.nav.amendments', icon:'📝', group:'main', roles:['super_admin', 'owner', 'admin']},
-  {section:'historique', label:'Historique', labelKey:'admin.nav.history', icon:'🕐', group:'main', roles:['owner', 'admin', 'member']},
+  {section:'cases', label:'Dossiers', labelKey:'admin.nav.cases', icon:'📂', group:'main', roles: ['owner', 'admin', 'member']},
+  {section:'historique', label:'Historique', labelKey:'admin.nav.history', icon:'🕐', group:'main', roles:['owner', 'admin']},
   {section:'company_profile', label:'Profil Entreprise', labelKey:'admin.nav.companyProfile', icon:'🏢', group:'admin', roles:['owner', 'admin']},
   {section:'users', label:'Utilisateurs', labelKey:'admin.nav.users', icon:'👥', group:'admin', roles:['owner', 'admin'], title:'Gestion des Utilisateurs', titleKey:'admin.nav.userManagement'},
   {section:'organizations', label:'Entreprises', labelKey:'admin.nav.organizations', icon:'🏢', group:'admin', roles:['super_admin']},
-  {section:'actions', label:'Actions', labelKey:'admin.nav.actions', icon:'🔔', group:'admin', roles: ALL_ROLES},
+  {section:'actions', label:'Actions', labelKey:'admin.nav.actions', icon:'🔔', group:'admin', roles:['super_admin']},
+  {section:'notifications_owner', label:'Notifications', labelKey:'admin.nav.notifications', icon:'🔔', group:'admin', roles:['owner', 'admin']},
 ];
 const SIDEBAR_GROUPS = [
   {key:'main', title:'PRINCIPAL', titleKey:'admin.nav.principal'},
@@ -546,7 +558,9 @@ async function render(section) {
         vecteur: renderVecteur,
         amendements: renderAmendements, historique: renderHistorique,
       users: renderUsers, organizations: renderOrganizations,
-      administration: renderAdministration
+      administration: renderAdministration,
+      actions: renderActions,
+      notifications_owner: renderNotificationsOwner
     };
     if (renders[section]) await renders[section](c);
     if (window.DaleelI18n) DaleelI18n.apply(c);
@@ -627,7 +641,14 @@ async function renderDashboard(c) {
   const isSuperAdmin = currentUser?.role === 'super_admin';
 
   if (!isSuperAdmin) {
-    const logs = await api.get('/audit-logs?limit=6').catch(() => ({logs:[]}));
+    let logs = null;
+    let isOffline = false;
+    try {
+      logs = await api.get('/audit-logs?limit=6');
+    } catch(e) {
+      logs = {logs:[]};
+      isOffline = true;
+    }
     const auditHtml = (logs.logs||[]).map(l => `
       <div class="audit-item">
         <div class="audit-dot audit-dot-${l.event_type.split('_')[0]}"></div>
@@ -638,12 +659,16 @@ async function renderDashboard(c) {
           </div>
           <div class="audit-detail">${l.details ? JSON.stringify(l.details).slice(0,80)+'…' : ''}</div>
         </div>
-      </div>`).join('') || '<div class="empty">Aucun événement</div>';
+      </div>`).join('') || (isOffline
+        ? `<div class="empty" style="text-align:center;padding:24px"><div style="font-size:32px;margin-bottom:12px">🔌</div><div style="font-weight:600;margin-bottom:6px">${tr('admin.dashboard.serverOffline')}</div><div style="color:var(--text2);font-size:12px">${tr('admin.dashboard.serverOfflineHint')}</div></div>`
+        : `<div class="empty">${tr('admin.dashboard.noEvents')}</div>`);
     c.innerHTML = `
       <div class="section-header"><span class="section-title">${tr('admin.dashboard.recentActivity')}</span></div>
       <div class="panel"><div>${auditHtml}</div></div>`;
-    document.getElementById('api-status').textContent = `🟢 ${tr('common.connected')}`;
-    document.getElementById('api-status').className = 'badge badge-success';
+    if (!isOffline) {
+      document.getElementById('api-status').textContent = `🟢 ${tr('common.connected')}`;
+      document.getElementById('api-status').className = 'badge badge-success';
+    }
     return;
   }
 
@@ -1306,10 +1331,10 @@ async function renderCompanyProfile(c) {
 
     <div class="panel">
       <div class="panel-title">${tr('admin.company.statistics')}</div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:16px">
         <div class="stat-card">
           <div class="stat-value">${members.length}</div>
-        <div class="stat-label">${tr('common.members')}</div>
+          <div class="stat-label">${tr('common.members')}</div>
         </div>
         <div class="stat-card">
           <div class="stat-value" style="font-size:22px">${escapeHtml(org.sector||'—')}</div>
@@ -1318,6 +1343,14 @@ async function renderCompanyProfile(c) {
         <div class="stat-card">
           <div class="stat-value" style="font-size:22px">${fmtCreated}</div>
           <div class="stat-label">${tr('common.createdAt')}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" style="font-size:18px">${escapeHtml(enumLabel(org.subscription_type) || '—')}</div>
+          <div class="stat-label">Abonnement</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" style="font-size:18px;${org.subscription_ends_at && new Date(org.subscription_ends_at) < new Date() ? 'color:var(--danger)' : 'color:var(--success)'}">${org.subscription_ends_at ? new Date(org.subscription_ends_at).toLocaleDateString('fr-FR', {day:'2-digit',month:'2-digit',year:'numeric'}) : '—'}</div>
+          <div class="stat-label">Expiration abonnement</div>
         </div>
       </div>
     </div>`;
@@ -1835,341 +1868,55 @@ async function renderVecteur(c) {
 }
 
 // ══════════════════════════════════════════════════════════════════════
-// CASES
+// CASES — lecture seule
 // ══════════════════════════════════════════════════════════════════════
 let activeCaseId = null;
-let caseListState = {status: '', priority: ''};
 
-async function renderCases(c, skip=0, filterStatus='', filterPriority=''){
-  caseListState = {status: filterStatus, priority: filterPriority};
-  let path = `/cases?skip=${skip}&limit=25`;
-  if(filterStatus) path += '&status='+filterStatus;
-  if(filterPriority) path += '&priority='+filterPriority;
-  const [cases, summary] = await Promise.all([api.get(path), api.get('/cases/summary').catch(()=>({}))]);
+async function renderCases(c, skip=0){
+  const [cases, summary] = await Promise.all([
+    api.get(`/cases?skip=${skip}&limit=25`),
+    api.get('/cases/summary').catch(()=>({}))
+  ]);
   const stats = [
-    {label:enumLabel('open'), value:summary.by_status?.open||0, key:'open'},
-    {label:enumLabel('in_progress'), value:summary.by_status?.in_progress||0, key:'in_progress'},
-    {label:enumLabel('under_review'), value:summary.by_status?.under_review||0, key:'under_review'},
-    {label:enumLabel('resolved'), value:summary.by_status?.resolved||0, key:'resolved'},
-    {label:enumLabel('critical'), value:summary.by_priority?.critical||0, key:'critical'},
+    {label:enumLabel('open'), value:summary.by_status?.open||0},
+    {label:enumLabel('in_progress'), value:summary.by_status?.in_progress||0},
+    {label:enumLabel('under_review'), value:summary.by_status?.under_review||0},
+    {label:enumLabel('resolved'), value:summary.by_status?.resolved||0},
+    {label:enumLabel('critical'), value:summary.by_priority?.critical||0},
   ];
-  const statusFilters = [{k:'',l:tr('common.all')},{k:'open',l:enumLabel('open')},{k:'in_progress',l:enumLabel('in_progress')},{k:'under_review',l:enumLabel('under_review')},{k:'resolved',l:enumLabel('resolved')},{k:'closed',l:enumLabel('closed')}];
-  const priorityFilters = [{k:'',l:tr('admin.cases.allPriorities')},{k:'critical',l:enumLabel('critical')},{k:'high',l:enumLabel('high')},{k:'medium',l:enumLabel('medium')},{k:'low',l:enumLabel('low')}];
-  c.innerHTML = `<div class="section-header"><span class="section-title">${tr('admin.cases.title')}</span><button class="btn btn-primary" onclick="showCreateCaseModal()">➕ ${tr('admin.cases.new')}</button></div>
-    <div class="stats-grid" style="grid-template-columns:repeat(5,1fr)">${stats.map(s=>`<div class="stat-card" style="text-align:center;cursor:pointer" onclick="filterCasesList('${s.key}', '')"><div class="stat-value" style="font-size:22px">${s.value}</div><div class="stat-label">${s.label}</div></div>`).join('')}</div>
-    <div class="btn-group">
-      ${statusFilters.map(f=>`<button class="btn btn-sm ${filterStatus===f.k?'btn-primary':'btn-secondary'}" onclick="filterCasesList('${f.k}','${filterPriority}')">${f.l}</button>`).join('')}
-      <span style="border-left:1px solid var(--border);margin:0 4px"></span>
-      ${priorityFilters.map(f=>`<button class="btn btn-sm ${filterPriority===f.k?'btn-primary':'btn-secondary'}" onclick="filterCasesList('${filterStatus}','${f.k}')">${f.l}</button>`).join('')}
-    </div>
-    <div class="table-wrap"><table><thead><tr><th>${tr('common.title')}</th><th>${tr('common.status')}</th><th>${tr('common.priority')}</th><th>${tr('common.assigned')}</th><th>${tr('common.updated')}</th><th>${tr('common.actions')}</th></tr></thead><tbody>
-      ${cases.cases.map(cs=>`<tr><td><strong>${escapeHtml(cs.title)}</strong><br><span style="font-size:11px;color:var(--text3)">${cs.id}</span></td><td>${tag(cs.status, cs.status)}</td><td>${tag(cs.priority, cs.priority)}</td><td>${fmt(cs.assigned_to)}</td><td>${fmtDate(cs.updated_at)}</td><td><div class="flex gap-8">${btn('🔍',`openCase('${cs.id}')`,'secondary',true)}${btn('✏️',`showEditCaseModal('${cs.id}')`,'secondary',true)}${btn('🗑',`deleteCase('${cs.id}')`,'danger',true)}</div></td></tr>`).join('')}
+  c.innerHTML = `<div class="section-header"><span class="section-title">${tr('admin.cases.title')}</span></div>
+    <div class="stats-grid" style="grid-template-columns:repeat(5,1fr)">${stats.map(s=>`<div class="stat-card" style="text-align:center"><div class="stat-value" style="font-size:22px">${s.value}</div><div class="stat-label">${s.label}</div></div>`).join('')}</div>
+    <div class="table-wrap"><table><thead><tr><th>${tr('common.title')}</th><th>${tr('common.status')}</th><th>${tr('common.priority')}</th><th>Type</th><th>${tr('common.updated')}</th><th></th></tr></thead><tbody>
+      ${cases.cases.map(cs=>`<tr><td><strong>${escapeHtml(cs.title)}</strong></td><td>${tag(cs.status, cs.status)}</td><td>${tag(cs.priority, cs.priority)}</td><td>${cs.matter_type?tag(cs.matter_type):'—'}</td><td>${fmtDate(cs.updated_at)}</td><td>${btn('🔍',`openCase('${cs.id}')`,'secondary',true)}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">Aucun dossier</td></tr>'}
     </tbody></table></div>
     ${paginationHtml(cases.total, skip, 25, 'casesPage')}`;
 }
-function casesPage(skip){ renderCases(document.getElementById('content'), skip, caseListState.status, caseListState.priority); }
-function filterCasesList(st, pr){ renderCases(document.getElementById('content'), 0, st, pr); }
-
-async function deleteCase(id){
-  if(!confirm(tr('admin.cases.confirmDelete'))) return;
-  try{ await api.del('/cases/'+id); toast(tr('admin.cases.deleted'),'success'); navigate('cases'); }
-  catch(e){ toast(e.message,'error'); }
-}
-
-async function showCreateCaseModal(){
-  const profiles = await api.get('/company-profiles?limit=100').catch(()=>({profiles:[]}));
-  const m = document.createElement('div'); m.className = 'modal-bg';
-  m.innerHTML = `<div class="modal"><div class="modal-title">➕ Nouveau dossier</div>
-    <div class="form-group"><label>Titre *</label><input id="nc-title" placeholder="Ex: Audit social 2025"></div>
-    <div class="form-group mt-16"><label>Description</label><textarea id="nc-desc" rows="2"></textarea></div>
-    <div class="form-group mt-16"><label>Profil entreprise</label><select id="nc-profile"><option value="">—</option>${profiles.profiles.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}</select></div>
-    <div class="form-group mt-16"><label>${tr('common.priority')}</label><select id="nc-priority"><option value="low">${enumLabel('low')}</option><option value="medium" selected>${enumLabel('medium')}</option><option value="high">${enumLabel('high')}</option><option value="critical">${enumLabel('critical')}</option></select></div>
-    <div class="modal-footer">${btn('Annuler','closeModal()','secondary')}<button class="btn btn-primary" onclick="doCreateCase()">Créer</button></div></div>`;
-  document.body.appendChild(m);
-}
-async function doCreateCase(){
-  const title = document.getElementById('nc-title').value.trim();
-  if(!title){ toast('Titre requis','error'); return; }
-  try{
-    await api.post('/cases',{title, description:document.getElementById('nc-desc').value||null, company_profile_id:document.getElementById('nc-profile').value||null, priority:document.getElementById('nc-priority').value, assigned_to:null, tags:[], created_by:'admin'});
-    closeModal(); toast('Dossier créé','success'); navigate('cases');
-  }catch(e){ toast(e.message,'error'); }
-}
+function casesPage(skip){ renderCases(document.getElementById('content'), skip); }
 
 function openCase(id){ activeCaseId=id; currentSection='case-detail'; renderCaseDetail(document.getElementById('content'), id); }
 
 async function renderCaseDetail(c, caseId){
-  const [cs, msgs, docs, findings, actions, orchStatus] = await Promise.all([
+  const [cs, summary] = await Promise.all([
     api.get(`/cases/${caseId}`),
-    api.get(`/cases/${caseId}/messages?limit=200`).catch(()=>({messages:[]})),
-    api.get(`/cases/${caseId}/documents`).catch(()=>({documents:[]})),
-    api.get(`/cases/${caseId}/findings`).catch(()=>({findings:[]})),
-    api.get(`/cases/${caseId}/actions`).catch(()=>({actions:[]})),
-    api.get(`/cases/${caseId}/orchestrate/status`).catch(()=>null)
+    api.get(`/cases/${caseId}/summary`).catch(()=>null)
   ]);
-  c.innerHTML = `<div class="section-header"><span class="section-title">${escapeHtml(cs.title)}</span><div class="flex gap-8">${tag(cs.status, cs.status)}${tag(cs.priority, cs.priority)}${btn('✏️ Éditer',`showEditCaseModal('${cs.id}')`,'secondary',true)}<button class="btn btn-secondary btn-sm" onclick="navigate('cases')">← Retour</button></div></div>
-    <div class="panel" style="margin-bottom:16px"><div style="display:flex;gap:24px;flex-wrap:wrap;font-size:13px;color:var(--text2)"><span>Créé: ${fmtDate(cs.created_at)}</span><span>MàJ: ${fmtDate(cs.updated_at)}</span><span>Assigné: ${fmt(cs.assigned_to)}</span><span>Profil: ${fmt(cs.company_profile_id)}</span>${cs.tags&&cs.tags.length?`<span>Tags: ${cs.tags.map(t=>tag(t)).join(' ')}</span>`:''}${orchStatus?`<span>Orchestration: ${orchStatus.ready_for_orchestration?'🟢 Prêt':'🟡 Incomplet'}</span>`:''}</div></div>
-    <div class="btn-group" id="case-tabs">
-      <button class="btn btn-sm btn-primary" data-tab="conversation" onclick="showCaseTab('conversation')">💬 Conversation</button>
-      <button class="btn btn-sm btn-secondary" data-tab="documents" onclick="showCaseTab('documents')">📎 Documents</button>
-      <button class="btn btn-sm btn-secondary" data-tab="findings" onclick="showCaseTab('findings')">⚠️ Constats</button>
-      <button class="btn btn-sm btn-secondary" data-tab="actions" onclick="showCaseTab('actions')">🔧 Actions</button>
-      <button class="btn btn-sm btn-secondary" data-tab="orchestrate" onclick="showCaseTab('orchestrate')">🤖 Orchestration</button>
-    </div>
-    <div id="case-tab-content"></div>`;
-  showCaseTab('conversation');
-}
-
-function showCaseTab(tab){
-  const container = document.getElementById('case-tab-content');
-  document.querySelectorAll('#case-tabs button').forEach(b=>{
-    const isActive = b.dataset.tab === tab;
-    b.className = `btn btn-sm ${isActive?'btn-primary':'btn-secondary'}`;
-  });
-  if(tab==='conversation') renderCaseConversation(container);
-  else if(tab==='documents') renderCaseDocuments(container);
-  else if(tab==='findings') renderCaseFindings(container);
-  else if(tab==='actions') renderCaseActions(container);
-  else if(tab==='orchestrate') renderCaseOrchestrate(container);
-}
-
-async function renderCaseConversation(c){
-  const [msgs, summary] = await Promise.all([
-    api.get(`/cases/${activeCaseId}/messages?limit=200`),
-    api.get(`/cases/${activeCaseId}/summary`).catch(()=>null)
-  ]);
-  const msgHtml = msgs.messages.map(m=>{
-    const isUser = m.role==='user';
-    return `<div style="margin-bottom:12px;display:flex;${isUser?'justify-content:flex-end':''}">
-      <div style="max-width:80%;background:${isUser?'var(--bg-user-msg, var(--bg3))':'var(--card)'};border:1px solid var(--border);border-radius:12px;padding:12px 14px;">
-        <div style="font-size:11px;color:var(--text3);margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.04em">${m.role} · ${fmtDate(m.created_at)}</div>
-        <div style="font-size:13px;line-height:1.6;white-space:pre-wrap">${escapeHtml(m.content)}</div>
-      </div>
-    </div>`;
-  }).join('')||'<div class="empty">Aucun message</div>';
   const context = getSummaryContext(summary);
   const knownFacts = context.facts_known || context.known_facts || [];
   const missingFacts = context.facts_missing || context.missing_facts || [];
-  const matterType = context.matter_type;
+  const matterType = context.matter_type || cs.matter_type;
   const urgency = context.urgency;
-  c.innerHTML = `<div style="display:grid;grid-template-columns:2fr 1fr;gap:16px">
-    <div style="display:flex;flex-direction:column;gap:12px">
-      <div class="panel" style="flex:1;min-height:300px;max-height:520px;overflow-y:auto" id="case-conv-scroll">${msgHtml}</div>
-      <div class="panel" style="padding:12px">
-        <div class="form-group" style="margin-bottom:8px"><textarea id="case-msg-input" rows="2" placeholder="Envoyer un message..."></textarea></div>
-        <button class="btn btn-primary" onclick="sendCaseMessage()">Envoyer</button>
-      </div>
+  const refs = context.article_references || [];
+
+  c.innerHTML = `<div class="section-header"><span class="section-title">${escapeHtml(cs.title)}</span><div class="flex gap-8">${tag(cs.status, cs.status)}${tag(cs.priority, cs.priority)}<button class="btn btn-secondary btn-sm" onclick="navigate('cases')">← Retour</button></div></div>
+    <div class="panel" style="margin-bottom:16px"><div style="display:flex;gap:24px;flex-wrap:wrap;font-size:13px;color:var(--text2)"><span>Créé: ${fmtDate(cs.created_at)}</span><span>MàJ: ${fmtDate(cs.updated_at)}</span>${matterType?`<span>Type: ${tag(matterType)}</span>`:''}${urgency?`<span>Urgence: ${tag(urgency, urgency==='critical'?'critique':urgency)}</span>`:''}</div></div>
+    ${cs.description?`<div class="panel" style="margin-bottom:16px"><div class="panel-title">Description</div><div style="font-size:13px;line-height:1.6">${escapeHtml(cs.description)}</div></div>`:''}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="panel"><div class="panel-title">Faits connus (${knownFacts.length})</div>
+        <ul style="font-size:12px;color:var(--text2);padding-left:16px">${knownFacts.map(f=>`<li>${escapeHtml(f)}</li>`).join('')||'<li>—</li>'}</ul></div>
+      <div class="panel"><div class="panel-title">Faits manquants (${missingFacts.length})</div>
+        <ul style="font-size:12px;color:var(--warn);padding-left:16px">${missingFacts.map(f=>`<li>${escapeHtml(f)}</li>`).join('')||'<li>—</li>'}</ul></div>
     </div>
-    <div>${summary?`<div class="panel"><div class="panel-title">Faits connus (${knownFacts.length})</div><ul style="font-size:12px;color:var(--text2);padding-left:16px">${knownFacts.map(f=>`<li>${escapeHtml(f)}</li>`).join('')||'<li>—</li>'}</ul></div><div class="panel"><div class="panel-title">Faits manquants (${missingFacts.length})</div><ul style="font-size:12px;color:var(--warn);padding-left:16px">${missingFacts.map(f=>`<li>${escapeHtml(f)}</li>`).join('')||'<li>—</li>'}</ul></div>${matterType?`<div class="panel"><div class="panel-title">Type</div><div style="font-size:12px;color:var(--text2)">${tag(matterType)}</div></div>`:''}${urgency?`<div class="panel"><div class="panel-title">Urgence</div><div style="font-size:12px;color:var(--text2)">${tag(urgency, urgency==='critical'?'critique':urgency)}</div></div>`:''}`:''}</div>
-  </div>`;
-  const scroll = document.getElementById('case-conv-scroll');
-  if(scroll) scroll.scrollTop = scroll.scrollHeight;
-}
-async function sendCaseMessage(){
-  const input = document.getElementById('case-msg-input');
-  if(!input.value.trim()) return;
-  const btn = input.parentElement.querySelector('button');
-  if(btn){ btn.disabled=true; btn.textContent='Envoi…'; }
-  try{
-    await api.post(`/cases/${activeCaseId}/converse`, {content: input.value});
-    input.value = ''; showCaseTab('conversation'); toast('Message envoyé','success');
-  }catch(e){ toast(e.message,'error'); }
-  finally{ if(btn){ btn.disabled=false; btn.textContent='Envoyer'; } }
-}
-
-async function renderCaseDocuments(c){
-  const docs = await api.get(`/cases/${activeCaseId}/documents`).catch(()=>({documents:[]}));
-  const docRows = docs.documents.map(d=>{
-    const hasAnalysis = d.analysis && d.analysis.summary;
-    const analysisPreview = hasAnalysis ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">📄 ${escapeHtml(d.analysis.summary.slice(0,80))}${d.analysis.summary.length>80?'…':''} · Conf: ${(d.analysis.confidence*100).toFixed(0)}%</div>` : '';
-    const typeTag = d.analysis && d.analysis.document_type ? tag(d.analysis.document_type) : tag('not_analyzed','pending');
-    return `<tr><td><strong>${escapeHtml(d.label||d.document?.filename||d.document_id)}</strong>${analysisPreview}</td><td>${tag(d.role)}</td><td>${typeTag}</td><td><div class="flex gap-8">${hasAnalysis?btn('📖',`showDocAnalysis('${d.id}')`,'secondary',true):''}${btn('🔍',`analyzeCaseDoc('${d.id}')`,'secondary',true)}${btn('🗑',`detachCaseDoc('${d.id}')`,'danger',true)}</div></td></tr>`;
-  }).join('')||'<tr><td colspan="4" class="empty">Aucun document</td></tr>';
-  c.innerHTML = `<div class="section-header"><span class="section-title">${tr('admin.documents.title')} (${docs.total||0})</span><button class="btn btn-primary" onclick="showCaseUploadModal()">📤 ${tr('common.upload')}</button></div>
-    <div class="table-wrap"><table><thead><tr><th>${tr('common.file')}</th><th>${tr('common.role')}</th><th>${tr('common.analyzedType')}</th><th>${tr('common.actions')}</th></tr></thead><tbody>${docRows}</tbody></table></div>
-    <div id="doc-analysis-detail"></div>`;
-}
-async function showDocAnalysis(cdId){
-  const el = document.getElementById('doc-analysis-detail');
-  el.innerHTML = '<div class="loading-text"><span class="loading"></span></div>';
-  try{
-    const d = await api.get(`/cases/${activeCaseId}/documents/${cdId}`);
-    const a = d.analysis || {};
-    const entities = a.entities || {};
-    const html = `<div class="panel" style="margin-top:12px"><div class="panel-title">Analyse du document</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-        <div><span class="text-muted">Type:</span> ${fmt(a.document_type)}</div>
-        <div><span class="text-muted">Langue:</span> ${fmt(a.language)}</div>
-        <div><span class="text-muted">Confiance:</span> ${a.confidence?((a.confidence*100).toFixed(1)+'%'):'—'}</div>
-        <div><span class="text-muted">OCR:</span> ${a.ocr_used?'Oui':'Non'}</div>
-      </div>
-      <div style="margin-bottom:12px"><span class="text-muted">Résumé:</span><div style="font-size:13px;line-height:1.6;margin-top:4px">${escapeHtml(a.summary||'—')}</div></div>
-      ${entities.deadlines&&entities.deadlines.length?`<div style="margin-bottom:12px"><span class="text-muted">Échéances:</span><ul style="font-size:12px;padding-left:16px;margin-top:4px">${entities.deadlines.map(dl=>`<li>${escapeHtml(dl.description)}${dl.date?` → ${dl.date}`:''}${dl.urgent?' (URGENT)':''}</li>`).join('')}</ul></div>`:''}
-      ${entities.obligations&&entities.obligations.length?`<div style="margin-bottom:12px"><span class="text-muted">Obligations:</span><ul style="font-size:12px;padding-left:16px;margin-top:4px">${entities.obligations.map(o=>`<li>${escapeHtml(o.description)}${o.deadline?` → ${o.deadline}`:''}</li>`).join('')}</ul></div>`:''}
-      ${entities.legal_references&&entities.legal_references.length?`<div style="margin-bottom:12px"><span class="text-muted">Références:</span><div style="font-size:12px;margin-top:4px">${entities.legal_references.map(r=>`<code style="margin-right:6px">${r.type} ${r.number||''}${r.law?' ('+r.law+')':''}</code>`).join('')}</div></div>`:''}
-      ${entities.parties&&entities.parties.length?`<div style="margin-bottom:12px"><span class="text-muted">Parties:</span><div style="font-size:12px;margin-top:4px">${entities.parties.map(p=>`<span style="margin-right:6px">${escapeHtml(p)}</span>`).join('')}</div></div>`:''}
-      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('doc-analysis-detail').innerHTML=''">Fermer</button>
-    </div>`;
-    el.innerHTML = html;
-  }catch(e){ el.innerHTML = `<div class="text-danger">Erreur chargement analyse: ${escapeHtml(e.message)}</div>`; }
-}
-async function showCaseUploadModal(){
-  const m = document.createElement('div'); m.className = 'modal-bg';
-  m.innerHTML = `<div class="modal"><div class="modal-title">📤 Ajouter un document</div>
-    <div class="upload-zone" onclick="document.getElementById('cuf').click()"><div style="font-size:40px">📄</div><div class="upload-zone-text">Cliquez ou glissez un fichier PDF</div><input type="file" id="cuf" accept=".pdf" onchange="handleCaseFile(this)"></div>
-    <div id="cuf-name" style="margin-top:8px;font-size:12px;color:var(--text2)"></div>
-    <div class="form-group mt-16"><label>${tr('common.role')}</label><select id="cuf-role"><option value="evidence">${enumLabel('evidence')}</option><option value="incoming_request">${enumLabel('incoming_request')}</option><option value="policy">${enumLabel('policy')}</option><option value="contract">${enumLabel('contract')}</option><option value="authority_notice">${enumLabel('authority_notice')}</option><option value="other">${enumLabel('other')}</option></select></div>
-    <div class="modal-footer">${btn(tr('common.cancel'),'closeModal()','secondary')}<button class="btn btn-primary" id="cuf-btn" onclick="doCaseUpload()" disabled>${tr('common.upload')}</button></div></div>`;
-  document.body.appendChild(m);
-}
-function handleCaseFile(inp){ if(inp.files[0]){ document.getElementById('cuf-name').textContent='📎 '+inp.files[0].name; document.getElementById('cuf-btn').disabled=false; }}
-async function doCaseUpload(){
-  const f = document.getElementById('cuf').files[0]; if(!f) return;
-  const role = document.getElementById('cuf-role').value;
-  closeModal(); toast('Upload en cours…','info',5000);
-  try{
-    await uploadFile(`/cases/${activeCaseId}/documents/upload`, f, {role, run_analysis:'true'});
-    toast('Document attaché','success'); showCaseTab('documents');
-  }catch(e){ toast(e.message,'error'); }
-}
-async function analyzeCaseDoc(cdId){
-  toast('Analyse en cours…','info',8000);
-  try{ await api.post(`/cases/${activeCaseId}/documents/${cdId}/analyze`); toast('Analyse terminée','success'); showCaseTab('documents'); }
-  catch(e){ toast(e.message,'error'); }
-}
-async function detachCaseDoc(cdId){
-  if(!confirm('Détacher ce document ?')) return;
-  try{ await api.del(`/cases/${activeCaseId}/documents/${cdId}`); toast('Document détaché','success'); showCaseTab('documents'); }
-  catch(e){ toast(e.message,'error'); }
-}
-
-async function renderCaseFindings(c){
-  const findings = await api.get(`/cases/${activeCaseId}/findings`).catch(()=>({findings:[]}));
-  c.innerHTML = `<div class="section-header"><span class="section-title">Constats (${findings.total||0})</span><button class="btn btn-primary btn-sm" onclick="showAddFindingModal()">➕ Ajouter</button></div>
-    <div class="panel">${findings.findings.map(f=>`<div class="audit-item"><div class="audit-dot audit-dot-${f.severity}"></div><div><div class="flex gap-8 items-center"><span class="audit-event">${escapeHtml(f.title)}</span>${tag(f.severity,f.severity)}${tag(f.status,f.status)}</div><div class="audit-detail">${escapeHtml(f.description||'').slice(0,200)}</div>${f.article_references&&f.article_references.length?`<div style="font-size:11px;color:var(--info);margin-top:4px">📑 ${f.article_references.map(r=>`<code>${escapeHtml(r)}</code>`).join(' ')}</div>`:''}</div></div>`).join('')||'<div class="empty">Aucun constat</div>'}</div>`;
-}
-async function renderCaseActions(c){
-  const actions = await api.get(`/cases/${activeCaseId}/actions`).catch(()=>({actions:[]}));
-  const byStatus = {pending:0,in_progress:0,completed:0,cancelled:0};
-  (actions.actions||[]).forEach(a=>{ if(byStatus[a.status]!==undefined) byStatus[a.status]++; });
-  c.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-    <div>
-      <div class="section-header"><span class="section-title">Actions (${actions.total||0})</span><button class="btn btn-primary btn-sm" onclick="showAddActionModal()">➕ Ajouter</button></div>
-      <div class="panel">${actions.actions.map(a=>`<div class="audit-item"><div class="audit-dot audit-dot-${a.priority}"></div><div><div class="flex gap-8 items-center"><span class="audit-event">${escapeHtml(a.title)}</span>${tag(a.priority,a.priority)}${tag(a.status,a.status)}</div><div class="audit-detail">${escapeHtml(a.description||'').slice(0,120)}</div><div style="font-size:11px;color:var(--text3);margin-top:4px">Échéance: ${fmtDate(a.due_date)} · Assigné: ${fmt(a.assigned_to)}${a.completed_at?` · Terminé: ${fmtDate(a.completed_at)}`:''}</div></div></div>`).join('')||'<div class="empty">Aucune action</div>'}</div>
-    </div>
-    <div>
-      <div class="section-header"><span class="section-title">Répartition</span></div>
-      <div class="panel"><div style="font-size:13px;color:var(--text2);margin-bottom:12px">${tr('common.status')}</div>
-        ${Object.entries(byStatus).filter(([,v])=>v>0).map(([k,v])=>`<div class="flex gap-8 items-center mb-16"><span class="text-muted" style="width:100px">${enumLabel(k)}</span><div style="flex:1;height:8px;background:var(--bg3);border-radius:4px;overflow:hidden"><div style="width:${(v/actions.total*100)||0}%;background:var(--accent);height:100%"></div></div><span style="font-weight:600;min-width:24px;text-align:right">${v}</span></div>`).join('')||'<div class="empty">Aucune action</div>'}
-      </div>
-    </div>
-  </div>`;
-}
-async function showAddFindingModal(){
-  const m = document.createElement('div'); m.className = 'modal-bg';
-  m.innerHTML = `<div class="modal"><div class="modal-title">➕ Nouveau constat</div>
-    <div class="form-group"><label>Titre *</label><input id="nf-title"></div>
-    <div class="form-group mt-16"><label>Description</label><textarea id="nf-desc" rows="2"></textarea></div>
-    <div class="form-group mt-16"><label>Sévérité</label><select id="nf-sev"><option value="observation">Observation</option><option value="minor">Mineur</option><option value="major">Majeur</option><option value="critical">Critique</option></select></div>
-    <div class="modal-footer">${btn('Annuler','closeModal()','secondary')}<button class="btn btn-primary" onclick="doAddFinding()">Ajouter</button></div></div>`;
-  document.body.appendChild(m);
-}
-async function doAddFinding(){
-  try{ await api.post(`/cases/${activeCaseId}/findings`,{title:document.getElementById('nf-title').value, description:document.getElementById('nf-desc').value, severity:document.getElementById('nf-sev').value}); closeModal(); toast('Constat ajouté','success'); showCaseTab('findings'); }
-  catch(e){ toast(e.message,'error'); }
-}
-async function showAddActionModal(){
-  const m = document.createElement('div'); m.className = 'modal-bg';
-  m.innerHTML = `<div class="modal"><div class="modal-title">➕ Nouvelle action</div>
-    <div class="form-group"><label>Titre *</label><input id="na-title"></div>
-    <div class="form-group mt-16"><label>Description</label><textarea id="na-desc" rows="2"></textarea></div>
-    <div class="form-group mt-16"><label>${tr('common.priority')}</label><select id="na-priority"><option value="low">${enumLabel('low')}</option><option value="medium" selected>${enumLabel('medium')}</option><option value="high">${enumLabel('high')}</option><option value="critical">${enumLabel('critical')}</option></select></div>
-    <div class="form-group mt-16"><label>Échéance</label><input id="na-due" type="date"></div>
-    <div class="modal-footer">${btn('Annuler','closeModal()','secondary')}<button class="btn btn-primary" onclick="doAddAction()">Ajouter</button></div></div>`;
-  document.body.appendChild(m);
-}
-async function doAddAction(){
-  const due = document.getElementById('na-due').value || null;
-  try{ await api.post(`/cases/${activeCaseId}/actions`,{title:document.getElementById('na-title').value, description:document.getElementById('na-desc').value, priority:document.getElementById('na-priority').value, due_date:due}); closeModal(); toast('Action ajoutée','success'); showCaseTab('actions'); }
-  catch(e){ toast(e.message,'error'); }
-}
-
-async function showEditCaseModal(caseId){
-  try{
-    const cs = await api.get(`/cases/${caseId}`);
-    const m = document.createElement('div'); m.className = 'modal-bg';
-    m.innerHTML = `<div class="modal"><div class="modal-title">✏️ Éditer le dossier</div>
-      <div class="form-group"><label>Titre</label><input id="ec-title" value="${escapeHtml(cs.title)}"></div>
-      <div class="form-group mt-16"><label>Description</label><textarea id="ec-desc" rows="2">${escapeHtml(cs.description||'')}</textarea></div>
-      <div class="form-group mt-16"><label>${tr('common.status')}</label><select id="ec-status"><option value="open" ${cs.status==='open'?'selected':''}>${enumLabel('open')}</option><option value="in_progress" ${cs.status==='in_progress'?'selected':''}>${enumLabel('in_progress')}</option><option value="under_review" ${cs.status==='under_review'?'selected':''}>${enumLabel('under_review')}</option><option value="resolved" ${cs.status==='resolved'?'selected':''}>${enumLabel('resolved')}</option><option value="closed" ${cs.status==='closed'?'selected':''}>${enumLabel('closed')}</option></select></div>
-      <div class="form-group mt-16"><label>${tr('common.priority')}</label><select id="ec-priority"><option value="low" ${cs.priority==='low'?'selected':''}>${enumLabel('low')}</option><option value="medium" ${cs.priority==='medium'?'selected':''}>${enumLabel('medium')}</option><option value="high" ${cs.priority==='high'?'selected':''}>${enumLabel('high')}</option><option value="critical" ${cs.priority==='critical'?'selected':''}>${enumLabel('critical')}</option></select></div>
-      <div class="form-group mt-16"><label>${tr('common.assigned')}</label><input id="ec-assign" value="${escapeHtml(cs.assigned_to||'')}" placeholder="Email ou nom"></div>
-      <div class="modal-footer">${btn(tr('common.cancel'),'closeModal()','secondary')}<button class="btn btn-primary" onclick="doUpdateCase('${caseId}')">${tr('common.save')}</button></div></div>`;
-    document.body.appendChild(m);
-  }catch(e){ toast(e.message,'error'); }
-}
-async function doUpdateCase(caseId){
-  const payload = {
-    title: document.getElementById('ec-title').value,
-    description: document.getElementById('ec-desc').value || null,
-    status: document.getElementById('ec-status').value,
-    priority: document.getElementById('ec-priority').value,
-    assigned_to: document.getElementById('ec-assign').value || null
-  };
-  try{ await api.patch(`/cases/${caseId}`, payload); closeModal(); toast('Dossier mis à jour','success'); renderCaseDetail(document.getElementById('content'), caseId); }
-  catch(e){ toast(e.message,'error'); }
-}
-
-async function renderCaseOrchestrate(c){
-  const [status, assess] = await Promise.all([
-    api.get(`/cases/${activeCaseId}/orchestrate/status`).catch(()=>null),
-    api.get(`/cases/${activeCaseId}/orchestrate/assess`).catch(()=>null)
-  ]);
-  c.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-    <div class="panel"><div class="panel-title">État de préparation</div>
-      <div class="flex gap-8 items-center mb-16">${status?(status.ready_for_orchestration?'<span class="tag tag-active">Prêt</span>':'<span class="tag tag-pending">Incomplet</span>'):'<span class="tag tag-error">Erreur</span>'}</div>
-      ${status?`<div style="font-size:12px;color:var(--text2)"><div>Facts connus: ${status.facts_known_count}</div><div>Facts manquants: ${status.facts_missing_count}</div><div>Constats existants: ${status.findings_count}</div><div>Actions existantes: ${status.actions_count}</div></div>`:''}
-      <button class="btn btn-primary mt-16" onclick="runOrchestration()">🤖 Lancer l'analyse</button></div>
-    <div class="panel"><div class="panel-title">Évaluation rapide</div>
-      ${assess?`<div class="stat-value" style="font-size:32px">${(assess.readiness_score*100).toFixed(0)}%</div><div class="stat-label">${assess.readiness_level}</div>
-      <div style="font-size:12px;color:var(--text2);margin-top:8px">${assess.suggestions.map(s=>`<div>• ${escapeHtml(s)}</div>`).join('')}</div>`:'<span class="text-muted">Non disponible</span>'}</div>
-  </div>
-  <div id="orch-results"></div>`;
-}
-async function runOrchestration(){
-  const out = document.getElementById('orch-results');
-  out.innerHTML = '<div class="loading-text"><span class="loading"></span> Analyse en cours…</div>';
-  try{
-    const r = await api.post(`/cases/${activeCaseId}/orchestrate`, {auto_create_findings:true, auto_create_actions:true});
-    out.innerHTML = `<div class="panel"><div class="panel-title">Résultats — ${r.decision}</div>
-      <div style="font-size:12px;color:var(--text2);margin-bottom:12px">${escapeHtml(r.decision_reason||'')}</div>
-      ${r.proposed_findings.length?`<div style="font-weight:600;margin-bottom:8px">Constats proposés (${r.proposed_findings.length})</div>`+r.proposed_findings.map(f=>`<div class="roadmap-item"><div class="roadmap-header"><span class="roadmap-pos">⚠️</span><div style="flex:1"><div class="roadmap-action">${escapeHtml(f.title)}</div><div class="roadmap-meta">${tag(f.severity,f.severity)}</div></div></div></div>`).join(''):''}
-      ${r.proposed_actions.length?`<div style="font-weight:600;margin:12px 0 8px">Actions proposées (${r.proposed_actions.length})</div>`+r.proposed_actions.map(a=>`<div class="roadmap-item"><div class="roadmap-header"><span class="roadmap-pos">🔧</span><div style="flex:1"><div class="roadmap-action">${escapeHtml(a.title)}</div><div class="roadmap-meta">${tag(a.priority,a.priority)} Échéance: ${fmtDate(a.due_date)}</div></div></div></div>`).join(''):''}
-    </div>`;
-    if(r.decision==='needs_clarification'){
-      const qs = await api.get(`/cases/${activeCaseId}/orchestrate/questions`);
-      out.innerHTML += `<div class="panel"><div class="panel-title">Questions de clarification</div>${qs.questions.map(q=>`<div style="margin-bottom:6px">• ${escapeHtml(q)}</div>`).join('')}</div>`;
-    }
-    const [summary, caseDocs] = await Promise.all([
-      api.get(`/cases/${activeCaseId}/summary`).catch(()=>null),
-      api.get(`/cases/${activeCaseId}/documents`).catch(()=>({documents:[]}))
-    ]);
-    const adv = await api.post(`/cases/${activeCaseId}/orchestrate/advise`, {
-      case_id: activeCaseId,
-      orchestration_result: r,
-      conversation_context: getSummaryContext(summary),
-      document_analyses: caseDocs.documents || [],
-      legal_context: [],
-      language: 'fr',
-      tone: 'professional',
-      use_llm_refinement: false
-    }).catch(()=>null);
-    if(adv){
-      out.innerHTML += `<div class="panel"><div class="panel-title">Conseil structuré</div>
-        <div style="font-size:13px;line-height:1.6;white-space:pre-wrap">${escapeHtml(adv.markdown_rendering || adv.markdown_response || '')}</div>
-      </div>`;
-    }
-  }catch(e){ out.innerHTML = `<div class="panel text-danger">Erreur: ${escapeHtml(e.message)}</div>`; }
+    ${refs.length?`<div class="panel" style="margin-top:16px"><div class="panel-title">Références juridiques</div><div style="font-size:12px">${refs.map(r=>`<code style="margin-right:8px">${escapeHtml(r)}</code>`).join('')}</div></div>`:''}`;
 }
 
 async function renderPosture(c){
@@ -2301,6 +2048,387 @@ async function renderExceptions(c){
     <div class="table-wrap"><table><thead><tr><th>${tr('common.title')}</th><th>${tr('common.type')}</th><th>${tr('common.status')}</th><th>${tr('common.risk')}</th><th>${tr('common.expires')}</th><th>${tr('common.justification')}</th></tr></thead><tbody>
       ${data.exceptions.map(ex=>`<tr><td><strong>${escapeHtml(ex.title)}</strong></td><td>${fmt(ex.exception_type)}</td><td>${tag(ex.status,ex.status)}</td><td>${tag(ex.risk_level,ex.risk_level)}</td><td>${fmtDate(ex.expiry_date)}</td><td style="max-width:200px;font-size:12px;color:var(--text3)">${escapeHtml(ex.justification||'').slice(0,80)}</td></tr>`).join('')}
     </tbody></table></div>`;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// NOTIFICATIONS OWNER (gérant)
+// ══════════════════════════════════════════════════════════════════════
+async function renderNotificationsOwner(c) {
+  const data = await api.get('/notifications/mine?limit=50').catch(() => ({notifications:[], total:0}));
+  const notifs = data.notifications || [];
+  const unread = notifs.filter(n => !n.read);
+  const read = notifs.filter(n => n.read);
+
+  function notifIcon(type) {
+    const icons = {amendment_impact:'📝', approval_organization:'🏢', approval_invitation:'✉️', account_login:'🔑', account_updated:'👤', account_deactivated:'🔴', invitation_revoked:'❌', coverage_change:'📊'};
+    return icons[type] || '🔔';
+  }
+
+  c.innerHTML = `
+    <div class="section-header"><span class="section-title">🔔 Notifications</span><span class="text-muted" style="font-size:13px">${unread.length} non lue(s)</span></div>
+
+    ${unread.length ? `
+    <div class="panel" style="margin-bottom:20px">
+      <div class="panel-title">Nouvelles notifications (${unread.length})</div>
+      ${unread.map(n => `
+        <div style="padding:14px;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:flex-start">
+          <div style="font-size:24px;line-height:1">${notifIcon(n.alert_type)}</div>
+          <div style="flex:1">
+            <div style="font-weight:600;font-size:14px;margin-bottom:4px">${escapeHtml(n.title || 'Notification')}</div>
+            <div style="font-size:13px;color:var(--text2);line-height:1.5;white-space:pre-line">${escapeHtml(n.message || '—')}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:6px">${fmtDate(n.created_at)}</div>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="markOwnerNotifRead('${n.id}')">✓ Lu</button>
+        </div>
+      `).join('')}
+    </div>` : '<div class="empty" style="margin-bottom:20px"><div class="empty-icon">✅</div><p>Aucune nouvelle notification</p></div>'}
+
+    ${read.length ? `
+    <div class="panel">
+      <div class="panel-title" style="color:var(--text3)">Historique (${read.length})</div>
+      ${read.map(n => `
+        <div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:flex-start;opacity:.6">
+          <div style="font-size:20px;line-height:1">${notifIcon(n.alert_type)}</div>
+          <div style="flex:1">
+            <div style="font-weight:600;font-size:13px">${escapeHtml(n.title || 'Notification')}</div>
+            <div style="font-size:12px;color:var(--text3);line-height:1.4">${escapeHtml((n.message || '').slice(0, 150))}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:4px">${fmtDate(n.created_at)}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>` : ''}
+
+    ${!notifs.length ? '<div class="empty"><div class="empty-icon">🔔</div><p>Aucune notification pour votre organisation</p></div>' : ''}
+  `;
+}
+
+async function markOwnerNotifRead(id) {
+  try {
+    await api.post('/notifications/' + id + '/read');
+    toast('Marquée comme lue', 'success');
+    navigate('notifications_owner');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// ACTIONS — Centre d'activité des comptes (super_admin)
+// ══════════════════════════════════════════════════════════════════════
+let actionsSubTab = 'connexions';
+
+async function renderActions(c) {
+  const isSuperAdmin = currentRole() === 'super_admin';
+  const tabs = [
+    {key:'connexions', icon:'🔑', label:'Connexions'},
+    {key:'activites', icon:'📋', label:'Activités récentes'},
+    ...(isSuperAdmin ? [{key:'notifications', icon:'🔔', label:'Notifications'}] : []),
+    {key:'invitations', icon:'✉️', label:'Invitations'},
+    {key:'comptes', icon:'👤', label:'Gestion comptes'},
+  ];
+
+  c.innerHTML = `
+    <div class="section-header"><span class="section-title">🔔 Actions — Activité des comptes</span></div>
+    <div class="steps" id="actions-tabs">
+      ${tabs.map(t => `<div class="step ${t.key===actionsSubTab?'active':''}" onclick="switchActionsTab('${t.key}')">
+        <span class="step-num">${t.icon}</span><span class="step-lbl">${t.label}</span>
+      </div>`).join('')}
+    </div>
+    <div id="actions-content"><div class="loading-text"><span class="loading"></span> Chargement…</div></div>`;
+
+  await renderActionsSubTab(actionsSubTab);
+}
+
+function switchActionsTab(tab) {
+  actionsSubTab = tab;
+  document.querySelectorAll('#actions-tabs .step').forEach(s => s.classList.toggle('active', s.textContent.includes(
+    {connexions:'Connexions',activites:'Activités',notifications:'Notifications',invitations:'Invitations',comptes:'Gestion'}[tab]
+  )));
+  renderActionsSubTab(tab);
+}
+
+async function renderActionsSubTab(tab) {
+  const el = document.getElementById('actions-content');
+  if (!el) return;
+  el.innerHTML = `<div class="loading-text"><span class="loading"></span> Chargement…</div>`;
+  try {
+    const renderers = {
+      connexions: renderActionsConnexions,
+      activites: renderActionsActivites,
+      notifications: renderActionsNotifications,
+      invitations: renderActionsInvitations,
+      comptes: renderActionsComptes,
+    };
+    if (renderers[tab]) await renderers[tab](el);
+  } catch(e) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div><p>${escapeHtml(e.message)}</p></div>`;
+  }
+}
+
+// ── Sous-onglet : Connexions ──────────────────────────────────────────
+async function renderActionsConnexions(el) {
+  const currentUser = typeof AuthGuard !== 'undefined' ? AuthGuard.getUser() : null;
+  if (!currentUser?.organization_id) { el.innerHTML = '<div class="empty">Aucune organisation</div>'; return; }
+
+  const data = await authApi.get(`/auth/organizations/${currentUser.organization_id}/users?limit=100`);
+  const users = (data.users || []).slice().sort((a, b) => {
+    if (!a.last_login) return 1;
+    if (!b.last_login) return -1;
+    return new Date(b.last_login) - new Date(a.last_login);
+  });
+
+  const now = Date.now();
+  function loginStatus(d) {
+    if (!d) return '<span class="tag tag-closed">Jamais connecté</span>';
+    const diff = now - new Date(d).getTime();
+    if (diff < 3600000) return '<span class="tag tag-active">En ligne</span>';
+    if (diff < 86400000) return '<span class="tag tag-open">Aujourd\'hui</span>';
+    if (diff < 604800000) return '<span class="tag tag-pending">Cette semaine</span>';
+    return '<span class="tag tag-closed">Inactif</span>';
+  }
+
+  el.innerHTML = `
+    <div class="panel">
+      <div class="panel-title">🔑 Journal des connexions</div>
+      <div class="stats-grid" style="margin-bottom:16px">
+        <div class="stat-card"><div class="stat-icon">👥</div><div class="stat-value">${users.length}</div><div class="stat-label">Utilisateurs total</div></div>
+        <div class="stat-card"><div class="stat-icon">🟢</div><div class="stat-value">${users.filter(u => u.last_login && (now - new Date(u.last_login).getTime()) < 86400000).length}</div><div class="stat-label">Actifs aujourd'hui</div></div>
+        <div class="stat-card"><div class="stat-icon">🔴</div><div class="stat-value">${users.filter(u => !u.last_login).length}</div><div class="stat-label">Jamais connectés</div></div>
+        <div class="stat-card"><div class="stat-icon">⚠️</div><div class="stat-value">${users.filter(u => u.last_login && (now - new Date(u.last_login).getTime()) > 604800000).length}</div><div class="stat-label">Inactifs (+7j)</div></div>
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Utilisateur</th><th>Email</th><th>Rôle</th><th>Dernière connexion</th><th>Statut</th></tr></thead>
+        <tbody>
+          ${users.map(u => `<tr>
+            <td><strong>${escapeHtml(u.full_name || '—')}</strong></td>
+            <td style="font-size:12px;color:var(--text2)">${escapeHtml(u.email || '—')}</td>
+            <td>${tag(u.role, u.role)}</td>
+            <td style="font-size:12px">${fmtDate(u.last_login)}</td>
+            <td>${loginStatus(u.last_login)}</td>
+          </tr>`).join('') || '<tr><td colspan="5">Aucun utilisateur</td></tr>'}
+        </tbody>
+      </table></div>
+    </div>`;
+}
+
+// ── Sous-onglet : Activités récentes ──────────────────────────────────
+let activitesPage = 0;
+async function renderActionsActivites(el, skip=0) {
+  activitesPage = skip;
+  const limit = 20;
+  const data = await api.get(`/audit-logs?skip=${skip}&limit=${limit}`).catch(() => ({logs:[], total:0}));
+  const logs = data.logs || [];
+  const total = data.total || 0;
+
+  function eventIcon(type) {
+    const icons = {amendment_applied:'📝', version_superseded:'🔄', article_created:'➕', article_updated:'✏️', loi_created:'⚖️', document_uploaded:'📄', user_login:'🔑'};
+    return icons[type] || '📌';
+  }
+
+  el.innerHTML = `
+    <div class="panel">
+      <div class="panel-title">📋 Activités récentes — Journal d'audit (${total})</div>
+      ${logs.length ? `<div class="table-wrap"><table>
+        <thead><tr><th>Date</th><th>Événement</th><th>Détails</th><th>Référence</th></tr></thead>
+        <tbody>
+          ${logs.map(l => `<tr>
+            <td style="font-size:12px;white-space:nowrap">${fmtDate(l.created_at || l.timestamp)}</td>
+            <td>${eventIcon(l.event_type)} ${tag(l.event_type, l.event_type)}</td>
+            <td style="max-width:300px;font-size:12px;color:var(--text2)">${escapeHtml((l.summary || l.details || '').slice(0, 120))}</td>
+            <td style="font-size:11px;color:var(--text3)">${escapeHtml(l.loi_id || l.article_id || '—')}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div>` : '<div class="empty"><div class="empty-icon">📋</div><p>Aucune activité enregistrée</p></div>'}
+      ${total > limit ? `<div class="pagination">
+        <button class="btn btn-secondary btn-sm" ${skip===0?'disabled':''} onclick="renderActionsActivites(document.getElementById('actions-content'), ${Math.max(0,skip-limit)})">← Précédent</button>
+        <span class="page-info">${skip+1}–${Math.min(skip+limit, total)} / ${total}</span>
+        <button class="btn btn-secondary btn-sm" ${skip+limit>=total?'disabled':''} onclick="renderActionsActivites(document.getElementById('actions-content'), ${skip+limit})">Suivant →</button>
+      </div>` : ''}
+    </div>`;
+}
+
+// ── Sous-onglet : Notifications ───────────────────────────────────────
+async function renderActionsNotifications(el) {
+  const data = await api.get('/admin/notifications?limit=50').catch(() => ({notifications:[], total:0}));
+  const notifs = data.notifications || [];
+  const pending = notifs.filter(n => !n.read);
+  const processed = notifs.filter(n => n.read);
+
+  el.innerHTML = `
+    <div class="panel">
+      <div class="panel-title">🔔 Notifications admin (${pending.length} en attente)</div>
+      ${pending.length ? `<div class="table-wrap"><table>
+        <thead><tr><th>Type</th><th>Message</th><th>Date</th><th>Actions</th></tr></thead>
+        <tbody>
+          ${pending.map(n => `<tr>
+            <td>${tag(n.alert_type || n.type || 'info', n.alert_type || 'info')}</td>
+            <td style="font-size:13px">${escapeHtml(n.message || n.title || '—')}</td>
+            <td style="font-size:12px;color:var(--text2)">${fmtDate(n.created_at)}</td>
+            <td>
+              <div class="btn-group">
+                <button class="btn btn-success btn-sm" onclick="approveActionNotif('${n.id}')">✅ Approuver</button>
+                <button class="btn btn-danger btn-sm" onclick="rejectActionNotif('${n.id}')">❌ Rejeter</button>
+              </div>
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div>` : '<div class="empty" style="margin-bottom:16px"><div class="empty-icon">✅</div><p>Aucune notification en attente</p></div>'}
+
+      ${processed.length ? `
+      <div class="panel-title" style="margin-top:20px">📁 Historique traité (${processed.length})</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Type</th><th>Message</th><th>Date</th><th>Statut</th></tr></thead>
+        <tbody>
+          ${processed.map(n => `<tr style="opacity:.7">
+            <td>${tag(n.alert_type || n.type || 'info', n.alert_type || 'info')}</td>
+            <td style="font-size:12px">${escapeHtml(n.message || n.title || '—')}</td>
+            <td style="font-size:12px;color:var(--text3)">${fmtDate(n.created_at)}</td>
+            <td><span class="tag tag-resolved">Traité</span></td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div>` : ''}
+    </div>`;
+}
+
+async function approveActionNotif(id) {
+  try {
+    await api.post(`/admin/notifications/${id}/approve`);
+    toast('Notification approuvée', 'success');
+    renderActionsSubTab('notifications');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function rejectActionNotif(id) {
+  if (!confirm('Rejeter cette notification ?')) return;
+  try {
+    await api.post(`/admin/notifications/${id}/reject`);
+    toast('Notification rejetée', 'success');
+    renderActionsSubTab('notifications');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Sous-onglet : Invitations ─────────────────────────────────────────
+async function renderActionsInvitations(el) {
+  const data = await authApi.get('/auth/invitations').catch(() => ({invitations:[], total:0}));
+  const invitations = data.invitations || [];
+  const pending = invitations.filter(i => i.status === 'pending');
+  const others = invitations.filter(i => i.status !== 'pending');
+
+  el.innerHTML = `
+    <div class="panel">
+      <div class="panel-title">✉️ Invitations envoyées (${invitations.length})</div>
+      <div class="stats-grid" style="margin-bottom:16px">
+        <div class="stat-card"><div class="stat-icon">⏳</div><div class="stat-value">${pending.length}</div><div class="stat-label">En attente</div></div>
+        <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-value">${invitations.filter(i=>i.status==='accepted').length}</div><div class="stat-label">Acceptées</div></div>
+        <div class="stat-card"><div class="stat-icon">❌</div><div class="stat-value">${invitations.filter(i=>i.status==='expired'||i.status==='revoked').length}</div><div class="stat-label">Expirées / Révoquées</div></div>
+      </div>
+
+      ${pending.length ? `
+      <div style="font-weight:600;margin-bottom:10px">En attente</div>
+      <div class="table-wrap" style="margin-bottom:16px"><table>
+        <thead><tr><th>Email</th><th>Rôle</th><th>Envoyée le</th><th>Expire le</th><th>Actions</th></tr></thead>
+        <tbody>
+          ${pending.map(inv => `<tr>
+            <td>${escapeHtml(inv.email || '—')}</td>
+            <td>${tag(inv.role, inv.role)}</td>
+            <td style="font-size:12px;color:var(--text2)">${fmtDate(inv.created_at)}</td>
+            <td style="font-size:12px;color:var(--text2)">${fmtDate(inv.expires_at)}</td>
+            <td>${btn('Révoquer', `revokeActionInvitation('${inv.id}')`, 'danger', true)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div>` : ''}
+
+      ${others.length ? `
+      <div style="font-weight:600;margin-bottom:10px">Historique</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Email</th><th>Rôle</th><th>Statut</th><th>Date</th></tr></thead>
+        <tbody>
+          ${others.map(inv => `<tr style="opacity:.7">
+            <td>${escapeHtml(inv.email || '—')}</td>
+            <td>${tag(inv.role, inv.role)}</td>
+            <td>${tag(inv.status, inv.status)}</td>
+            <td style="font-size:12px;color:var(--text3)">${fmtDate(inv.created_at)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div>` : ''}
+
+      ${!invitations.length ? '<div class="empty"><div class="empty-icon">✉️</div><p>Aucune invitation</p></div>' : ''}
+    </div>`;
+}
+
+async function revokeActionInvitation(id) {
+  if (!confirm('Révoquer cette invitation ?')) return;
+  try {
+    await authApi.del('/auth/invitations/' + id);
+    toast('Invitation révoquée', 'success');
+    renderActionsSubTab('invitations');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Sous-onglet : Gestion comptes ────────────────────────────────────
+async function renderActionsComptes(el) {
+  const currentUser = typeof AuthGuard !== 'undefined' ? AuthGuard.getUser() : null;
+  if (!currentUser?.organization_id) { el.innerHTML = '<div class="empty">Aucune organisation</div>'; return; }
+
+  const data = await authApi.get(`/auth/organizations/${currentUser.organization_id}/users?limit=100`);
+  const users = data.users || [];
+  const active = users.filter(u => u.is_active);
+  const inactive = users.filter(u => !u.is_active);
+
+  el.innerHTML = `
+    <div class="panel">
+      <div class="panel-title">👤 Gestion des comptes</div>
+      <div class="stats-grid" style="margin-bottom:16px">
+        <div class="stat-card"><div class="stat-icon">👥</div><div class="stat-value">${users.length}</div><div class="stat-label">Total comptes</div></div>
+        <div class="stat-card"><div class="stat-icon">🟢</div><div class="stat-value">${active.length}</div><div class="stat-label">Actifs</div></div>
+        <div class="stat-card"><div class="stat-icon">🔴</div><div class="stat-value">${inactive.length}</div><div class="stat-label">Désactivés</div></div>
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Nom</th><th>Email</th><th>Rôle</th><th>Statut</th><th>Dernière connexion</th><th>Actions</th></tr></thead>
+        <tbody>
+          ${users.map(u => {
+            const isOwner = u.role === 'owner';
+            const isSelf = u.id === currentUser.id;
+            return `<tr>
+              <td><strong>${escapeHtml(u.full_name || '—')}</strong></td>
+              <td style="font-size:12px;color:var(--text2)">${escapeHtml(u.email || '—')}</td>
+              <td>${isOwner || isSelf ? tag(u.role, u.role) : `<select onchange="updateActionUserRole('${u.id}', this.value)">${editableRoleOptions(u.role)}</select>`}</td>
+              <td>${u.is_active ? '<span class="tag tag-active">Actif</span>' : '<span class="tag tag-closed">Désactivé</span>'}</td>
+              <td style="font-size:12px;color:var(--text3)">${fmtDate(u.last_login)}</td>
+              <td>${isOwner || isSelf ? '—' : `<div class="btn-group">
+                ${u.is_active
+                  ? btn('Désactiver', `toggleActionUserStatus('${u.id}', false)`, 'danger', true)
+                  : btn('Réactiver', `toggleActionUserStatus('${u.id}', true)`, 'success', true)}
+                ${btn('Supprimer', `deleteActionUser('${u.id}', '${escapeHtml(u.full_name || u.email)}')`, 'danger', true)}
+              </div>`}</td>
+            </tr>`;
+          }).join('') || '<tr><td colspan="6">Aucun compte</td></tr>'}
+        </tbody>
+      </table></div>
+    </div>`;
+}
+
+async function updateActionUserRole(userId, role) {
+  try {
+    await authApi.put('/auth/users/' + userId, {role});
+    toast('Rôle mis à jour', 'success');
+    renderActionsSubTab('comptes');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function toggleActionUserStatus(userId, isActive) {
+  try {
+    await authApi.put('/auth/users/' + userId, {is_active: isActive});
+    toast(isActive ? 'Compte réactivé' : 'Compte désactivé', 'success');
+    renderActionsSubTab('comptes');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function deleteActionUser(userId, name) {
+  if (!confirm(`Supprimer définitivement le compte de ${name} ?`)) return;
+  try {
+    await authApi.del('/auth/users/' + userId);
+    toast('Compte supprimé', 'success');
+    renderActionsSubTab('comptes');
+  } catch(e) { toast(e.message, 'error'); }
 }
 
 // ══════════════════════════════════════════════════════════════════════

@@ -40,10 +40,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy virtual environment from builder
 COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
+ENV PYTHONPATH="/app/backend"
 
 # Copy application code
 COPY app/ ./app/
-COPY training/ ./training/
+COPY backend/ ./backend/
+COPY backend/training/ ./training/
+COPY interface-daleel/ ./interface-daleel/
 COPY README.md RAPPORT_PROJET.md COMPLIANCE_STEERING.md ./
 
 # Create uploads directory

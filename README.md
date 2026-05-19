@@ -499,3 +499,119 @@ GitHub Actions exécute à chaque push :
 ## 📜 Licence
 
 Ce projet a été réalisé dans le cadre d'un Projet de Fin d'Études (PFE).
+dépendances
+│   │   ├── domain_router.py         # Routage domaine juridique (Sprint 6)
+│   │   ├── legal_retrieval_orchestrator.py  # Retrieval partitionné base/amendements
+│   │   ├── quality_guard_service.py # Anti-hallucination post-génération
+│   │   ├── graph_resolver.py        # KG Light (Loi→Article→Exigence→Action)
+│   │   ├── analytics_service.py     # Stats admin
+│   │   ├── export_service.py        # Export Excel/CSV
+│   │   ├── notification_service.py  # Notifications
+│   │   ├── auth_service.py          # Utilisateurs, organisations, abonnements, tokens
+│   │   ├── email_service.py         # Email SMTP pour les invitations approuvées
+│   │   ├── case_service.py           # Gestion des cas
+│   │   ├── case_document_service.py  # Documents liés aux cas + analyse
+│   │   ├── case_conversation_service.py  # Workflow conversationnel
+│   │   ├── compliance_case_orchestrator.py  # Orchestration des cas
+│   │   ├── advisor_response_composer.py  # reponse conseiller
+│   │   └── compliance_service.py      # Compliance steering
+│   ├── processing/             # Extraction de texte & OCR
+│   │   ├── extractor.py        # Extraction PDF/DOCX/images
+│   │   ├── ocr.py              # Moteur OCR (Tesseract + EasyOCR)
+│   │   ├── chunker.py          # Découpage en chunks
+│   │   ├── legal_cleaner.py    # Nettoyage du texte juridique
+│   │   ├── article_segmenter.py# Segmentation en articles
+│   │   └── text_utils.py       # Utilitaires texte
+│   ├── case_management/         # Analyse documentaire des cas
+│   │   └── processing/          # OCR, extraction, utilitaires spécifiques
+│   └── static/
+│       ├── index.html          # Interface chatbot (dark theme)
+│       ├── admin.html          # Panneau d'administration + notifications header
+│       ├── auth.html           # Connexion / inscription entreprise
+│       ├── invite.html         # Acceptation d'invitation
+│       ├── auth-guard.js       # Protection frontend par rôle
+│       └── i18n.js             # Traductions FR/AR/EN
+├── tests/                      # 18 fichiers de tests (~2185 lignes)
+│   ├── test_api.py
+│   ├── test_auth.py
+│   ├── test_case_service.py
+│   ├── test_case_document_service.py
+│   ├── test_case_conversation_service.py
+│   ├── test_compliance_case_orchestrator.py
+│   ├── test_faiss_index.py
+│   ├── test_domain_router.py
+│   ├── test_legal_retrieval_orchestrator.py
+│   ├── test_quality_guard_service.py
+│   ├── test_graph_resolver.py
+│   ├── test_llm_grounding_validation.py
+│   ├── test_llm_retry.py
+│   ├── test_integration_sprint6.py
+│   └── benchmark_models.py
+├── training/                   # Pipeline fine-tuning embeddings
+│   ├── 01_build_eval_set.py         # Annotation eval set (25 Q)
+│   ├── 02_build_train_set.py        # Génération paires d'entraînement
+│   ├── 03_evaluate_retrieval.py     # Benchmark Recall@k, MRR@k, nDCG@k
+│   ├── 04_finetune_embeddings.py    # Fine-tuning MNR Loss (PyTorch)
+│   ├── data/                        # Datasets (articles, eval, train)
+│   ├── models/                      # Modèle fine-tuné (~1.06 GB)
+│   └── INTEGRATION.md               # Guide d'intégration du modèle
+└── reset_and_rebuild.ps1       # Script de réinitialisation complète
+```
+
+---
+
+## 🤖 Fine-Tuning du Modèle d'Embedding
+
+Un pipeline complet de fine-tuning adapte le modèle `paraphrase-multilingual-mpnet-base-v2` au vocabulaire juridique tunisien.
+
+| Étape | Script | Rôle |
+|-------|--------|------|
+| 1 | `training/01_build_eval_set.py` | Export articles + annotation eval set (25 queries gold) |
+| 2 | `training/02_build_train_set.py` | Paires `(query, positive)` — feedback réel + synthétique LLM |
+| 3 | `training/03_evaluate_retrieval.py` | Benchmark Recall@k, MRR@k, nDCG@k |
+| 4 | `training/04_finetune_embeddings.py` | Fine-tuning PyTorch (MNR Loss, 2 epochs, batch 32) |
+
+### Résultats du fine-tuning
+
+| Métrique | Baseline | Fine-tuné | **Delta** |
+|----------|----------|-----------|-----------|
+| **recall@1** | 0.20 | **0.48** | **+140%** |
+| **recall@5** | 0.32 | **0.56** | **+75%** |
+| **mrr@10** | 0.25 | **0.52** | **+106%** |
+| **ndcg@5** | 0.26 | **0.52** | **+101%** |
+| **FR recall@5** | 0.53 | **0.87** | **+64%** |
+
+> **Intégration** : changer `DALEEL_EMBEDDING_MODEL` dans `.env` vers `./training/models/daleel-embedding-finetuned` puis ré-encoder les chunks. Voir `training/INTEGRATION.md` pour la procédure complète (backup, ré-embedding, rollback).
+
+## 🔧 Variables d'Environnement Clés
+
+| Variable | Description | Défaut |
+|----------|-------------|--------|
+| `DALEEL_MONGODB_URL` | URI MongoDB | `mongodb://localhost:27017` |
+| `DALEEL_LLM_MODEL` | Modèle Ollama | `qwen2.5:7b` |
+| `DALEEL_EMBEDDING_MODEL` | Modèle embeddings | `sentence-transformers/paraphrase-multilingual-mpnet-base-v2` |
+| `DALEEL_VECTOR_SEARCH_BACKEND` | `faiss` ou `python-cosine` | `faiss` |
+| `DALEEL_API_KEY` | Clé API (vide = désactivé) | *(vide)* |
+| `DALEEL_ADMIN_API_KEY` | Clé admin legacy pour `/admin/*` | `DALEEL_API_KEY` |
+| `DALEEL_JWT_SECRET_KEY` | Secret JWT à remplacer en production | `change-me...` |
+| `DALEEL_JWT_ACCESS_TOKEN_EXPIRE_MINUTES` | Durée du token d'accès | `30` |
+| `DALEEL_JWT_REFRESH_TOKEN_EXPIRE_DAYS` | Durée du refresh token | `7` |
+| `DALEEL_SUPER_ADMIN_EMAIL` | Email du super admin initial | *(vide)* |
+| `DALEEL_SUPER_ADMIN_PASSWORD` | Mot de passe du super admin initial | *(vide)* |
+| `DALEEL_SMTP_HOST` | Serveur SMTP pour invitations | *(vide)* |
+| `DALEEL_SMTP_PORT` | Port SMTP | `587` |
+| `DALEEL_APP_BASE_URL` | URL utilisée dans les liens d'invitation | `http://localhost:8000` |
+| `DALEEL_QUALITY_GUARD_ENABLED` | Anti-hallucination | `true` |
+| `DALEEL_DOMAIN_ROUTER_ENABLED` | Routage domaine juridique | `true` |
+| `DALEEL_KG_LIGHT_ENABLED` | Enrichissement graphe | `true` |
+| `DALEEL_PARTITIONED_RETRIEVAL_ENABLED` | Retrieval base/amendements | `true` |
+
+## 🔄 CI/CD
+
+GitHub Actions exécute à chaque push :
+- **Lint** : Ruff (`app/`, `tests/`)
+- **Tests** : pytest sur Python 3.11 / 3.12 / 3.13 avec MongoDB 7 en service container
+
+## 📜 Licence
+
+Ce projet a été réalisé dans le cadre d'un Projet de Fin d'Études (PFE).

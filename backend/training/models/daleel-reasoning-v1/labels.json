@@ -1,0 +1,27 @@
+{
+  "domains": [
+    "labor",
+    "data_protection",
+    "corporate",
+    "credit_info",
+    "investment",
+    "other"
+  ],
+  "case_types": [
+    "question",
+    "complaint",
+    "incident",
+    "data_subject_request",
+    "audit",
+    "other"
+  ],
+  "risks": [
+    "low",
+    "medium",
+    "high"
+  ],
+  "base_model": "xlm-roberta-base",
+  "epochs": 4,
+  "train_size": 33,
+  "eval_size": 7
+}
