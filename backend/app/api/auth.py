@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 _bearer_scheme = HTTPBearer(auto_error=False)
 _api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+_MANAGER_ROLES = {"super_admin", "owner", "admin"}
 
 
 def _constant_time_compare(a: str, b: str) -> bool:
@@ -56,7 +57,25 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token type",
         )
-    user = await auth_service.get_user_by_id(payload["sub"])
+    jti = payload.get("jti")
+    user_id_from_token = payload["sub"]
+    iat_ts = payload.get("iat")
+    from datetime import datetime, timezone
+    iat_dt = datetime.fromtimestamp(iat_ts, tz=timezone.utc) if iat_ts else None
+    if jti and await auth_service.is_token_blacklisted(jti, user_id_from_token, iat_dt):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if not jti and iat_dt:
+        if await auth_service.is_token_blacklisted("", user_id_from_token, iat_dt):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token has been revoked",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+    user = await auth_service.get_user_by_id(user_id_from_token)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -67,6 +86,20 @@ async def get_current_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account deactivated",
         )
+    org_id = user.get("organization_id")
+    if org_id and user.get("role") != "super_admin":
+        org = await auth_service.get_organization(org_id)
+        org = await auth_service.expire_organization_if_needed(org)
+        if org and org.get("status") != "active":
+            detail = (
+                "Votre abonnement a expiré. Veuillez contacter le super admin pour le renouveler."
+                if auth_service.is_subscription_expired(org)
+                else "Votre entreprise n'est pas active."
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=detail,
+            )
     return user
 
 
@@ -92,7 +125,7 @@ def require_role(*allowed_roles: str):
         if user["role"] not in allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Role '{user['role']}' not authorized. Required: {', '.join(allowed_roles)}",
+                detail="Permissions insuffisantes",
             )
         return user
     return _check
@@ -123,13 +156,21 @@ async def require_api_key(
     credentials: Optional[HTTPAuthorizationCredentials] = Security(_bearer_scheme),
 ) -> str | None:
     user = await get_optional_current_user(credentials)
-    if user:
+    if user and user.get("role") in _MANAGER_ROLES:
         return "jwt"
+    if user:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Permissions insuffisantes",
+        )
 
     settings = get_settings()
     expected = settings.api_key
     if not expected:
-        return None
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+        )
     if not api_key:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -142,6 +183,43 @@ async def require_api_key(
             detail="Invalid API key",
         )
     return api_key
+
+
+def require_api_key_or_roles(*allowed_roles: str):
+    async def _check(
+        api_key: str | None = Security(_api_key_header),
+        credentials: Optional[HTTPAuthorizationCredentials] = Security(_bearer_scheme),
+    ) -> str | None:
+        user = await get_optional_current_user(credentials)
+        if user and user.get("role") in allowed_roles:
+            return "jwt"
+        if user:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Permissions insuffisantes",
+            )
+
+        settings = get_settings()
+        expected = settings.api_key
+        if not expected:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required",
+            )
+        if not api_key:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Missing X-API-Key header",
+            )
+        if not _constant_time_compare(api_key, expected):
+            logger.warning("Invalid API key attempt")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Invalid API key",
+            )
+        return api_key
+
+    return _check
 
 
 async def require_admin(
@@ -160,7 +238,10 @@ async def require_admin(
     settings = get_settings()
     expected = settings.admin_api_key or settings.api_key
     if not expected:
-        return None
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Admin authentication required",
+        )
     if not api_key:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

@@ -6,12 +6,14 @@ from __future__ import annotations
 
 import logging
 import secrets
+import uuid
 from calendar import monthrange
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from bson import ObjectId
-from jose import JWTError, jwt
+from bson.errors import InvalidId
+import jwt
 from passlib.context import CryptContext
 
 from app.config import get_settings
@@ -24,6 +26,13 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 _users = mongo_db["users"]
 _organizations = mongo_db["organizations"]
 _invitations = mongo_db["invitations"]
+
+
+def _object_id(value: str) -> ObjectId | None:
+    try:
+        return ObjectId(value)
+    except (InvalidId, TypeError):
+        return None
 
 
 def normalize_subscription_type(subscription_type: Optional[str]) -> str:
@@ -45,6 +54,26 @@ def calculate_subscription_end_date(
     return _add_months(started_at, months)
 
 
+def _as_utc(value: datetime | str | None) -> datetime | None:
+    if not value:
+        return None
+    if isinstance(value, str):
+        value = datetime.fromisoformat(value)
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def is_subscription_expired(org: dict, now: datetime | None = None) -> bool:
+    subscription_ends_at = _as_utc(org.get("subscription_ends_at"))
+    if not subscription_ends_at:
+        return False
+    now = now or datetime.now(timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    return subscription_ends_at < now
+
+
 # ── Password helpers ──
 
 def hash_password(password: str) -> str:
@@ -58,29 +87,35 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 def create_access_token(user_id: str, role: str, org_id: Optional[str] = None) -> str:
     settings = get_settings()
-    expires = datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_access_token_expire_minutes)
+    now = datetime.now(timezone.utc)
+    expires = now + timedelta(minutes=settings.jwt_access_token_expire_minutes)
     payload = {
         "sub": user_id,
         "role": role,
         "org_id": org_id,
         "type": "access",
+        "jti": str(uuid.uuid4()),
+        "iat": now,
         "exp": expires,
     }
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
 def create_refresh_token(user_id: str) -> str:
     settings = get_settings()
-    expires = datetime.now(timezone.utc) + timedelta(days=settings.jwt_refresh_token_expire_days)
+    now = datetime.now(timezone.utc)
+    expires = now + timedelta(days=settings.jwt_refresh_token_expire_days)
     payload = {
         "sub": user_id,
         "type": "refresh",
+        "jti": str(uuid.uuid4()),
+        "iat": now,
         "exp": expires,
     }
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
 def decode_token(token: str) -> dict:
     settings = get_settings()
-    return jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
+    return jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm], options={"require": ["exp", "sub"]})
 
 
 # ── Organization CRUD ──
@@ -121,7 +156,10 @@ async def create_organization(
     return doc
 
 async def get_organization(org_id: str) -> Optional[dict]:
-    return await _organizations.find_one({"_id": ObjectId(org_id)})
+    object_id = _object_id(org_id)
+    if object_id is None:
+        return None
+    return await _organizations.find_one({"_id": object_id})
 
 async def list_organizations(skip: int = 0, limit: int = 50) -> tuple[list[dict], int]:
     total = await _organizations.count_documents({})
@@ -144,7 +182,48 @@ async def update_organization(org_id: str, updates: dict) -> Optional[dict]:
             subscription_type,
         )
     updates["updated_at"] = now
-    await _organizations.update_one({"_id": ObjectId(org_id)}, {"$set": updates})
+    object_id = _object_id(org_id)
+    if object_id is None:
+        return None
+    await _organizations.update_one({"_id": object_id}, {"$set": updates})
+    return await get_organization(org_id)
+
+async def expire_organization_if_needed(org: dict | None) -> Optional[dict]:
+    if not org:
+        return org
+    if org.get("status") != "active" or not is_subscription_expired(org):
+        return org
+    await _organizations.update_one(
+        {"_id": org["_id"]},
+        {"$set": {"status": "inactive", "updated_at": datetime.now(timezone.utc)}},
+    )
+    org["status"] = "inactive"
+    org["updated_at"] = datetime.now(timezone.utc)
+    return org
+
+async def renew_organization_subscription(
+    org_id: str,
+    subscription_type: str,
+) -> Optional[dict]:
+    org = await get_organization(org_id)
+    if not org:
+        return None
+    now = datetime.now(timezone.utc)
+    normalized_subscription_type = normalize_subscription_type(subscription_type)
+    updates = {
+        "status": "active",
+        "subscription_type": normalized_subscription_type,
+        "subscription_started_at": now,
+        "subscription_ends_at": calculate_subscription_end_date(
+            now,
+            normalized_subscription_type,
+        ),
+        "updated_at": now,
+    }
+    object_id = _object_id(org_id)
+    if object_id is None:
+        return None
+    await _organizations.update_one({"_id": object_id}, {"$set": updates})
     return await get_organization(org_id)
 
 async def get_organization_member_count(org_id: str) -> int:
@@ -180,7 +259,10 @@ async def get_user_by_email(email: str) -> Optional[dict]:
     return await _users.find_one({"email": email.lower().strip()})
 
 async def get_user_by_id(user_id: str) -> Optional[dict]:
-    return await _users.find_one({"_id": ObjectId(user_id)})
+    object_id = _object_id(user_id)
+    if object_id is None:
+        return None
+    return await _users.find_one({"_id": object_id})
 
 async def list_users_by_org(org_id: str, skip: int = 0, limit: int = 50) -> tuple[list[dict], int]:
     filt = {"organization_id": org_id}
@@ -190,19 +272,28 @@ async def list_users_by_org(org_id: str, skip: int = 0, limit: int = 50) -> tupl
     return docs, total
 
 async def update_user(user_id: str, updates: dict) -> Optional[dict]:
+    object_id = _object_id(user_id)
+    if object_id is None:
+        return None
     updates["updated_at"] = datetime.now(timezone.utc)
-    await _users.update_one({"_id": ObjectId(user_id)}, {"$set": updates})
+    await _users.update_one({"_id": object_id}, {"$set": updates})
     return await get_user_by_id(user_id)
 
 async def update_last_login(user_id: str) -> None:
+    object_id = _object_id(user_id)
+    if object_id is None:
+        return
     await _users.update_one(
-        {"_id": ObjectId(user_id)},
+        {"_id": object_id},
         {"$set": {"last_login": datetime.now(timezone.utc)}},
     )
 
 async def deactivate_user(user_id: str) -> None:
+    object_id = _object_id(user_id)
+    if object_id is None:
+        return
     await _users.update_one(
-        {"_id": ObjectId(user_id)},
+        {"_id": object_id},
         {"$set": {"is_active": False, "updated_at": datetime.now(timezone.utc)}},
     )
 
@@ -239,8 +330,17 @@ async def create_invitation(
 async def get_invitation_by_token(token: str) -> Optional[dict]:
     return await _invitations.find_one({"token": token, "status": "pending"})
 
-async def get_invitation_by_id(invitation_id: str) -> Optional[dict]:
-    return await _invitations.find_one({"_id": ObjectId(invitation_id)})
+async def get_invitation_by_id(
+    invitation_id: str,
+    organization_id: str | None = None,
+) -> Optional[dict]:
+    object_id = _object_id(invitation_id)
+    if object_id is None:
+        return None
+    query = {"_id": object_id}
+    if organization_id:
+        query["organization_id"] = organization_id
+    return await _invitations.find_one(query)
 
 async def list_invitations_by_org(org_id: str) -> tuple[list[dict], int]:
     filt = {"organization_id": org_id}
@@ -250,29 +350,48 @@ async def list_invitations_by_org(org_id: str) -> tuple[list[dict], int]:
     return docs, total
 
 async def mark_invitation_accepted(invitation_id: str) -> None:
+    object_id = _object_id(invitation_id)
+    if object_id is None:
+        return
     await _invitations.update_one(
-        {"_id": ObjectId(invitation_id)},
+        {"_id": object_id},
         {"$set": {"status": "accepted"}},
     )
 
 async def update_invitation_status(invitation_id: str, status: str) -> Optional[dict]:
+    object_id = _object_id(invitation_id)
+    if object_id is None:
+        return None
     await _invitations.update_one(
-        {"_id": ObjectId(invitation_id)},
+        {"_id": object_id},
         {"$set": {"status": status}},
     )
-    return await _invitations.find_one({"_id": ObjectId(invitation_id)})
+    return await _invitations.find_one({"_id": object_id})
 
 async def update_invitation_expiry(invitation_id: str, expires_hours: int = 72) -> None:
+    object_id = _object_id(invitation_id)
+    if object_id is None:
+        return
     await _invitations.update_one(
-        {"_id": ObjectId(invitation_id)},
+        {"_id": object_id},
         {"$set": {"expires_at": datetime.now(timezone.utc) + timedelta(hours=expires_hours)}},
     )
 
-async def revoke_invitation(invitation_id: str) -> None:
-    await _invitations.update_one(
-        {"_id": ObjectId(invitation_id)},
+async def revoke_invitation(
+    invitation_id: str,
+    organization_id: str | None = None,
+) -> bool:
+    object_id = _object_id(invitation_id)
+    if object_id is None:
+        return False
+    query = {"_id": object_id}
+    if organization_id:
+        query["organization_id"] = organization_id
+    result = await _invitations.update_one(
+        query,
         {"$set": {"status": "revoked"}},
     )
+    return result.modified_count > 0
 
 
 # ── Super admin bootstrap ──
@@ -348,3 +467,83 @@ def serialize_invitation(inv: dict, org_name: Optional[str] = None) -> dict:
         "created_at": inv["created_at"],
         "expires_at": inv["expires_at"],
     }
+
+
+# ── Refresh token blacklist ──
+
+_token_blacklist = mongo_db["token_blacklist"]
+
+async def blacklist_token(jti: str, user_id: str, expires_at: datetime) -> None:
+    await _token_blacklist.insert_one({
+        "jti": jti,
+        "user_id": user_id,
+        "expires_at": expires_at,
+        "blacklisted_at": datetime.now(timezone.utc),
+    })
+
+async def is_token_blacklisted(jti: str, user_id: str | None = None, iat: datetime | None = None) -> bool:
+    if await _token_blacklist.find_one({"jti": jti}) is not None:
+        return True
+    if user_id and iat:
+        revoke_doc = await _token_blacklist.find_one({
+            "user_id": user_id,
+            "revoke_all_before": {"$exists": True, "$gte": iat},
+        })
+        if revoke_doc:
+            return True
+    return False
+
+async def blacklist_all_user_tokens(user_id: str) -> int:
+    now = datetime.now(timezone.utc)
+    expires = now + timedelta(days=get_settings().jwt_refresh_token_expire_days)
+    result = await _token_blacklist.insert_one({
+        "jti": f"all-{user_id}-{now.timestamp()}",
+        "user_id": user_id,
+        "expires_at": expires,
+        "blacklisted_at": now,
+        "revoke_all_before": now,
+    })
+    return 1 if result.inserted_id else 0
+
+
+# ── Password reset ──
+
+_password_resets = mongo_db["password_reset_tokens"]
+
+async def create_password_reset_token(email: str) -> Optional[str]:
+    user = await get_user_by_email(email)
+    if not user:
+        return None
+    token = secrets.token_urlsafe(32)
+    now = datetime.now(timezone.utc)
+    await _password_resets.delete_many({"email": email.lower().strip()})
+    await _password_resets.insert_one({
+        "token": token,
+        "email": email.lower().strip(),
+        "user_id": str(user["_id"]),
+        "created_at": now,
+        "expires_at": now + timedelta(hours=1),
+        "used": False,
+    })
+    return token
+
+async def validate_reset_token(token: str) -> Optional[dict]:
+    doc = await _password_resets.find_one({"token": token, "used": False})
+    if not doc:
+        return None
+    if _as_utc(doc["expires_at"]) < datetime.now(timezone.utc):
+        return None
+    return doc
+
+async def use_reset_token(token: str, new_password_hash: str) -> bool:
+    doc = await validate_reset_token(token)
+    if not doc:
+        return False
+    user_id = doc["user_id"]
+    await update_user(user_id, {"password_hash": new_password_hash})
+    await _password_resets.update_one(
+        {"token": token},
+        {"$set": {"used": True, "used_at": datetime.now(timezone.utc)}},
+    )
+    await blacklist_all_user_tokens(user_id)
+    return True
