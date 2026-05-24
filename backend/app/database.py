@@ -167,6 +167,21 @@ _COLLECTION_INDEXES: dict[str, list[dict[str, Any]]] = {
         {"fields": [("created_at", -1)]},
         {"fields": [("read", 1), ("created_at", -1)]},
         {"fields": [("alert_type", 1), ("created_at", -1)]},
+        {"fields": [("details.organization_id", 1), ("created_at", -1)]},
+    ],
+    "token_blacklist": [
+        {"fields": [("jti", 1)], "kwargs": {"unique": True}},
+        {"fields": [("expires_at", 1)], "kwargs": {"expireAfterSeconds": 0}},
+        {"fields": [("user_id", 1)]},
+    ],
+    "password_reset_tokens": [
+        {"fields": [("token", 1)], "kwargs": {"unique": True}},
+        {"fields": [("email", 1)]},
+        {"fields": [("expires_at", 1)], "kwargs": {"expireAfterSeconds": 0}},
+    ],
+    "chat_history": [
+        {"fields": [("user_id", 1), ("created_at", -1)]},
+        {"fields": [("organization_id", 1), ("created_at", -1)]},
     ],
 }
 

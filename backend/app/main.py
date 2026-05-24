@@ -131,6 +131,24 @@ async def api_v1_entrypoint():
     }
 
 
+@app.get("/api/v1/health", tags=["meta"], summary="Health check")
+async def health_check():
+    """Vérifie que le serveur et MongoDB sont opérationnels."""
+    from app.database import mongo_db
+    try:
+        await mongo_db.command("ping")
+        db_ok = True
+    except Exception:
+        db_ok = False
+    status_val = "healthy" if db_ok else "degraded"
+    faiss_ok = FAISS_READY and faiss_manager.size > 0 if FAISS_AVAILABLE else False
+    return {
+        "status": status_val,
+        "database": "connected" if db_ok else "disconnected",
+        "faiss_index": faiss_manager.size if faiss_ok else 0,
+    }
+
+
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(router, prefix="/api/v1")
 app.include_router(case_conversation_router, prefix="/api/v1")
