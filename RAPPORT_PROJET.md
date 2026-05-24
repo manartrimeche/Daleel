@@ -26,11 +26,13 @@ scannes (OCR).
 | **LLM**                | Ollama — `qwen2.5:7b`                                             |
 | **OCR**                 | Tesseract 5.x (primaire) + EasyOCR (fallback)                     |
 | **PDF**                 | PyMuPDF + pdfminer.six                                            |
-| **Recherche vectorielle** | FAISS (IndexFlatIP) + fallback Python cosine                    |
-| **Frontend**            | 2 pages HTML/CSS/JS (chatbot + admin panel), dark theme            |
+| **Recherche vectorielle** | FAISS (IndexHNSWFlat, M=32, efConstruction=200) + fallback Python cosine |
+| **Reranker**            | Cross-encoder `ms-marco-MiniLM-L-6-v2` (22M params)              |
+| **Frontend**            | React.js + Vite (14 pages : 5 principales + 9 admin), i18n FR/AR/EN |
 | **CI/CD**               | GitHub Actions — Ruff lint + pytest (Python 3.11/3.12/3.13)       |
-| **Auth**                | API Key (X-API-Key header) avec constant-time compare              |
-| **Multi-tenant**        | Middleware X-Org-Id (optionnel)                                    |
+| **Auth**                | JWT (HS256) — access token 30min, refresh 7j, blacklist JTI       |
+| **Multi-tenant**        | Organisations, rôles (super_admin/owner/admin/member), invitations |
+| **Voix**                | faster-whisper (STT) + Piper/Edge-TTS (TTS FR/EN/AR)             |
 
 ---
 
@@ -38,21 +40,22 @@ scannes (OCR).
 
 | Composant              | Fichiers | Lignes de code |
 |------------------------|----------|----------------|
-| **Application** (`app/`)   | 53       | ~19 700        |
-| **Tests** (`tests/`)       | 28       | ~6 200         |
-| **Training pipeline**      | 8        | ~1 300         |
-| **Frontend** (HTML/JS/CSS) | 2        | ~4 500         |
-| **TOTAL**                  | **91**   | **~31 700**    |
+| **Application** (`backend/app/`) | 65       | ~29 600        |
+| **Tests** (`backend/tests/`)     | 33       | ~9 200         |
+| **Training pipeline**            | 17       | ~3 800         |
+| **Frontend** (React.js/Vite)     | 23       | ~3 200         |
+| **Scripts & divers**             | 9        | ~1 000         |
+| **TOTAL**                        | **147**  | **~46 800**    |
 
 ### Fichiers les plus volumineux
 | Fichier                        | Lignes | Role                                  |
 |--------------------------------|--------|---------------------------------------|
-| `llm_service.py`               | 2 655  | Pipeline RAG, reranking, grounding    |
-| `router.py`                    | 1 469  | 66 endpoints API                      |
-| `schemas.py`                   | 729    | Modeles Pydantic (request/response)   |
-| `graph_resolver.py`            | 717    | KG Light sur MongoDB                  |
-| `document_service.py`          | ~700   | Upload, extraction, chunking          |
-| `legal_retrieval_orchestrator` | 393    | Retrieval partitionne base/amendements|
+| `llm_service.py`               | 3 583  | Pipeline RAG, reranking, grounding    |
+| `router.py`                    | 2 473  | 79 endpoints API (routeur principal)  |
+| `document_service.py`          | 1 542  | Upload, extraction, chunking          |
+| `schemas.py`                   | 755    | Modeles Pydantic (request/response)   |
+| `graph_resolver.py`            | 716    | KG Light sur MongoDB                  |
+| `legal_retrieval_orchestrator` | 392    | Retrieval partitionne base/amendements|
 
 ---
 

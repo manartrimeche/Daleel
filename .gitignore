@@ -64,6 +64,7 @@ edge-headless-*/
 # ML / training artifacts
 training/models/
 backend/training/models/
+backend/training/llama.cpp/
 *.pt
 *.pth
 *.bin
