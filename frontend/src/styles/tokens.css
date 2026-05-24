@@ -1,0 +1,81 @@
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --bg: #F5F3EF;
+  --surface: #FFFFFF;
+  --surface-hover: #FAFAF7;
+  --surface-active: #F0EDE8;
+  --border: #E8E4DD;
+  --border-subtle: #F0EDE8;
+
+  --navy: #1B2B42;
+  --navy-light: #2A3F5F;
+  --navy-lighter: #3D5478;
+  --navy-50: rgba(27,43,66,0.05);
+
+  --gold: #B8935A;
+  --gold-light: #D4B37E;
+  --gold-dark: #9A7A48;
+  --gold-bg: #FBF6EE;
+  --gold-10: rgba(184,147,90,0.1);
+
+  --text: #1B2B42;
+  --text-secondary: #5F6D7E;
+  --text-muted: #94A0B0;
+  --text-inverse: #F5F3EF;
+
+  --success: #2D6A4F;
+  --success-bg: #ECFDF5;
+  --warning: #B8860B;
+  --warning-bg: #FFFBEB;
+  --error: #B91C1C;
+  --error-bg: #FEF2F2;
+  --info: #1E56A0;
+  --info-bg: #EFF6FF;
+
+  --sidebar-bg: #1B2B42;
+  --sidebar-hover: rgba(255,255,255,0.06);
+  --sidebar-active: rgba(184,147,90,0.15);
+  --sidebar-text: #8B99AB;
+  --sidebar-text-active: #B8935A;
+  --sidebar-width: 260px;
+
+  --font-heading: 'Newsreader', Georgia, serif;
+  --font-body: 'Outfit', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  --shadow-sm: 0 1px 2px rgba(27,43,66,0.05);
+  --shadow-md: 0 2px 8px rgba(27,43,66,0.07);
+  --shadow-lg: 0 4px 16px rgba(27,43,66,0.10);
+}
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body {
+  font-family: var(--font-body);
+  color: var(--text);
+  background: var(--bg);
+  font-size: 14px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+h1,h2,h3,h4,h5,h6 { font-family: var(--font-heading); font-weight: 600; line-height: 1.25; }
+button { font-family: inherit; cursor: pointer; border: none; background: none; }
+input, textarea, select { font-family: inherit; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
