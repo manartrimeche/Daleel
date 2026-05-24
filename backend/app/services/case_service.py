@@ -36,6 +36,19 @@ def _new_id() -> str:
     return str(uuid.uuid4())
 
 
+def _case_query(case_id: str, organization_id: str | None = None) -> dict:
+    query = {"id": case_id}
+    if organization_id:
+        query["organization_id"] = organization_id
+    return query
+
+
+async def _find_case(case_id: str, organization_id: str | None = None) -> dict | None:
+    return await _collection("compliance_cases").find_one(
+        _case_query(case_id, organization_id)
+    )
+
+
 # ─────────────────────────────────────────────────────────────
 # Serialisers (Mongo doc → API-friendly dict)
 # ─────────────────────────────────────────────────────────────
@@ -46,6 +59,7 @@ def _case_to_dict(doc: dict) -> dict:
         "title": doc.get("title"),
         "description": doc.get("description"),
         "company_profile_id": doc.get("company_profile_id"),
+        "organization_id": doc.get("organization_id"),
         "status": doc.get("status"),
         "priority": doc.get("priority"),
         "assigned_to": doc.get("assigned_to"),
@@ -132,10 +146,14 @@ async def create_case(
     assigned_to: Optional[str] = None,
     tags: list[str] | None = None,
     created_by: str = "system",
+    organization_id: str | None = None,
 ) -> dict:
     """Create a new compliance case."""
     if company_profile_id:
-        profile = await _collection("company_profiles").find_one({"id": company_profile_id})
+        profile_query = {"id": company_profile_id}
+        if organization_id:
+            profile_query["organization_id"] = organization_id
+        profile = await _collection("company_profiles").find_one(profile_query)
         if not profile:
             raise ValueError(f"Company profile '{company_profile_id}' not found")
 
@@ -145,6 +163,7 @@ async def create_case(
         "title": title,
         "description": description,
         "company_profile_id": company_profile_id,
+        "organization_id": organization_id,
         "status": "open",
         "priority": priority,
         "assigned_to": assigned_to,
@@ -167,9 +186,13 @@ async def create_case(
     return await _enrich_case(case)
 
 
-async def get_case(db, case_id: str) -> dict | None:
+async def get_case(
+    db,
+    case_id: str,
+    organization_id: str | None = None,
+) -> dict | None:
     """Retrieve a single case by ID, enriched with sub-entity counts."""
-    case = await _collection("compliance_cases").find_one({"id": case_id})
+    case = await _find_case(case_id, organization_id)
     if not case:
         return None
     return await _enrich_case(case)
@@ -181,11 +204,14 @@ async def list_cases(
     status: Optional[str] = None,
     priority: Optional[str] = None,
     company_profile_id: Optional[str] = None,
+    organization_id: str | None = None,
     skip: int = 0,
     limit: int = 50,
 ) -> tuple[list[dict], int]:
     """List cases with optional filters, newest first."""
     query: dict = {}
+    if organization_id:
+        query["organization_id"] = organization_id
     if status:
         query["status"] = status
     if priority:
@@ -218,9 +244,10 @@ async def update_case(
     priority: Optional[str] = None,
     assigned_to: Optional[str] = None,
     tags: Optional[list[str]] = None,
+    organization_id: str | None = None,
 ) -> dict | None:
     """Partially update a case. Returns the updated case or None."""
-    case = await _collection("compliance_cases").find_one({"id": case_id})
+    case = await _find_case(case_id, organization_id)
     if not case:
         return None
 
@@ -230,6 +257,12 @@ async def update_case(
     if description is not None:
         updates["description"] = description
     if company_profile_id is not None:
+        profile_query = {"id": company_profile_id}
+        if organization_id:
+            profile_query["organization_id"] = organization_id
+        profile = await _collection("company_profiles").find_one(profile_query)
+        if not profile:
+            raise ValueError(f"Company profile '{company_profile_id}' not found")
         updates["company_profile_id"] = company_profile_id
     if priority is not None:
         updates["priority"] = priority
@@ -246,7 +279,7 @@ async def update_case(
             updates["closed_at"] = None
 
     await _collection("compliance_cases").update_one(
-        {"id": case_id}, {"$set": updates}
+        _case_query(case_id, organization_id), {"$set": updates}
     )
 
     await audit_service.log_event(
@@ -255,19 +288,25 @@ async def update_case(
         details={"case_id": case_id, "fields_changed": list(updates.keys())},
     )
 
-    return await get_case(db, case_id)
+    return await get_case(db, case_id, organization_id=organization_id)
 
 
-async def delete_case(db, case_id: str) -> bool:
+async def delete_case(
+    db,
+    case_id: str,
+    organization_id: str | None = None,
+) -> bool:
     """Delete a case and all its sub-entities."""
-    case = await _collection("compliance_cases").find_one({"id": case_id})
+    case = await _find_case(case_id, organization_id)
     if not case:
         return False
 
     for coll in ("case_messages", "case_documents", "case_findings", "case_actions"):
         await _collection(coll).delete_many({"case_id": case_id})
 
-    await _collection("compliance_cases").delete_one({"id": case_id})
+    await _collection("compliance_cases").delete_one(
+        _case_query(case_id, organization_id)
+    )
 
     await audit_service.log_event(
         db,
@@ -279,18 +318,24 @@ async def delete_case(db, case_id: str) -> bool:
     return True
 
 
-async def get_case_summary(db) -> dict:
+async def get_case_summary(db, organization_id: str | None = None) -> dict:
     """Return aggregate counts across all cases."""
-    total = await _collection("compliance_cases").count_documents({})
+    match: dict = {}
+    if organization_id:
+        match["organization_id"] = organization_id
+
+    total = await _collection("compliance_cases").count_documents(match)
 
     by_status: dict[str, int] = {}
     async for row in _collection("compliance_cases").aggregate([
+        {"$match": match},
         {"$group": {"_id": "$status", "count": {"$sum": 1}}},
     ]):
         by_status[row["_id"]] = row["count"]
 
     by_priority: dict[str, int] = {}
     async for row in _collection("compliance_cases").aggregate([
+        {"$match": match},
         {"$group": {"_id": "$priority", "count": {"$sum": 1}}},
     ]):
         by_priority[row["_id"]] = row["count"]
@@ -323,8 +368,9 @@ async def add_message(
     role: str,
     content: str,
     metadata: dict | None = None,
+    organization_id: str | None = None,
 ) -> dict:
-    case = await _collection("compliance_cases").find_one({"id": case_id})
+    case = await _find_case(case_id, organization_id)
     if not case:
         raise ValueError(f"Case '{case_id}' not found")
 
@@ -338,7 +384,7 @@ async def add_message(
     }
     await _collection("case_messages").insert_one(msg)
     await _collection("compliance_cases").update_one(
-        {"id": case_id}, {"$set": {"updated_at": _now()}}
+        _case_query(case_id, organization_id), {"$set": {"updated_at": _now()}}
     )
     return _message_to_dict(msg)
 
@@ -348,7 +394,12 @@ async def list_messages(
     case_id: str,
     skip: int = 0,
     limit: int = 200,
+    organization_id: str | None = None,
 ) -> tuple[list[dict], int]:
+    case = await _find_case(case_id, organization_id)
+    if not case:
+        return [], 0
+
     query = {"case_id": case_id}
     total = await _collection("case_messages").count_documents(query)
     cursor = (
@@ -373,12 +424,16 @@ async def attach_document(
     document_id: str,
     label: Optional[str] = None,
     attached_by: str = "system",
+    organization_id: str | None = None,
 ) -> dict:
-    case = await _collection("compliance_cases").find_one({"id": case_id})
+    case = await _find_case(case_id, organization_id)
     if not case:
         raise ValueError(f"Case '{case_id}' not found")
 
-    doc = await _collection("documents").find_one({"id": document_id})
+    doc_query = {"id": document_id}
+    if organization_id:
+        doc_query["organization_id"] = organization_id
+    doc = await _collection("documents").find_one(doc_query)
     if not doc:
         raise ValueError(f"Document '{document_id}' not found")
 
@@ -398,7 +453,7 @@ async def attach_document(
     }
     await _collection("case_documents").insert_one(case_doc)
     await _collection("compliance_cases").update_one(
-        {"id": case_id}, {"$set": {"updated_at": _now()}}
+        _case_query(case_id, organization_id), {"$set": {"updated_at": _now()}}
     )
     return _case_doc_to_dict(case_doc)
 
@@ -406,7 +461,12 @@ async def attach_document(
 async def list_case_documents(
     db,
     case_id: str,
+    organization_id: str | None = None,
 ) -> tuple[list[dict], int]:
+    case = await _find_case(case_id, organization_id)
+    if not case:
+        return [], 0
+
     query = {"case_id": case_id}
     total = await _collection("case_documents").count_documents(query)
     cursor = _collection("case_documents").find(query).sort("attached_at", -1)
@@ -414,13 +474,22 @@ async def list_case_documents(
     return docs, int(total)
 
 
-async def detach_document(db, case_id: str, case_document_id: str) -> bool:
+async def detach_document(
+    db,
+    case_id: str,
+    case_document_id: str,
+    organization_id: str | None = None,
+) -> bool:
+    case = await _find_case(case_id, organization_id)
+    if not case:
+        return False
+
     result = await _collection("case_documents").delete_one(
         {"id": case_document_id, "case_id": case_id}
     )
     if result.deleted_count:
         await _collection("compliance_cases").update_one(
-            {"id": case_id}, {"$set": {"updated_at": _now()}}
+            _case_query(case_id, organization_id), {"$set": {"updated_at": _now()}}
         )
     return result.deleted_count > 0
 
@@ -439,8 +508,9 @@ async def create_finding(
     exigence_id: Optional[str] = None,
     evidence_refs: list[str] | None = None,
     article_references: list[str] | None = None,
+    organization_id: str | None = None,
 ) -> dict:
-    case = await _collection("compliance_cases").find_one({"id": case_id})
+    case = await _find_case(case_id, organization_id)
     if not case:
         raise ValueError(f"Case '{case_id}' not found")
 
@@ -465,7 +535,7 @@ async def create_finding(
     }
     await _collection("case_findings").insert_one(finding)
     await _collection("compliance_cases").update_one(
-        {"id": case_id}, {"$set": {"updated_at": now}}
+        _case_query(case_id, organization_id), {"$set": {"updated_at": now}}
     )
     return _finding_to_dict(finding)
 
@@ -481,7 +551,12 @@ async def update_finding(
     status: Optional[str] = None,
     evidence_refs: Optional[list[str]] = None,
     article_references: Optional[list[str]] = None,
+    organization_id: str | None = None,
 ) -> dict | None:
+    case = await _find_case(case_id, organization_id)
+    if not case:
+        return None
+
     finding = await _collection("case_findings").find_one(
         {"id": finding_id, "case_id": case_id}
     )
@@ -517,8 +592,13 @@ async def list_findings(
     status: Optional[str] = None,
     skip: int = 0,
     limit: int = 200,
+    organization_id: str | None = None,
 ) -> tuple[list[dict], int, dict, dict]:
     """Returns (findings, total, by_severity, by_status)."""
+    case = await _find_case(case_id, organization_id)
+    if not case:
+        return [], 0, {}, {}
+
     query: dict = {"case_id": case_id}
     if severity:
         query["severity"] = severity
@@ -568,8 +648,9 @@ async def create_case_action(
     assigned_to: Optional[str] = None,
     due_date: Optional[datetime] = None,
     priority: str = "medium",
+    organization_id: str | None = None,
 ) -> dict:
-    case = await _collection("compliance_cases").find_one({"id": case_id})
+    case = await _find_case(case_id, organization_id)
     if not case:
         raise ValueError(f"Case '{case_id}' not found")
 
@@ -604,7 +685,7 @@ async def create_case_action(
     }
     await _collection("case_actions").insert_one(case_action)
     await _collection("compliance_cases").update_one(
-        {"id": case_id}, {"$set": {"updated_at": now}}
+        _case_query(case_id, organization_id), {"$set": {"updated_at": now}}
     )
     return _action_to_dict(case_action)
 
@@ -621,7 +702,12 @@ async def update_case_action(
     due_date: Optional[datetime] = None,
     priority: Optional[str] = None,
     completion_notes: Optional[str] = None,
+    organization_id: str | None = None,
 ) -> dict | None:
+    case = await _find_case(case_id, organization_id)
+    if not case:
+        return None
+
     action = await _collection("case_actions").find_one(
         {"id": case_action_id, "case_id": case_id}
     )
@@ -664,8 +750,13 @@ async def list_case_actions(
     priority: Optional[str] = None,
     skip: int = 0,
     limit: int = 200,
+    organization_id: str | None = None,
 ) -> tuple[list[dict], int, dict, dict]:
     """Returns (actions, total, by_status, by_priority)."""
+    case = await _find_case(case_id, organization_id)
+    if not case:
+        return [], 0, {}, {}
+
     query: dict = {"case_id": case_id}
     if status:
         query["status"] = status

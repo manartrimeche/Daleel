@@ -20,6 +20,7 @@ import httpx
 
 from app.config import get_settings
 from app.processing.text_utils import detect_query_language as _detect_query_language
+from app.processing.derja_normalizer import normalize_if_derja as _normalize_if_derja
 from app.services import (
     search_service,
     loi_service,
@@ -376,6 +377,7 @@ class AutonomousAgent:
         tool_timeout: float | None = None,
         total_timeout: float | None = None,
         base_url: str | None = None,
+        organization_id: str | None = None,
     ):
         settings = get_settings()
         self._db = db
@@ -385,6 +387,7 @@ class AutonomousAgent:
         self._tool_timeout = tool_timeout or settings.agent_tool_timeout
         self._total_timeout = total_timeout or settings.agent_total_timeout
         self._base_url = base_url or settings.llm_base_url
+        self._organization_id = organization_id
 
         self._tools = self._build_tools()
         self._tool_map = {t.name: t for t in self._tools}
@@ -400,7 +403,15 @@ class AutonomousAgent:
         profile_id: str | None = None,
     ) -> dict:
         t0 = time.perf_counter()
-        detected_lang = _detect_query_language(question)
+
+        # ── Derja normalization ──
+        derja_effective, derja_original, is_derja = _normalize_if_derja(question)
+        if is_derja:
+            question = derja_effective
+            detected_lang = "fr"
+            logger.info("Agent: Derja detected, switching to French pipeline")
+        else:
+            detected_lang = _detect_query_language(question)
         system_prompt = _SYSTEM_PROMPTS.get(detected_lang, _SYSTEM_PROMPTS["en"])
 
         if profile_id:
@@ -592,7 +603,7 @@ class AutonomousAgent:
         if qg_status and qg_status != "accepted":
             reasoning_steps.append(f"quality_guard:{qg_status}")
 
-        return {
+        result = {
             "answer": final_answer,
             "sources": unique_sources,
             "model": f"{self._model}+autonomous",
@@ -612,6 +623,10 @@ class AutonomousAgent:
             "quality_guard_status": qg_status,
             "quality_guard_issues": qg_issues,
         }
+        if is_derja:
+            result["derja_detected"] = True
+            result["derja_original"] = derja_original
+        return result
 
     # ── Ollama caller with tool support ─────────────────────────
 
@@ -703,6 +718,13 @@ class AutonomousAgent:
 
     def _build_tools(self) -> list[ToolDefinition]:
         db = self._db
+        organization_id = self._organization_id
+
+        async def ensure_profile_access(profile_id: str) -> dict | None:
+            query = {"id": profile_id}
+            if organization_id:
+                query["organization_id"] = organization_id
+            return await db["company_profiles"].find_one(query, {"_id": 0, "id": 1})
 
         # ── Tier 1: Core retrieval ──
 
@@ -713,6 +735,7 @@ class AutonomousAgent:
                 top_k=min(args.get("top_k", 5), 10),
                 language_filter=args.get("language_filter"),
                 document_id=args.get("document_id"),
+                organization_id=organization_id,
             )
             for r in results:
                 r.pop("embedding", None)
@@ -748,28 +771,42 @@ class AutonomousAgent:
             return graph.__dict__ if hasattr(graph, "__dict__") else graph
 
         async def handle_get_company_graph(args: dict) -> Any:
+            if not await ensure_profile_access(args["profile_id"]):
+                return {"error": f"Company profile '{args['profile_id']}' not found"}
             graph = await graph_resolver.resolve_company_graph(db, args["profile_id"])
             return graph.__dict__ if hasattr(graph, "__dict__") else graph
 
         # ── Tier 3: Compliance analysis ──
 
         async def handle_get_applicability(args: dict) -> Any:
+            if not await ensure_profile_access(args["profile_id"]):
+                return {"error": f"Company profile '{args['profile_id']}' not found"}
             return await applicability_service.get_applicability_summary(
-                db, args["profile_id"]
+                db, args["profile_id"], organization_id=organization_id
             )
 
         async def handle_get_criticality(args: dict) -> Any:
+            if not await ensure_profile_access(args["profile_id"]):
+                return {"error": f"Company profile '{args['profile_id']}' not found"}
             return await criticality_service.get_criticality_summary_for_profile(
                 db, args["profile_id"]
             )
 
         async def handle_compute_compliance(args: dict) -> Any:
+            if not await ensure_profile_access(args["profile_id"]):
+                return {"error": f"Company profile '{args['profile_id']}' not found"}
             return await compliance_service.compute_posture(
-                db, args["profile_id"]
+                db, args["profile_id"], organization_id=organization_id
             )
 
         async def handle_generate_roadmap(args: dict) -> Any:
-            result = await roadmap_service.generate_roadmap(db, args["profile_id"])
+            if not await ensure_profile_access(args["profile_id"]):
+                return {"error": f"Company profile '{args['profile_id']}' not found"}
+            result = await roadmap_service.generate_roadmap(
+                db,
+                args["profile_id"],
+                organization_id=organization_id,
+            )
             if isinstance(result, dict) and "ordered_plan" in result:
                 result["ordered_plan"] = result["ordered_plan"][:10]
             return result

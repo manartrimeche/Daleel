@@ -28,11 +28,15 @@ def _action_to_dict(action: dict) -> dict:
     return action
 
 
-async def _get_applicable_actions(profile_id: str) -> list[dict]:
+async def _get_applicable_actions(profile_id: str, organization_id: str | None = None) -> list[dict]:
     """Retrieve all actions for exigences that are applicable to the profile."""
     applicable_exigence_ids = []
+    query: dict = {"profile_id": profile_id, "is_applicable": True}
+    if organization_id:
+        query["organization_id"] = organization_id
+
     cursor = get_collection("exigence_applicabilities").find(
-        {"profile_id": profile_id, "is_applicable": True},
+        query,
         {"exigence_id": 1},
     )
     async for row in cursor:
@@ -137,13 +141,17 @@ def _topological_sort(action_ids: list[str], dependencies: list[dict], crit_map:
     return ordered
 
 
-async def generate_roadmap(db, profile_id: str) -> dict:
+async def generate_roadmap(db, profile_id: str, organization_id: str | None = None) -> dict:
     """Generate the dynamic compliance roadmap for a company profile."""
-    profile = await get_collection("company_profiles").find_one({"id": profile_id})
+    profile_query: dict = {"id": profile_id}
+    if organization_id:
+        profile_query["organization_id"] = organization_id
+
+    profile = await get_collection("company_profiles").find_one(profile_query)
     if not profile:
         raise ValueError(f"Company profile '{profile_id}' not found")
 
-    actions = await _get_applicable_actions(profile_id)
+    actions = await _get_applicable_actions(profile_id, organization_id=organization_id)
     if not actions:
         return {
             "profile_id": profile_id,

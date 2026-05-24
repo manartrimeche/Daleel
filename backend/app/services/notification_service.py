@@ -30,6 +30,7 @@ async def create_notification(
 ) -> dict:
     """Insert a new notification into the database."""
     now = datetime.now(timezone.utc)
+    details = details or {}
     item = {
         "id": str(uuid.uuid4()),
         "alert_type": alert_type,
@@ -37,7 +38,7 @@ async def create_notification(
         "profile_name": profile_name,
         "title": title,
         "message": message,
-        "details": details or {},
+        "details": details,
         "read": False,
         "created_at": now,
     }
@@ -52,12 +53,17 @@ async def list_notifications(
     *,
     skip: int = 0,
     limit: int = 50,
+    organization_id: str | None = None,
 ) -> tuple[list[dict], int]:
     """List notifications most-recent-first."""
-    total = await db["notifications"].count_documents({})
+    query: dict[str, Any] = {}
+    if organization_id:
+        query["details.organization_id"] = organization_id
+
+    total = await db["notifications"].count_documents(query)
     cursor = (
         db["notifications"]
-        .find({}, {"_id": 0})
+        .find(query, {"_id": 0})
         .sort("created_at", -1)
         .skip(skip)
         .limit(limit)
@@ -66,11 +72,28 @@ async def list_notifications(
     return items, total
 
 
-async def mark_read(db: Any, notification_id: str) -> bool:
-    """Mark a single notification as read."""
+async def mark_read(
+    db: Any,
+    notification_id: str,
+    *,
+    organization_id: str | None = None,
+    allow_global: bool = False,
+    user_id: str | None = None,
+) -> bool:
+    """Mark a single notification as read within the caller's allowed scope."""
+    filt: dict[str, Any] = {"id": notification_id}
+    if not allow_global:
+        if not organization_id:
+            return False
+        filt["details.organization_id"] = organization_id
+
+    update = {"$set": {"read": True}} if allow_global else {"$addToSet": {"read_by": user_id}}
+    if not allow_global and not user_id:
+        return False
+
     result = await db["notifications"].update_one(
-        {"id": notification_id},
-        {"$set": {"read": True}},
+        filt,
+        update,
     )
     return result.modified_count > 0
 
@@ -97,8 +120,20 @@ async def notify_amendment_impact(
 
     created = 0
     for pid in affected_profile_ids:
-        profile = await db["company_profiles"].find_one({"id": pid}, {"_id": 0, "name": 1})
+        profile = await db["company_profiles"].find_one(
+            {"id": pid},
+            {"_id": 0, "name": 1, "organization_id": 1},
+        )
         pname = (profile or {}).get("name", pid[:8])
+        details = {
+            "loi_id": loi_id,
+            "loi_code": loi_code,
+            "operation_type": operation_type,
+            "target_article_key": target_article_key,
+        }
+        if (profile or {}).get("organization_id"):
+            details["organization_id"] = profile["organization_id"]
+
         await create_notification(
             db,
             alert_type="amendment_impact",
@@ -110,12 +145,7 @@ async def notify_amendment_impact(
                 f"(loi {loi_code}) affecte le profil « {pname} ». "
                 f"Veuillez réévaluer l'applicabilité et le plan d'action."
             ),
-            details={
-                "loi_id": loi_id,
-                "loi_code": loi_code,
-                "operation_type": operation_type,
-                "target_article_key": target_article_key,
-            },
+            details=details,
         )
         created += 1
     return created
@@ -198,7 +228,10 @@ async def notify_amendment_summary(
     receives one notification describing exactly what changed.
     """
     profiles = [
-        p async for p in db["company_profiles"].find({}, {"_id": 0, "id": 1, "name": 1})
+        p async for p in db["company_profiles"].find(
+            {},
+            {"_id": 0, "id": 1, "name": 1, "organization_id": 1},
+        )
     ]
     if not profiles:
         return 0
@@ -227,6 +260,18 @@ async def notify_amendment_summary(
 
     created = 0
     for p in profiles:
+        details = {
+            "loi_id": loi_id,
+            "loi_code": loi_code,
+            "loi_name": loi_name,
+            "added": added,
+            "modified": modified,
+            "removed": removed,
+            "operations": operations[:50],
+        }
+        if p.get("organization_id"):
+            details["organization_id"] = p["organization_id"]
+
         await create_notification(
             db,
             alert_type="amendment_impact",
@@ -234,15 +279,7 @@ async def notify_amendment_summary(
             profile_name=p.get("name", ""),
             title=f"Amendement — {loi_code}",
             message=message,
-            details={
-                "loi_id": loi_id,
-                "loi_code": loi_code,
-                "loi_name": loi_name,
-                "added": added,
-                "modified": modified,
-                "removed": removed,
-                "operations": operations[:50],
-            },
+            details=details,
         )
         created += 1
 

@@ -280,11 +280,18 @@ async def extract_context_from_conversation(
 # Conversation context persistence
 # ─────────────────────────────────────────────────────────────
 
-async def _save_conversation_context(case_id: str, context: dict) -> None:
+async def _save_conversation_context(
+    case_id: str,
+    context: dict,
+    organization_id: str | None = None,
+) -> None:
     """Persist the extracted conversation context on the case document."""
     context["updated_at"] = _now()
+    query = {"id": case_id}
+    if organization_id:
+        query["organization_id"] = organization_id
     await _collection("compliance_cases").update_one(
-        {"id": case_id},
+        query,
         {"$set": {
             "conversation_context": context,
             "updated_at": _now(),
@@ -292,9 +299,15 @@ async def _save_conversation_context(case_id: str, context: dict) -> None:
     )
 
 
-async def _load_conversation_context(case_id: str) -> dict:
+async def _load_conversation_context(
+    case_id: str,
+    organization_id: str | None = None,
+) -> dict:
     """Load the stored conversation context from the case document."""
-    case = await _collection("compliance_cases").find_one({"id": case_id})
+    query = {"id": case_id}
+    if organization_id:
+        query["organization_id"] = organization_id
+    case = await _collection("compliance_cases").find_one(query)
     if not case:
         return {}
     return case.get("conversation_context") or {}
@@ -310,6 +323,7 @@ async def create_case_from_conversation(
     situation: str,
     company_profile_id: Optional[str] = None,
     created_by: str = "user",
+    organization_id: str | None = None,
 ) -> dict:
     """
     Create a new compliance case from an initial user situation description.
@@ -342,6 +356,7 @@ async def create_case_from_conversation(
         priority=priority,
         tags=["conversation", context.get("matter_type", "other")],
         created_by=created_by,
+        organization_id=organization_id,
     )
     case_id = case["id"]
 
@@ -349,6 +364,7 @@ async def create_case_from_conversation(
     user_msg = await case_service.add_message(
         db, case_id, role="user", content=situation,
         metadata={"turn": 1, "is_initial_situation": True},
+        organization_id=organization_id,
     )
 
     # Step 4: Build and store assistant response
@@ -361,13 +377,19 @@ async def create_case_from_conversation(
             "facts_known_count": len(context.get("facts_known", [])),
             "facts_missing_count": len(context.get("facts_missing", [])),
         },
+        organization_id=organization_id,
     )
 
     # Step 5: Persist context
-    await _save_conversation_context(case_id, context)
+    await _save_conversation_context(case_id, context, organization_id)
 
     # Update case status to in_progress
-    await case_service.update_case(db, case_id, status="in_progress")
+    await case_service.update_case(
+        db,
+        case_id,
+        status="in_progress",
+        organization_id=organization_id,
+    )
 
     await audit_service.log_event(
         db,
@@ -402,6 +424,7 @@ async def process_user_message(
     case_id: str,
     *,
     content: str,
+    organization_id: str | None = None,
 ) -> dict:
     """
     Process a follow-up user message within an existing case conversation.
@@ -415,19 +438,24 @@ async def process_user_message(
       6. Persist updated context
       7. Return the turn result
     """
-    case = await case_service.get_case(db, case_id)
+    case = await case_service.get_case(db, case_id, organization_id=organization_id)
     if not case:
         raise ValueError(f"Case '{case_id}' not found")
 
     detected_lang = _detect_query_language(content)
 
     # Step 2: Store user message
-    messages_list, total = await case_service.list_messages(db, case_id)
+    messages_list, total = await case_service.list_messages(
+        db,
+        case_id,
+        organization_id=organization_id,
+    )
     turn_number = (total // 2) + 1
 
     user_msg = await case_service.add_message(
         db, case_id, role="user", content=content,
         metadata={"turn": turn_number},
+        organization_id=organization_id,
     )
 
     # Step 3: Build full conversation history
@@ -444,7 +472,7 @@ async def process_user_message(
     context = await extract_context_from_conversation(conversation, detected_lang)
 
     # Merge with existing context (preserve previously known facts)
-    existing_context = await _load_conversation_context(case_id)
+    existing_context = await _load_conversation_context(case_id, organization_id)
     merged_context = _merge_contexts(existing_context, context)
 
     # Step 5: Build and store assistant response
@@ -457,16 +485,22 @@ async def process_user_message(
             "facts_known_count": len(merged_context.get("facts_known", [])),
             "facts_missing_count": len(merged_context.get("facts_missing", [])),
         },
+        organization_id=organization_id,
     )
 
     # Step 6: Persist context
-    await _save_conversation_context(case_id, merged_context)
+    await _save_conversation_context(case_id, merged_context, organization_id)
     merged_context["updated_at"] = datetime.now(timezone.utc).isoformat()
 
     # Update case priority if urgency changed
     new_priority = _urgency_to_priority(merged_context.get("urgency", "unknown"))
     if new_priority != case.get("priority"):
-        await case_service.update_case(db, case_id, priority=new_priority)
+        await case_service.update_case(
+            db,
+            case_id,
+            priority=new_priority,
+            organization_id=organization_id,
+        )
 
     logger.info(
         "Case conversation turn %d: id=%s facts_known=%d facts_missing=%d",
@@ -483,15 +517,19 @@ async def process_user_message(
     }
 
 
-async def get_case_conversation_summary(db, case_id: str) -> dict | None:
+async def get_case_conversation_summary(
+    db,
+    case_id: str,
+    organization_id: str | None = None,
+) -> dict | None:
     """
     Return a structured summary of the case's conversational context.
     """
-    case = await case_service.get_case(db, case_id)
+    case = await case_service.get_case(db, case_id, organization_id=organization_id)
     if not case:
         return None
 
-    context = await _load_conversation_context(case_id)
+    context = await _load_conversation_context(case_id, organization_id)
 
     return {
         "case_id": case_id,
@@ -509,6 +547,7 @@ async def build_case_context_for_rag(
     db,
     case_id: str,
     detected_lang: str = "fr",
+    organization_id: str | None = None,
 ) -> str | None:
     """
     Build a context string from the case conversation that can be injected
@@ -517,7 +556,11 @@ async def build_case_context_for_rag(
 
     This is the integration point for llm_service.ask() and ask_agentic().
     """
-    context = await _load_conversation_context(case_id)
+    case = await case_service.get_case(db, case_id, organization_id=organization_id)
+    if not case:
+        return None
+
+    context = await _load_conversation_context(case_id, organization_id)
     if not context:
         return None
 

@@ -115,6 +115,7 @@ class OrchestrationContext:
     """Internal context container for orchestration workflow."""
     case_id: str
     company_profile_id: Optional[str] = None
+    organization_id: Optional[str] = None
     facts_known: list[str] = field(default_factory=list)
     facts_missing: list[str] = field(default_factory=list)
     matter_type: str = "unknown"
@@ -372,18 +373,26 @@ Respond ONLY with valid JSON:
 async def _gather_case_context(
     db,
     case_id: str,
+    organization_id: str | None = None,
 ) -> OrchestrationContext:
     """Gather all relevant context for the case."""
     # Get case basic info
-    case = await case_service.get_case(db, case_id)
+    case = await case_service.get_case(db, case_id, organization_id=organization_id)
     if not case:
         raise ValueError(f"Case '{case_id}' not found")
 
     # Get conversation context
-    conv_context = await case_conversation_service._load_conversation_context(case_id)
+    conv_context = await case_conversation_service._load_conversation_context(
+        case_id,
+        organization_id=organization_id,
+    )
 
     # Get document analyses
-    docs, _ = await case_document_service.list_case_documents_with_analysis(db, case_id)
+    docs, _ = await case_document_service.list_case_documents_with_analysis(
+        db,
+        case_id,
+        organization_id=organization_id,
+    )
     document_analyses = [d.get("analysis", {}) for d in docs if d.get("analysis")]
 
     # Detect language
@@ -393,6 +402,7 @@ async def _gather_case_context(
     return OrchestrationContext(
         case_id=case_id,
         company_profile_id=case.get("company_profile_id"),
+        organization_id=organization_id,
         facts_known=conv_context.get("facts_known", []),
         facts_missing=conv_context.get("facts_missing", []),
         matter_type=conv_context.get("matter_type", "unknown"),
@@ -413,7 +423,11 @@ async def _evaluate_applicability(
         return await _get_generic_exigences_for_matter(ctx.matter_type)
 
     # Get company profile
-    profile = await applicability_service.get_company_profile(None, ctx.company_profile_id)
+    profile = await applicability_service.get_company_profile(
+        None,
+        ctx.company_profile_id,
+        organization_id=ctx.organization_id,
+    )
     if not profile:
         return await _get_generic_exigences_for_matter(ctx.matter_type)
 
@@ -938,6 +952,7 @@ async def _persist_findings(
     db,
     case_id: str,
     findings: list[ProposedFinding],
+    organization_id: str | None = None,
 ) -> list[dict]:
     """Persist proposed findings to database."""
     created = []
@@ -952,6 +967,7 @@ async def _persist_findings(
                 exigence_id=finding.exigence_id,
                 evidence_refs=finding.evidence_refs,
                 article_references=finding.article_references,
+                organization_id=organization_id,
             )
             created.append(result)
         except Exception as e:
@@ -964,6 +980,7 @@ async def _persist_actions(
     case_id: str,
     actions: list[ProposedAction],
     finding_ids: list[str],
+    organization_id: str | None = None,
 ) -> list[dict]:
     """Persist proposed actions to database."""
     created = []
@@ -983,6 +1000,7 @@ async def _persist_actions(
                 priority=action.priority,
                 due_date=action.due_date,
                 assigned_to=action.assigned_to,
+                organization_id=organization_id,
             )
             created.append(result)
         except Exception as e:
@@ -1001,6 +1019,7 @@ async def analyze_and_orchestrate(
     auto_create_findings: bool = False,
     auto_create_actions: bool = False,
     actor: str = "system",
+    organization_id: str | None = None,
 ) -> OrchestrationResult:
     """
     Main orchestration entry point.
@@ -1021,7 +1040,11 @@ async def analyze_and_orchestrate(
     logger.info("Starting orchestration for case %s", case_id)
 
     # Step 1: Gather context
-    ctx = await _gather_case_context(db, case_id)
+    ctx = await _gather_case_context(
+        db,
+        case_id,
+        organization_id=organization_id,
+    )
 
     # Step 2: Evaluate applicability
     applicable = await _evaluate_applicability(ctx)
@@ -1115,7 +1138,12 @@ async def analyze_and_orchestrate(
 
         # Auto-create if requested and confidence sufficient
         if auto_create_findings and gap_analysis.overall_confidence >= MIN_CONFIDENCE_FOR_FINDING:
-            created_findings = await _persist_findings(db, case_id, proposed_findings)
+            created_findings = await _persist_findings(
+                db,
+                case_id,
+                proposed_findings,
+                organization_id=organization_id,
+            )
             result.findings_created = created_findings
 
             if auto_create_actions and created_findings:
@@ -1124,7 +1152,13 @@ async def analyze_and_orchestrate(
                 for action in actions:
                     if 0 <= action.finding_idx < len(finding_ids):
                         pass  # finding_idx already correct
-                created_actions = await _persist_actions(db, case_id, actions, finding_ids)
+                created_actions = await _persist_actions(
+                    db,
+                    case_id,
+                    actions,
+                    finding_ids,
+                    organization_id=organization_id,
+                )
                 result.actions_created = created_actions
 
             # Log audit event
@@ -1166,18 +1200,30 @@ async def analyze_and_orchestrate(
 async def get_orchestration_status(
     db,
     case_id: str,
+    organization_id: str | None = None,
 ) -> dict:
     """Get the current orchestration status for a case."""
-    case = await case_service.get_case(db, case_id)
+    case = await case_service.get_case(db, case_id, organization_id=organization_id)
     if not case:
         return {"error": "Case not found"}
 
     # Get counts
-    findings, findings_total, _, _ = await case_service.list_findings(db, case_id)
-    actions, actions_total, _, _ = await case_service.list_case_actions(db, case_id)
+    findings, findings_total, _, _ = await case_service.list_findings(
+        db,
+        case_id,
+        organization_id=organization_id,
+    )
+    actions, actions_total, _, _ = await case_service.list_case_actions(
+        db,
+        case_id,
+        organization_id=organization_id,
+    )
 
     # Get conversation context
-    conv_context = await case_conversation_service._load_conversation_context(case_id)
+    conv_context = await case_conversation_service._load_conversation_context(
+        case_id,
+        organization_id=organization_id,
+    )
 
     return {
         "case_id": case_id,
@@ -1201,9 +1247,14 @@ async def suggest_next_questions(
     db,
     case_id: str,
     count: int = 3,
+    organization_id: str | None = None,
 ) -> list[str]:
     """Suggest next clarification questions for the case."""
-    ctx = await _gather_case_context(db, case_id)
+    ctx = await _gather_case_context(
+        db,
+        case_id,
+        organization_id=organization_id,
+    )
 
     if not ctx.facts_missing:
         return []
@@ -1225,9 +1276,14 @@ async def suggest_next_questions(
 async def quick_assess(
     db,
     case_id: str,
+    organization_id: str | None = None,
 ) -> dict:
     """Quick assessment of case readiness and likely outcomes."""
-    ctx = await _gather_case_context(db, case_id)
+    ctx = await _gather_case_context(
+        db,
+        case_id,
+        organization_id=organization_id,
+    )
 
     # Simple heuristic assessment
     fact_score = min(len(ctx.facts_known) / MIN_FACTS_FOR_ANALYSIS, 1.0)

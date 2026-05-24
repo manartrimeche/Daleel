@@ -15,7 +15,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.api.auth import require_api_key
+from app.api.auth import get_optional_current_user, require_api_key_or_roles
 from app.case_schemas import (
     AdvisorResponseCreate,
     AdvisorResponseOut,
@@ -26,12 +26,39 @@ from app.case_schemas import (
     QuickAssessmentOut,
 )
 from app.database import get_db
-from app.services import compliance_case_orchestrator
+from app.services import case_service, compliance_case_orchestrator
 from app.services import advisor_response_composer
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/cases", tags=["case-orchestration"])
+require_case_user = require_api_key_or_roles("super_admin", "owner", "admin", "member")
+router = APIRouter(
+    prefix="/cases",
+    tags=["case-orchestration"],
+    dependencies=[Depends(require_case_user)],
+)
+
+
+def _organization_scope(user: dict | None) -> str | None:
+    if not user or user.get("role") == "super_admin":
+        return None
+    return user.get("organization_id")
+
+
+async def _ensure_case_access(
+    db: Any,
+    case_id: str,
+    user: dict | None,
+) -> str | None:
+    organization_id = _organization_scope(user)
+    case = await case_service.get_case(
+        db,
+        case_id,
+        organization_id=organization_id,
+    )
+    if not case:
+        raise HTTPException(404, "Case not found")
+    return organization_id
 
 
 def _orchestration_result_to_output(case_id: str, result) -> OrchestrationOut:
@@ -118,7 +145,8 @@ async def run_orchestration(
     case_id: str,
     body: OrchestrationIn,
     db: Any = Depends(get_db),
-    _key: str | None = Depends(require_api_key),
+    _key: str | None = Depends(require_case_user),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """
     Analyze a compliance case and determine findings, actions, and next steps.
@@ -143,12 +171,14 @@ async def run_orchestration(
     - `review` — Low confidence or critical findings need human review
     """
     try:
+        organization_id = await _ensure_case_access(db, case_id, current_user)
         result = await compliance_case_orchestrator.analyze_and_orchestrate(
             db,
             case_id,
             auto_create_findings=body.auto_create_findings,
             auto_create_actions=body.auto_create_actions,
             actor=_key or "api",
+            organization_id=organization_id,
         )
         return _orchestration_result_to_output(case_id, result)
     except ValueError as e:
@@ -170,6 +200,7 @@ async def run_orchestration(
 async def get_orchestration_status(
     case_id: str,
     db: Any = Depends(get_db),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """
     Check whether a case is ready for orchestration.
@@ -179,7 +210,12 @@ async def get_orchestration_status(
     - `orchestration_recommendation` — "ready" or "needs_more_info"
     - Fact counts, document counts, existing findings/actions
     """
-    status = await compliance_case_orchestrator.get_orchestration_status(db, case_id)
+    organization_id = await _ensure_case_access(db, case_id, current_user)
+    status = await compliance_case_orchestrator.get_orchestration_status(
+        db,
+        case_id,
+        organization_id=organization_id,
+    )
     if "error" in status:
         raise HTTPException(404, status["error"])
 
@@ -203,6 +239,7 @@ async def get_orchestration_status(
 async def quick_assess(
     case_id: str,
     db: Any = Depends(get_db),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """
     Get a quick heuristic assessment of case readiness for analysis.
@@ -215,7 +252,12 @@ async def quick_assess(
     This is a lightweight endpoint for UI readiness indicators.
     """
     try:
-        assessment = await compliance_case_orchestrator.quick_assess(db, case_id)
+        organization_id = await _ensure_case_access(db, case_id, current_user)
+        assessment = await compliance_case_orchestrator.quick_assess(
+            db,
+            case_id,
+            organization_id=organization_id,
+        )
         return QuickAssessmentOut(
             case_id=assessment["case_id"],
             readiness_score=assessment["readiness_score"],
@@ -237,6 +279,7 @@ async def suggest_questions(
     case_id: str,
     count: int = 3,
     db: Any = Depends(get_db),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """
     Get suggested clarification questions for the case.
@@ -253,8 +296,12 @@ async def suggest_questions(
         count = 5
 
     try:
+        organization_id = await _ensure_case_access(db, case_id, current_user)
         questions = await compliance_case_orchestrator.suggest_next_questions(
-            db, case_id, count=count
+            db,
+            case_id,
+            count=count,
+            organization_id=organization_id,
         )
         return NextQuestionsOut(
             case_id=case_id,
@@ -277,7 +324,8 @@ async def compose_advisor_response(
     case_id: str,
     body: AdvisorResponseCreate,
     db: Any = Depends(get_db),
-    _key: str | None = Depends(require_api_key),
+    _key: str | None = Depends(require_case_user),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """
     Compose a structured, professional legal compliance advisory response.
@@ -296,6 +344,8 @@ async def compose_advisor_response(
 
     Returns both structured data and a ready-to-display **markdown rendering**.
     """
+    await _ensure_case_access(db, case_id, current_user)
+
     try:
         tone = advisor_response_composer.AdvisoryTone(body.tone)
     except ValueError:

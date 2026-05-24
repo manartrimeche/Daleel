@@ -157,6 +157,7 @@ async def create_company_profile(
     activities: str | None = None,
     jurisdiction: str = "tunisia",
     notes: str | None = None,
+    organization_id: str | None = None,
 ) -> dict:
     profile = {
         "id": str(uuid.uuid4()),
@@ -167,6 +168,7 @@ async def create_company_profile(
         "activities": activities,
         "jurisdiction": jurisdiction,
         "notes": notes,
+        "organization_id": organization_id,
         "created_at": datetime.now(timezone.utc),
         "updated_at": datetime.now(timezone.utc),
     }
@@ -175,34 +177,62 @@ async def create_company_profile(
     return _profile_to_dict(profile)
 
 
-async def get_company_profile(db, profile_id: str) -> dict | None:
-    profile = await get_collection("company_profiles").find_one({"id": profile_id})
+async def get_company_profile(
+    db,
+    profile_id: str,
+    organization_id: str | None = None,
+) -> dict | None:
+    query = {"id": profile_id}
+    if organization_id:
+        query["organization_id"] = organization_id
+    profile = await get_collection("company_profiles").find_one(query)
     return _profile_to_dict(profile) if profile else None
 
 
-async def list_company_profiles(db, skip: int = 0, limit: int = 50) -> tuple[list[dict], int]:
-    total = await get_collection("company_profiles").count_documents({})
-    cursor = get_collection("company_profiles").find({}).sort("created_at", -1).skip(skip).limit(limit)
+async def list_company_profiles(
+    db,
+    skip: int = 0,
+    limit: int = 50,
+    organization_id: str | None = None,
+) -> tuple[list[dict], int]:
+    query = {"organization_id": organization_id} if organization_id else {}
+    total = await get_collection("company_profiles").count_documents(query)
+    cursor = get_collection("company_profiles").find(query).sort("created_at", -1).skip(skip).limit(limit)
     profiles = [_profile_to_dict(profile) async for profile in cursor]
     return profiles, int(total)
 
 
-async def update_company_profile(db, profile_id: str, **kwargs) -> dict | None:
+async def update_company_profile(
+    db,
+    profile_id: str,
+    organization_id: str | None = None,
+    **kwargs,
+) -> dict | None:
     allowed_fields = {"name", "sector", "size", "employees", "activities", "jurisdiction", "notes"}
     updates = {key: value for key, value in kwargs.items() if key in allowed_fields}
     if not updates:
-        return await get_company_profile(db, profile_id)
+        return await get_company_profile(db, profile_id, organization_id=organization_id)
     updates["updated_at"] = datetime.now(timezone.utc)
+    query = {"id": profile_id}
+    if organization_id:
+        query["organization_id"] = organization_id
     result = await get_collection("company_profiles").find_one_and_update(
-        {"id": profile_id},
+        query,
         {"$set": updates},
         return_document=__import__("pymongo").ReturnDocument.AFTER,
     )
     return _profile_to_dict(result) if result else None
 
 
-async def delete_company_profile(db, profile_id: str) -> bool:
-    profile = await get_collection("company_profiles").find_one({"id": profile_id})
+async def delete_company_profile(
+    db,
+    profile_id: str,
+    organization_id: str | None = None,
+) -> bool:
+    query = {"id": profile_id}
+    if organization_id:
+        query["organization_id"] = organization_id
+    profile = await get_collection("company_profiles").find_one(query)
     if not profile:
         return False
     await get_collection("exigence_applicabilities").delete_many({"profile_id": profile_id})
@@ -216,8 +246,12 @@ async def evaluate_applicabilities(
     profile_id: str,
     exigence_ids: list[str] | None = None,
     document_id: str | None = None,
+    organization_id: str | None = None,
 ) -> int:
-    profile = await get_collection("company_profiles").find_one({"id": profile_id})
+    profile_query = {"id": profile_id}
+    if organization_id:
+        profile_query["organization_id"] = organization_id
+    profile = await get_collection("company_profiles").find_one(profile_query)
     if not profile:
         logger.error("Profile %s not found", profile_id)
         return 0
@@ -280,7 +314,13 @@ async def get_applicabilities(
     is_applicable: bool | None = None,
     skip: int = 0,
     limit: int = 100,
+    organization_id: str | None = None,
 ) -> tuple[list[dict], int]:
+    if organization_id and not await get_collection("company_profiles").find_one(
+        {"id": profile_id, "organization_id": organization_id}
+    ):
+        return [], 0
+
     query: dict = {"profile_id": profile_id}
     if is_applicable is not None:
         query["is_applicable"] = is_applicable
@@ -300,7 +340,19 @@ async def get_applicabilities(
 async def get_applicability_summary(
     db,
     profile_id: str,
+    organization_id: str | None = None,
 ) -> dict:
+    if organization_id and not await get_collection("company_profiles").find_one(
+        {"id": profile_id, "organization_id": organization_id}
+    ):
+        return {
+            "applicable": 0,
+            "not_applicable": 0,
+            "total": 0,
+            "avg_confidence": 0.0,
+            "by_type": {},
+        }
+
     applicabilities = await get_collection("exigence_applicabilities").find({"profile_id": profile_id}).to_list(length=None)
     applicable_count = sum(1 for app in applicabilities if app.get("is_applicable"))
     not_applicable_count = len(applicabilities) - applicable_count
@@ -337,6 +389,7 @@ def _profile_to_dict(profile: dict | None) -> dict | None:
         "activities": profile.get("activities"),
         "jurisdiction": profile.get("jurisdiction", "tunisia"),
         "notes": profile.get("notes"),
+        "organization_id": profile.get("organization_id"),
         "created_at": profile.get("created_at"),
         "updated_at": profile.get("updated_at"),
     }

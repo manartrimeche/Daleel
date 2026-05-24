@@ -14,7 +14,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from app.api.auth import require_api_key
+from app.api.auth import get_optional_current_user, require_api_key_or_roles
 from app.case_schemas import (
     CaseConversationSummaryOut,
     ConversationMessageIn,
@@ -27,7 +27,14 @@ from app.services import case_conversation_service
 
 logger = logging.getLogger(__name__)
 
+require_case_user = require_api_key_or_roles("super_admin", "owner", "admin", "member")
 router = APIRouter(prefix="/cases", tags=["case-conversation"])
+
+
+def _organization_scope(user: dict | None) -> str | None:
+    if not user or user.get("role") == "super_admin":
+        return None
+    return user.get("organization_id")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -45,7 +52,8 @@ async def create_case_from_conversation(
     request: Request,
     body: ConversationStartIn,
     db: Any = Depends(get_db),
-    _key: str | None = Depends(require_api_key),
+    _key: str | None = Depends(require_case_user),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """
     Analyse the user's situation description, extract structured facts,
@@ -57,6 +65,7 @@ async def create_case_from_conversation(
             situation=body.situation,
             company_profile_id=body.company_profile_id,
             created_by=body.created_by,
+            organization_id=_organization_scope(current_user),
         )
         return result
     except ValueError as e:
@@ -79,7 +88,8 @@ async def send_conversation_message(
     case_id: str,
     body: ConversationMessageIn,
     db: Any = Depends(get_db),
-    _key: str | None = Depends(require_api_key),
+    _key: str | None = Depends(require_case_user),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """
     Process a user follow-up message: extract new facts, update the case
@@ -90,6 +100,7 @@ async def send_conversation_message(
             db,
             case_id,
             content=body.content,
+            organization_id=_organization_scope(current_user),
         )
         return result
     except ValueError as e:
@@ -110,14 +121,17 @@ async def get_case_conversation_summary(
     request: Request,
     case_id: str,
     db: Any = Depends(get_db),
-    _key: str | None = Depends(require_api_key),
+    _key: str | None = Depends(require_case_user),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """
     Return the case's current conversational context: known facts,
     missing facts, matter type, urgency, and next question.
     """
     result = await case_conversation_service.get_case_conversation_summary(
-        db, case_id
+        db,
+        case_id,
+        organization_id=_organization_scope(current_user),
     )
     if result is None:
         raise HTTPException(404, "Case not found")

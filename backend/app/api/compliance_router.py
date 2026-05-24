@@ -9,7 +9,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from app.api.auth import require_api_key
+from app.api.auth import get_optional_current_user, require_api_key
 from app.compliance_schemas import (
     AssessmentCreate,
     AssessmentListOut,
@@ -39,7 +39,17 @@ from app.database import get_db
 from app.services import compliance_service
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/compliance", tags=["compliance"])
+router = APIRouter(
+    prefix="/compliance",
+    tags=["compliance"],
+    dependencies=[Depends(require_api_key)],
+)
+
+
+def _organization_scope(user: dict | None) -> str | None:
+    if not user or user.get("role") == "super_admin":
+        return None
+    return user.get("organization_id")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -51,6 +61,7 @@ async def create_assessment(
     body: AssessmentCreate,
     db: Any = Depends(get_db),
     _key: str | None = Depends(require_api_key),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """Create a new compliance assessment (gap analysis exercise)."""
     try:
@@ -65,6 +76,7 @@ async def create_assessment(
             review_frequency=body.review_frequency,
             due_date=body.due_date,
             created_by=body.created_by,
+            organization_id=_organization_scope(current_user),
         )
     except ValueError as e:
         raise HTTPException(422, str(e))
@@ -79,12 +91,14 @@ async def list_assessments(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     db: Any = Depends(get_db),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """List compliance assessments with optional filters."""
     items, total = await compliance_service.list_assessments(
         db,
         company_profile_id=company_profile_id,
         status=status,
+        organization_id=_organization_scope(current_user),
         skip=skip,
         limit=limit,
     )
@@ -92,9 +106,17 @@ async def list_assessments(
 
 
 @router.get("/assessments/{assessment_id}", response_model=AssessmentOut)
-async def get_assessment(assessment_id: str, db: Any = Depends(get_db)):
+async def get_assessment(
+    assessment_id: str,
+    db: Any = Depends(get_db),
+    current_user: dict | None = Depends(get_optional_current_user),
+):
     """Retrieve a single compliance assessment."""
-    result = await compliance_service.get_assessment(db, assessment_id)
+    result = await compliance_service.get_assessment(
+        db,
+        assessment_id,
+        organization_id=_organization_scope(current_user),
+    )
     if result is None:
         raise HTTPException(404, "Assessment not found")
     return result
@@ -106,6 +128,7 @@ async def update_assessment(
     body: AssessmentUpdate,
     db: Any = Depends(get_db),
     _key: str | None = Depends(require_api_key),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """Update a compliance assessment."""
     updated = await compliance_service.update_assessment(
@@ -118,6 +141,7 @@ async def update_assessment(
         risk_level=body.risk_level,
         review_frequency=body.review_frequency,
         due_date=body.due_date,
+        organization_id=_organization_scope(current_user),
     )
     if updated is None:
         raise HTTPException(404, "Assessment not found")
@@ -129,10 +153,17 @@ async def update_assessment(
     response_model=CompliancePosture,
 )
 async def get_assessment_posture(
-    assessment_id: str, db: Any = Depends(get_db)
+    assessment_id: str,
+    db: Any = Depends(get_db),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """Compute the compliance posture scoped to an assessment."""
-    assessment = await compliance_service.get_assessment(db, assessment_id)
+    organization_id = _organization_scope(current_user)
+    assessment = await compliance_service.get_assessment(
+        db,
+        assessment_id,
+        organization_id=organization_id,
+    )
     if assessment is None:
         raise HTTPException(404, "Assessment not found")
     try:
@@ -140,6 +171,7 @@ async def get_assessment_posture(
             db,
             assessment["company_profile_id"],
             assessment_id=assessment_id,
+            organization_id=organization_id,
         )
     except ValueError as e:
         raise HTTPException(422, str(e))
@@ -154,6 +186,7 @@ async def create_control(
     body: ControlCreate,
     db: Any = Depends(get_db),
     _key: str | None = Depends(require_api_key),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """Create a new internal compliance control."""
     try:
@@ -166,6 +199,7 @@ async def create_control(
             owner=body.owner,
             risk_level=body.risk_level,
             review_frequency=body.review_frequency,
+            organization_id=_organization_scope(current_user),
         )
     except ValueError as e:
         raise HTTPException(422, str(e))
@@ -181,12 +215,14 @@ async def list_controls(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     db: Any = Depends(get_db),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """List controls with optional filters."""
     items, total = await compliance_service.list_controls(
         db,
         company_profile_id=company_profile_id,
         implementation_status=implementation_status,
+        organization_id=_organization_scope(current_user),
         skip=skip,
         limit=limit,
     )
@@ -194,9 +230,17 @@ async def list_controls(
 
 
 @router.get("/controls/{control_id}", response_model=ControlOut)
-async def get_control(control_id: str, db: Any = Depends(get_db)):
+async def get_control(
+    control_id: str,
+    db: Any = Depends(get_db),
+    current_user: dict | None = Depends(get_optional_current_user),
+):
     """Retrieve a single control."""
-    result = await compliance_service.get_control(db, control_id)
+    result = await compliance_service.get_control(
+        db,
+        control_id,
+        organization_id=_organization_scope(current_user),
+    )
     if result is None:
         raise HTTPException(404, "Control not found")
     return result
@@ -208,6 +252,7 @@ async def update_control(
     body: ControlUpdate,
     db: Any = Depends(get_db),
     _key: str | None = Depends(require_api_key),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """Update a control's status, effectiveness, or details."""
     updated = await compliance_service.update_control(
@@ -223,6 +268,7 @@ async def update_control(
         review_frequency=body.review_frequency,
         last_reviewed_at=body.last_reviewed_at,
         next_review_date=body.next_review_date,
+        organization_id=_organization_scope(current_user),
     )
     if updated is None:
         raise HTTPException(404, "Control not found")
@@ -243,6 +289,7 @@ async def create_evidence(
     body: EvidenceCreate,
     db: Any = Depends(get_db),
     _key: str | None = Depends(require_api_key),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """Attach evidence metadata to a control."""
     try:
@@ -258,6 +305,7 @@ async def create_evidence(
             collected_at=body.collected_at,
             valid_from=body.valid_from,
             valid_until=body.valid_until,
+            organization_id=_organization_scope(current_user),
         )
     except ValueError as e:
         raise HTTPException(422, str(e))
@@ -272,10 +320,15 @@ async def list_evidences(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     db: Any = Depends(get_db),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """List evidences attached to a control."""
     items, total = await compliance_service.list_evidences(
-        db, control_id, skip=skip, limit=limit
+        db,
+        control_id,
+        skip=skip,
+        limit=limit,
+        organization_id=_organization_scope(current_user),
     )
     return EvidenceListOut(evidences=items, total=total, control_id=control_id)
 
@@ -286,6 +339,7 @@ async def update_evidence(
     body: EvidenceUpdate,
     db: Any = Depends(get_db),
     _key: str | None = Depends(require_api_key),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """Update evidence status or metadata."""
     updated = await compliance_service.update_evidence(
@@ -297,6 +351,7 @@ async def update_evidence(
         review_notes=body.review_notes,
         valid_from=body.valid_from,
         valid_until=body.valid_until,
+        organization_id=_organization_scope(current_user),
     )
     if updated is None:
         raise HTTPException(404, "Evidence not found")
@@ -312,6 +367,7 @@ async def create_link(
     body: ReqControlLinkCreate,
     db: Any = Depends(get_db),
     _key: str | None = Depends(require_api_key),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """Link a legal requirement (exigence) to a control."""
     try:
@@ -325,6 +381,7 @@ async def create_link(
             gap_description=body.gap_description,
             justification=body.justification,
             linked_by=body.linked_by,
+            organization_id=_organization_scope(current_user),
         )
     except ValueError as e:
         raise HTTPException(422, str(e))
@@ -338,6 +395,7 @@ async def list_links(
     skip: int = Query(0, ge=0),
     limit: int = Query(200, ge=1, le=1000),
     db: Any = Depends(get_db),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """List requirement–control links with optional filters."""
     items, total = await compliance_service.list_links(
@@ -345,6 +403,7 @@ async def list_links(
         exigence_id=exigence_id,
         control_id=control_id,
         assessment_id=assessment_id,
+        organization_id=_organization_scope(current_user),
         skip=skip,
         limit=limit,
     )
@@ -357,6 +416,7 @@ async def update_link(
     body: ReqControlLinkUpdate,
     db: Any = Depends(get_db),
     _key: str | None = Depends(require_api_key),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """Update coverage status / score on a requirement–control link."""
     updated = await compliance_service.update_link(
@@ -366,6 +426,7 @@ async def update_link(
         coverage_score=body.coverage_score,
         gap_description=body.gap_description,
         justification=body.justification,
+        organization_id=_organization_scope(current_user),
     )
     if updated is None:
         raise HTTPException(404, "Link not found")
@@ -377,9 +438,14 @@ async def delete_link(
     link_id: str,
     db: Any = Depends(get_db),
     _key: str | None = Depends(require_api_key),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """Remove a requirement–control link."""
-    if not await compliance_service.delete_link(db, link_id):
+    if not await compliance_service.delete_link(
+        db,
+        link_id,
+        organization_id=_organization_scope(current_user),
+    ):
         raise HTTPException(404, "Link not found")
 
 
@@ -392,12 +458,16 @@ async def delete_link(
     response_model=CompliancePosture,
 )
 async def get_compliance_posture(
-    company_profile_id: str, db: Any = Depends(get_db)
+    company_profile_id: str,
+    db: Any = Depends(get_db),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """Full compliance posture for a company profile."""
     try:
         return await compliance_service.compute_posture(
-            db, company_profile_id
+            db,
+            company_profile_id,
+            organization_id=_organization_scope(current_user),
         )
     except ValueError as e:
         raise HTTPException(422, str(e))
@@ -408,11 +478,15 @@ async def get_gaps(
     company_profile_id: str,
     assessment_id: str | None = Query(None),
     db: Any = Depends(get_db),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """List uncovered or partially covered requirements for a company."""
     try:
         return await compliance_service.list_gaps(
-            db, company_profile_id, assessment_id=assessment_id
+            db,
+            company_profile_id,
+            assessment_id=assessment_id,
+            organization_id=_organization_scope(current_user),
         )
     except ValueError as e:
         raise HTTPException(422, str(e))
@@ -427,6 +501,7 @@ async def create_exception(
     body: ExceptionCreate,
     db: Any = Depends(get_db),
     _key: str | None = Depends(require_api_key),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """Register a compliance exception (risk acceptance, waiver, etc.)."""
     try:
@@ -443,6 +518,7 @@ async def create_exception(
             expiry_date=body.expiry_date,
             remediation_action_id=body.remediation_action_id,
             review_frequency=body.review_frequency,
+            organization_id=_organization_scope(current_user),
         )
     except ValueError as e:
         raise HTTPException(422, str(e))
@@ -459,6 +535,7 @@ async def list_exceptions(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     db: Any = Depends(get_db),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """List compliance exceptions with optional filters."""
     items, total = await compliance_service.list_exceptions(
@@ -466,6 +543,7 @@ async def list_exceptions(
         company_profile_id=company_profile_id,
         status=status,
         exigence_id=exigence_id,
+        organization_id=_organization_scope(current_user),
         skip=skip,
         limit=limit,
     )
@@ -478,6 +556,7 @@ async def update_exception(
     body: ExceptionUpdate,
     db: Any = Depends(get_db),
     _key: str | None = Depends(require_api_key),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """Update an exception (approve, reject, set remediation, etc.)."""
     updated = await compliance_service.update_exception(
@@ -491,6 +570,7 @@ async def update_exception(
         approved_by=body.approved_by,
         expiry_date=body.expiry_date,
         remediation_action_id=body.remediation_action_id,
+        organization_id=_organization_scope(current_user),
     )
     if updated is None:
         raise HTTPException(404, "Exception not found")
@@ -506,6 +586,7 @@ async def create_remediation_action(
     body: RemediationActionCreate,
     db: Any = Depends(get_db),
     _key: str | None = Depends(require_api_key),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """Create a remediation action linked to a gap or exception."""
     try:
@@ -519,6 +600,7 @@ async def create_remediation_action(
             assigned_to=body.assigned_to,
             due_date=body.due_date,
             priority=body.priority,
+            organization_id=_organization_scope(current_user),
         )
     except ValueError as e:
         raise HTTPException(422, str(e))

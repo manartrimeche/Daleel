@@ -43,10 +43,12 @@ async def create_feedback(
     notes: Optional[str],
     source_document_id: Optional[str],
     tags: list[str],
+    organization_id: Optional[str] = None,
 ) -> dict:
     now = datetime.now(timezone.utc)
     item = {
         "id": str(uuid.uuid4()),
+        "organization_id": organization_id,
         "question": question.strip(),
         "corrected_answer": corrected_answer.strip(),
         "language": language or _detect_language(question),
@@ -62,10 +64,20 @@ async def create_feedback(
     return item
 
 
-async def list_feedback(db: Any, *, skip: int = 0, limit: int = 50) -> tuple[list[dict], int]:
-    cursor = db["qa_feedback"].find({}, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit)
+async def list_feedback(
+    db: Any,
+    *,
+    skip: int = 0,
+    limit: int = 50,
+    organization_id: Optional[str] = None,
+) -> tuple[list[dict], int]:
+    query: dict[str, Any] = {}
+    if organization_id:
+        query["organization_id"] = organization_id
+
+    cursor = db["qa_feedback"].find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit)
     items = [item async for item in cursor]
-    total = await db["qa_feedback"].count_documents({})
+    total = await db["qa_feedback"].count_documents(query)
     return items, total
 
 
@@ -75,8 +87,13 @@ async def get_relevant_feedback_examples(
     question: str,
     detected_lang: str,
     limit: int = 3,
+    organization_id: Optional[str] = None,
 ) -> list[dict]:
-    lang_query = {"language": detected_lang}
+    base_query: dict[str, Any] = {}
+    if organization_id:
+        base_query["organization_id"] = organization_id
+
+    lang_query = {**base_query, "language": detected_lang}
     items = [
         item
         async for item in db["qa_feedback"].find(lang_query, {"_id": 0}).sort("created_at", -1).limit(300)
@@ -85,7 +102,7 @@ async def get_relevant_feedback_examples(
     if not items:
         items = [
             item
-            async for item in db["qa_feedback"].find({}, {"_id": 0}).sort("created_at", -1).limit(300)
+            async for item in db["qa_feedback"].find(base_query, {"_id": 0}).sort("created_at", -1).limit(300)
         ]
 
     scored: list[tuple[float, dict]] = []
@@ -111,5 +128,34 @@ async def get_relevant_feedback_examples(
     return out
 
 
-async def get_best_feedback_match(query: str, top_k: int = 1) -> list[dict]:
-    return []
+async def get_best_feedback_match(
+    db: Any,
+    *,
+    question: str,
+    detected_lang: str,
+    source_document_id: Optional[str] = None,
+    organization_id: Optional[str] = None,
+    min_score: float = 0.58,
+) -> dict | None:
+    query: dict[str, Any] = {"language": detected_lang}
+    if source_document_id:
+        query["source_document_id"] = source_document_id
+    if organization_id:
+        query["organization_id"] = organization_id
+
+    items = [
+        item
+        async for item in db["qa_feedback"].find(query, {"_id": 0}).sort("created_at", -1).limit(300)
+    ]
+    best_item: dict | None = None
+    best_score = 0.0
+    for item in items:
+        score = _similarity(question, str(item.get("question") or ""))
+        if score > best_score:
+            best_item = item
+            best_score = score
+
+    if best_item and best_score >= min_score:
+        best_item["score"] = round(best_score, 4)
+        return best_item
+    return None

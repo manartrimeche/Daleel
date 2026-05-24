@@ -91,7 +91,7 @@ class Settings(BaseSettings):
     admin_api_key: str = ""
 
     # ── JWT Authentication ──
-    jwt_secret_key: str = "change-me-in-production-use-a-64-char-random-string"
+    jwt_secret_key: str = ""
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 30
     jwt_refresh_token_expire_days: int = 7
@@ -131,6 +131,9 @@ class Settings(BaseSettings):
     reasoning_model_path: str = ""
     reasoning_confidence_threshold: float = 0.7
 
+    # ── Derja (Tunisian dialect) normalization ──
+    derja_normalizer_enabled: bool = True
+
     # ── KG light enrichment ──
     kg_light_enabled: bool = True
     kg_light_max_entities: int = 6
@@ -166,9 +169,9 @@ def _validate_production_settings(s: Settings) -> None:
                 "DALEEL_ADMIN_API_KEY must be set in production/staging. "
                 "Set DALEEL_ENV=dev to disable this check."
             )
-        if s.jwt_secret_key == "change-me-in-production-use-a-64-char-random-string":
+        if not s.jwt_secret_key or len(s.jwt_secret_key) < 32:
             raise RuntimeError(
-                "DALEEL_JWT_SECRET_KEY must be changed from its default in production/staging."
+                "DALEEL_JWT_SECRET_KEY must be set to a strong secret (>= 32 chars) in production/staging."
             )
         if s.cors_origins.strip() == "*":
             raise RuntimeError(
@@ -180,5 +183,8 @@ def _validate_production_settings(s: Settings) -> None:
 @lru_cache
 def get_settings() -> Settings:
     s = Settings()
+    if not s.jwt_secret_key:
+        import secrets
+        s.jwt_secret_key = secrets.token_urlsafe(64)
     _validate_production_settings(s)
     return s

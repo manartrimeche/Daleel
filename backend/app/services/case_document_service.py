@@ -480,13 +480,17 @@ async def upload_and_attach_document(
     attached_by: str = "system",
     run_analysis: bool = True,
     skip_embedding: bool = False,  # For case docs, we may skip vector indexing
+    organization_id: str | None = None,
 ) -> dict:
     """Upload a document, attach it to a case, and optionally analyze it.
 
     This is the main entry point for case document intake.
     """
     # Validate case exists
-    case = await get_collection("compliance_cases").find_one({"id": case_id})
+    case_query = {"id": case_id}
+    if organization_id:
+        case_query["organization_id"] = organization_id
+    case = await get_collection("compliance_cases").find_one(case_query)
     if not case:
         raise ValueError(f"Case '{case_id}' not found")
 
@@ -499,6 +503,7 @@ async def upload_and_attach_document(
         db,
         filename=filename,
         file_bytes=file_bytes,
+        organization_id=organization_id,
     )
 
     if not doc_result:
@@ -517,6 +522,7 @@ async def upload_and_attach_document(
         role=role,
         label=label,
         attached_by=attached_by,
+        organization_id=organization_id,
     )
 
     # Step 3: Run analysis if requested
@@ -528,6 +534,7 @@ async def upload_and_attach_document(
                 case_id=case_id,
                 case_document_id=case_doc["id"],
                 force_ocr=False,  # Document service already ran OCR if needed
+                organization_id=organization_id,
             )
         except Exception as e:
             logger.warning("Document analysis failed for %s: %s", document_id, e)
@@ -561,6 +568,7 @@ async def _attach_document_with_role(
     role: str,
     label: Optional[str] = None,
     attached_by: str = "system",
+    organization_id: str | None = None,
 ) -> dict:
     """Internal: Attach document to case with role and metadata."""
     # Check for duplicate attachment
@@ -599,12 +607,20 @@ async def analyze_case_document(
     case_id: str,
     case_document_id: str,
     force_ocr: bool = False,
+    organization_id: str | None = None,
 ) -> dict:
     """Analyze a case document: classify, summarize, extract entities.
 
     Stores analysis results in the case_documents collection.
     """
     # Get case document record
+    case_query = {"id": case_id}
+    if organization_id:
+        case_query["organization_id"] = organization_id
+    case = await get_collection("compliance_cases").find_one(case_query)
+    if not case:
+        raise ValueError(f"Case '{case_id}' not found")
+
     case_doc = await get_collection("case_documents").find_one(
         {"id": case_document_id, "case_id": case_id}
     )
@@ -614,7 +630,10 @@ async def analyze_case_document(
     document_id = case_doc["document_id"]
 
     # Get the actual document
-    doc = await get_collection("documents").find_one({"id": document_id})
+    doc_query = {"id": document_id}
+    if organization_id:
+        doc_query["organization_id"] = organization_id
+    doc = await get_collection("documents").find_one(doc_query)
     if not doc:
         raise ValueError(f"Document '{document_id}' not found")
 
@@ -707,8 +726,16 @@ async def get_case_document_with_analysis(
     db,
     case_id: str,
     case_document_id: str,
+    organization_id: str | None = None,
 ) -> dict | None:
     """Get a case document with its analysis."""
+    case_query = {"id": case_id}
+    if organization_id:
+        case_query["organization_id"] = organization_id
+    case = await get_collection("compliance_cases").find_one(case_query)
+    if not case:
+        return None
+
     case_doc = await get_collection("case_documents").find_one(
         {"id": case_document_id, "case_id": case_id}
     )
@@ -716,9 +743,10 @@ async def get_case_document_with_analysis(
         return None
 
     # Get document details
-    doc = await get_collection("documents").find_one(
-        {"id": case_doc["document_id"]}
-    )
+    doc_query = {"id": case_doc["document_id"]}
+    if organization_id:
+        doc_query["organization_id"] = organization_id
+    doc = await get_collection("documents").find_one(doc_query)
 
     result = _case_doc_analysis_to_dict(case_doc)
     if doc:
@@ -734,8 +762,16 @@ async def list_case_documents_with_analysis(
     document_type: Optional[str] = None,
     skip: int = 0,
     limit: int = 50,
+    organization_id: str | None = None,
 ) -> tuple[list[dict], int]:
     """List case documents with analysis, optionally filtered by role or type."""
+    case_query = {"id": case_id}
+    if organization_id:
+        case_query["organization_id"] = organization_id
+    case = await get_collection("compliance_cases").find_one(case_query)
+    if not case:
+        return [], 0
+
     query: dict = {"case_id": case_id}
     if role:
         query["role"] = role
@@ -780,7 +816,10 @@ async def list_case_documents_with_analysis(
     async for doc in cursor:
         enriched = _case_doc_analysis_to_dict(doc)
         # Get basic document info
-        d = await get_collection("documents").find_one({"id": doc["document_id"]})
+        doc_query = {"id": doc["document_id"]}
+        if organization_id:
+            doc_query["organization_id"] = organization_id
+        d = await get_collection("documents").find_one(doc_query)
         if d:
             enriched["document"] = {
                 "id": d["id"],
@@ -799,8 +838,16 @@ async def find_documents_by_entity(
     case_id: str,
     entity_type: str,  # "party", "deadline", "obligation", "legal_reference"
     entity_value: Optional[str] = None,
+    organization_id: str | None = None,
 ) -> list[dict]:
     """Find case documents containing specific entities."""
+    case_query = {"id": case_id}
+    if organization_id:
+        case_query["organization_id"] = organization_id
+    case = await get_collection("compliance_cases").find_one(case_query)
+    if not case:
+        return []
+
     query: dict = {"case_id": case_id}
 
     if entity_type == "party":
@@ -837,15 +884,22 @@ async def attach_existing_document(
     label: Optional[str] = None,
     attached_by: str = "system",
     run_analysis: bool = True,
+    organization_id: str | None = None,
 ) -> dict:
     """Attach an already-uploaded document to a case with role and optional analysis."""
     # Validate case
-    case = await get_collection("compliance_cases").find_one({"id": case_id})
+    case_query = {"id": case_id}
+    if organization_id:
+        case_query["organization_id"] = organization_id
+    case = await get_collection("compliance_cases").find_one(case_query)
     if not case:
         raise ValueError(f"Case '{case_id}' not found")
 
     # Validate document
-    doc = await get_collection("documents").find_one({"id": document_id})
+    doc_query = {"id": document_id}
+    if organization_id:
+        doc_query["organization_id"] = organization_id
+    doc = await get_collection("documents").find_one(doc_query)
     if not doc:
         raise ValueError(f"Document '{document_id}' not found")
 
@@ -884,7 +938,9 @@ async def attach_existing_document(
     # Run analysis if requested
     if run_analysis:
         try:
-            await analyze_case_document(db, case_id, case_doc["id"])
+            await analyze_case_document(
+                db, case_id, case_doc["id"], organization_id=organization_id
+            )
         except Exception as e:
             logger.warning("Analysis failed for attached document: %s", e)
 
