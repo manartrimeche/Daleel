@@ -109,7 +109,7 @@ def ocr_image_array(img_array, hint_arabic: bool = True) -> str:
             if text and len(text.strip()) > 10:
                 return text
         except Exception as e:
-            logger.warning(f"  Tesseract failed: {e}")
+            logger.warning("  Tesseract failed: %s", e)
 
     reader = _get_ocr_reader(arabic=hint_arabic)
     if reader is None:
@@ -134,7 +134,7 @@ def ocr_image_file(file_path: Path, hint_arabic: bool = True) -> str:
             if text and len(text.strip()) > 10:
                 return text
         except Exception as e:
-            logger.warning(f"  Tesseract failed on file: {e}")
+            logger.warning("  Tesseract failed on file: %s", e)
 
     reader = _get_ocr_reader(arabic=hint_arabic)
     if reader is None:

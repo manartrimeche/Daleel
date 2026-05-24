@@ -18,6 +18,7 @@ from typing import Any, Optional
 
 from app.config import get_settings
 from app.processing.text_utils import detect_query_language as _detect_query_language
+from app.processing.derja_normalizer import normalize_if_derja as _normalize_if_derja
 from app.services import feedback_service, search_service
 from app.services.domain_router import route_question
 from app.services.llm_cache import llm_cache
@@ -1245,13 +1246,6 @@ def _build_grounded_synthesis_from_chunks(
         "obligation ne peut être inférieure", "titre obligataire", "سندات",
     ]
 
-    any(k in q for k in ["interdiction", "prohibition", "ممنوع", "لا يجوز", "interdit"])
-    any(k in q for k in ["sanction", "amende", "peine", "عقوبة", "غرامة"])
-    any(k in q for k in [
-        "immatriculation", "immatriculer", "registre de commerce", "inscription",
-        "publication", "formalités", "formalite", "constitution", "création", "creation",
-        "dépôt", "depot", "statuts", "greffe", "تأسيس", "السجل التجاري", "ترسيم",
-    ])
     want_manager = _is_manager_obligations_query(question)
 
     prohibition_lines: list[str] = []
@@ -1326,7 +1320,6 @@ def _build_grounded_synthesis_from_chunks(
             procedure_lines = _dedup(generic_lines[:4], 4)
 
     verified_refs = sorted(answer_refs.intersection(supported_refs), key=lambda x: int(x))
-    sorted(answer_refs.difference(supported_refs), key=lambda x: int(x) if x.isdigit() else x)
 
     def _pick_lines(source_lines: list[str], keywords: list[str], limit: int = 4) -> list[str]:
         out: list[str] = []
@@ -2034,6 +2027,7 @@ async def ask(
     use_quality_guard: Optional[bool] = None,
     intent: Optional[str] = None,
     case_id: Optional[str] = None,
+    organization_id: Optional[str] = None,
 ) -> dict:
     """
     Pipeline RAG classique:
@@ -2052,7 +2046,24 @@ async def ask(
     model_name = (llm_model or settings.llm_model).strip()
 
     # Étape 0: détecter la langue de la question
-    detected_lang = response_language if response_language in {"ar", "fr", "en"} else _detect_query_language(question)
+    # ── Derja normalization (Tunisian dialect → French) ──
+    is_derja = False
+    derja_original = question
+    if getattr(settings, "derja_normalizer_enabled", True):
+        derja_effective, derja_original, is_derja = _normalize_if_derja(question)
+    else:
+        derja_effective = question
+    if is_derja:
+        # Derja detected: switch to French pipeline, keep original for retrieval
+        detected_lang = "fr"
+        question = derja_effective  # French-wrapped query for LLM
+        retrieval_question = derja_original  # Original Arabic for embedding search
+        logger.info("Derja pipeline activated — LLM will receive French, retrieval uses original Arabic")
+    else:
+        retrieval_question = question  # Normal flow
+
+    if not is_derja:
+        detected_lang = response_language if response_language in {"ar", "fr", "en"} else _detect_query_language(question)
     lang_name, lang_instruction = _LANG_LABELS.get(detected_lang, _LANG_LABELS["en"])
     logger.info(f"Detected query language: {detected_lang} ({lang_name})")
 
@@ -2062,7 +2073,7 @@ async def ask(
     if getattr(settings, "domain_router_enabled", False) and use_domain_router:
         try:
             domain_name, domain_config = await route_question(
-                question=question,
+                question=retrieval_question,
                 lang=detected_lang,
                 targeted_loi_code=document_id,
             )
@@ -2089,6 +2100,7 @@ async def ask(
                 question=question,
                 detected_lang=detected_lang,
                 source_document_id=effective_document_id,
+                organization_id=organization_id,
             )
             if best_feedback:
                 logger.info("Using validated feedback override (id=%s, score=%.3f)", best_feedback.get("id"), best_feedback.get("score", 0.0))
@@ -2105,7 +2117,7 @@ async def ask(
     # are often cleaner and can be translated in the final answer.
     effective_language_filter = language_filter
 
-    retrieval_query = _augment_query_for_specific_legal_scope(question, detected_lang)
+    retrieval_query = _augment_query_for_specific_legal_scope(retrieval_question, detected_lang)
 
     effective_top_k = getattr(domain_config, "top_k", top_k) if domain_config else top_k
     retrieval_k = min(max(effective_top_k * 3, effective_top_k + 5), 30)
@@ -2121,6 +2133,7 @@ async def ask(
                     language_filter=effective_language_filter,
                     document_id=effective_document_id,
                     extra_filter=extra_filter,
+                    organization_id=organization_id,
                 ),
                 db=db,
                 domain_config=domain_config,
@@ -2133,6 +2146,7 @@ async def ask(
                 top_k=retrieval_k,
                 language_filter=effective_language_filter,
                 document_id=effective_document_id,
+                organization_id=organization_id,
             )
     else:
         chunks = await search_service.semantic_search(
@@ -2141,6 +2155,7 @@ async def ask(
             top_k=retrieval_k,
             language_filter=effective_language_filter,
             document_id=effective_document_id,
+            organization_id=organization_id,
         )
 
     if not chunks:
@@ -2226,6 +2241,7 @@ async def ask(
             question=question,
             detected_lang=detected_lang,
             limit=2,
+            organization_id=organization_id,
         )
         feedback_block = _build_feedback_examples_block(feedback_examples, detected_lang)
         if feedback_block:
@@ -2389,7 +2405,7 @@ async def ask(
             else:
                 answer = rewritten
     except Exception as e:
-        logger.error(f"Ollama call failed: {e}")
+        logger.error("Ollama call failed: %s", e)
         error_messages = {
             "ar": f"خطأ في الاتصال بنموذج اللغة. {str(e)}",
             "fr": f"Erreur de communication avec le modèle. {str(e)}",
@@ -2431,7 +2447,7 @@ async def ask(
     sources = _build_source_metadata(chunks)
     llm_cache.set(question, chunks, answer)
 
-    return {
+    result = {
         "answer": answer,
         "sources": sources,
         "model": model_name,
@@ -2441,6 +2457,10 @@ async def ask(
         "quality_guard_issues": qg_result.get("issues") if qg_result else None,
         "kg_enriched": bool(kg_text),
     }
+    if is_derja:
+        result["derja_detected"] = True
+        result["derja_original"] = derja_original
+    return result
 
 
 async def ask_agentic(
@@ -2459,6 +2479,7 @@ async def ask_agentic(
     intent: Optional[str] = None,
     case_id: Optional[str] = None,
     document_context: Optional[str] = None,
+    organization_id: Optional[str] = None,
 ) -> dict:
     """
     Mode agentique progressif:
@@ -2529,6 +2550,7 @@ async def ask_agentic(
                 question=question,
                 detected_lang=detected_lang,
                 source_document_id=effective_document_id,
+                organization_id=organization_id,
             )
             if best_feedback:
                 reasoning_steps.append(f"feedback_override:{best_feedback.get('id')}")
@@ -2626,6 +2648,7 @@ async def ask_agentic(
                         language_filter=effective_language_filter,
                         document_id=effective_document_id,
                         extra_filter=extra_filter,
+                        organization_id=organization_id,
                     ),
                     db=db,
                     domain_config=domain_config,
@@ -2638,6 +2661,7 @@ async def ask_agentic(
                     top_k=retrieval_k,
                     language_filter=effective_language_filter,
                     document_id=effective_document_id,
+                    organization_id=organization_id,
                 )
         else:
             chunks = await search_service.semantic_search(
@@ -2646,6 +2670,7 @@ async def ask_agentic(
                 top_k=retrieval_k,
                 language_filter=effective_language_filter,
                 document_id=effective_document_id,
+                organization_id=organization_id,
             )
         retrieval_ms += (time.perf_counter() - t_retrieve) * 1000
 
@@ -2785,6 +2810,7 @@ async def ask_agentic(
             question=question,
             detected_lang=detected_lang,
             limit=2,
+            organization_id=organization_id,
         )
         feedback_block = _build_feedback_examples_block(feedback_examples, detected_lang)
         if feedback_block:
@@ -3024,6 +3050,7 @@ async def ask_auto(
     use_domain_router: bool = True,
     use_quality_guard: Optional[bool] = None,
     intent: Optional[str] = None,
+    organization_id: Optional[str] = None,
 ) -> dict:
     """Sélectionne automatiquement le mode classique ou agentique."""
     t0 = time.perf_counter()
@@ -3046,6 +3073,7 @@ async def ask_auto(
             use_domain_router=use_domain_router,
             use_quality_guard=use_quality_guard,
             intent=intent,
+            organization_id=organization_id,
         )
         result["selected_mode"] = "agentic"
         result["auto_reason"] = reason
@@ -3064,6 +3092,7 @@ async def ask_auto(
         use_domain_router=use_domain_router,
         use_quality_guard=use_quality_guard,
         intent=intent,
+        organization_id=organization_id,
     )
 
     classic.update(
@@ -3254,6 +3283,7 @@ async def ask_stream(
     use_domain_router: bool = True,
     use_quality_guard: Optional[bool] = None,
     intent: Optional[str] = None,
+    organization_id: Optional[str] = None,
 ):
     """
     Streaming RAG pipeline — yields SSE events:
@@ -3299,6 +3329,7 @@ async def ask_stream(
                     language_filter=effective_language_filter,
                     document_id=effective_document_id,
                     extra_filter=extra_filter,
+                    organization_id=organization_id,
                 ),
                 db=db,
                 domain_config=domain_config,
@@ -3311,6 +3342,7 @@ async def ask_stream(
                 top_k=retrieval_k,
                 language_filter=effective_language_filter,
                 document_id=effective_document_id,
+                organization_id=organization_id,
             )
     else:
         chunks = await search_service.semantic_search(
@@ -3319,6 +3351,7 @@ async def ask_stream(
             top_k=retrieval_k,
             language_filter=effective_language_filter,
             document_id=effective_document_id,
+            organization_id=organization_id,
         )
 
     if not chunks:
@@ -3518,13 +3551,13 @@ async def extract_exigences_from_text(
             if match:
                 response = match.group(0)
             else:
-                logger.warning(f"No JSON array found in LLM response for article {article_reference}")
+                logger.warning("No JSON array found in LLM response for article %s", article_reference)
                 return []
 
         exigences = json.loads(response)
 
         if not isinstance(exigences, list):
-            logger.warning(f"LLM response is not a list for article {article_reference}")
+            logger.warning("LLM response is not a list for article %s", article_reference)
             return []
 
         # Enrich with article reference and validate
@@ -3549,13 +3582,13 @@ async def extract_exigences_from_text(
                 "article_reference": article_reference,
             })
 
-        logger.info(f"Extracted {len(enriched)} exigences from article {article_reference}")
+        logger.info("Extracted %d exigences from article %s", len(enriched), article_reference)
         return enriched
 
     except json.JSONDecodeError as e:
-        logger.error(f"JSON parse error extracting exigences from {article_reference}: {e}")
+        logger.error("JSON parse error extracting exigences from %s: %s", article_reference, e)
         return []
     except Exception as e:
-        logger.error(f"Error extracting exigences from {article_reference}: {e}")
+        logger.error("Error extracting exigences from %s: %s", article_reference, e)
         return []
 

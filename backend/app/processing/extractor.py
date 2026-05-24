@@ -88,7 +88,7 @@ def _extract_page_pdfminer(path: Path, page_num: int) -> str:
     except ImportError:
         return ""
     except Exception as e:
-        logger.warning(f"  pdfminer failed on page {page_num}: {e}")
+        logger.warning("  pdfminer failed on page %s: %s", page_num, e)
         return ""
 
 
@@ -113,7 +113,7 @@ def _extract_all_pdfminer(path: Path) -> List[Dict]:
         logger.warning("  pdfminer.six not installed")
         return []
     except Exception as e:
-        logger.warning(f"  pdfminer full extraction failed: {e}")
+        logger.warning("  pdfminer full extraction failed: %s", e)
         return []
 
 
@@ -135,7 +135,7 @@ def _ocr_single_page(page, hint_arabic: bool) -> Tuple[str, bool]:
         if ocr_text and len(ocr_text.strip()) > 20:
             return ocr_text, True
     except Exception as e:
-        logger.warning(f"  OCR error: {e}")
+        logger.warning("  OCR error: %s", e)
     return "", False
 
 

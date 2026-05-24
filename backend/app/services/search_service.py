@@ -105,6 +105,7 @@ async def _python_search(
     language_filter: Optional[str],
     document_id: Optional[str],
     extra_filter: Optional[dict] = None,
+    allowed_document_ids: set[str] | None = None,
 ) -> list[dict]:
     query: dict = {"embedding": {"$ne": None}}
     lang_values = _parse_language_filter(language_filter)
@@ -114,6 +115,10 @@ async def _python_search(
         query["language"] = {"$in": lang_values}
     if document_id:
         query["document_id"] = document_id
+    elif allowed_document_ids is not None:
+        if not allowed_document_ids:
+            return []
+        query["document_id"] = {"$in": list(allowed_document_ids)}
     if extra_filter:
         query.update(extra_filter)
 
@@ -179,6 +184,7 @@ async def semantic_search(
     language_filter: Optional[str] = None,
     document_id: Optional[str] = None,
     extra_filter: Optional[dict] = None,
+    organization_id: Optional[str] = None,
 ) -> list[dict]:
     """Vector similarity search — routes to FAISS or Python backend.
 
@@ -188,6 +194,17 @@ async def semantic_search(
     """
     stored_dim = await get_effective_query_embedding_dimension()
     query_vec = await embed_text_for_search_async(query, stored_dim)
+    allowed_document_ids: set[str] | None = None
+    if organization_id:
+        allowed_document_ids = {
+            doc["id"]
+            async for doc in get_collection("documents").find(
+                {"organization_id": organization_id},
+                {"id": 1},
+            )
+        }
+        if document_id and document_id not in allowed_document_ids:
+            return []
 
     if _use_faiss():
         await faiss_manager.ensure_ready()
@@ -200,6 +217,8 @@ async def semantic_search(
             query_vec, top_k, language_filter, document_id
         )
         if results:
+            if allowed_document_ids is not None:
+                results = [r for r in results if r.get("document_id") in allowed_document_ids]
             if extra_filter:
                 # Best-effort post-filtering: keep results whose metadata match extra_filter.
                 # This is a temporary measure until FAISS metadata filtering is wired.
@@ -213,7 +232,14 @@ async def semantic_search(
             return results
         # Fall through to Python search if FAISS returned nothing (empty index)
 
-    results = await _python_search(query_vec, top_k, language_filter, document_id, extra_filter)
+    results = await _python_search(
+        query_vec,
+        top_k,
+        language_filter,
+        document_id,
+        extra_filter,
+        allowed_document_ids=allowed_document_ids,
+    )
     logger.debug("Python cosine search: %s results", len(results))
     return results
 

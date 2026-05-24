@@ -187,7 +187,7 @@ def segment_text_into_articles(
 
     events = _build_events(full_text, language)
     if not events:
-        logger.warning(f"[{loi_code}] No article markers found in text ({len(full_text)} chars)")
+        logger.warning("[%s] No article markers found in text (%d chars)", loi_code, len(full_text))
         return []
 
     # ── Walk events, maintaining hierarchy state ──

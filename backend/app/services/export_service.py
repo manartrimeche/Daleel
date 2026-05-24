@@ -22,6 +22,7 @@ async def export_roadmap_file(
     profile_id: str,
     *,
     format: str = "xlsx",
+    organization_id: str | None = None,
 ) -> tuple[bytes, str, str]:
     """
     Generate an export file for the compliance roadmap.
@@ -30,7 +31,7 @@ async def export_roadmap_file(
     """
     from app.services.roadmap_service import generate_roadmap
 
-    roadmap = await generate_roadmap(db, profile_id)
+    roadmap = await generate_roadmap(db, profile_id, organization_id=organization_id)
     profile_name = roadmap.get("profile_name", profile_id)[:40]
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d")
     plan = roadmap.get("ordered_plan", [])

@@ -234,7 +234,7 @@ async def extract_amendment_operations(
             raw_ops = []
 
     except Exception as e:
-        logger.error(f"LLM extraction failed for document {document_id}: {e}")
+        logger.error("LLM extraction failed for document %s: %s", document_id, e)
         raw_ops = []
 
     # Persist operations
@@ -554,7 +554,7 @@ async def apply_all_pending(
             if result.get("loi_id"):
                 loi_ids_affected.add(result["loi_id"])
         except Exception as e:
-            logger.error(f"Failed to apply operation {op['id']}: {e}")
+            logger.error("Failed to apply operation %s: %s", op['id'], e)
             await get_collection("amendment_operations").update_one({"id": op["id"]}, {"$set": {"status": "rejected", "updated_at": datetime.now(timezone.utc)}})
             results.append({
                 "operation_id": op["id"],

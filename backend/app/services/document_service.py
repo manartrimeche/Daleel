@@ -65,6 +65,7 @@ def _doc_to_out(doc: dict | None) -> dict | None:
         "error_message": doc.get("error_message"),
         "document_type": doc.get("document_type"),
         "loi_id": doc.get("loi_id"),
+        "organization_id": doc.get("organization_id"),
         "created_at": doc.get("created_at"),
         "updated_at": doc.get("updated_at"),
     }
@@ -395,6 +396,7 @@ async def approve_pending_document(
         file_bytes,
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
+        organization_id=doc.get("organization_id"),
     )
 
 
@@ -439,6 +441,7 @@ async def upload_document(
     file_bytes: bytes,
     chunk_size: int | None = None,
     chunk_overlap: int | None = None,
+    organization_id: str | None = None,
 ) -> dict:
     upload_dir = settings.upload_dir
     upload_dir.mkdir(parents=True, exist_ok=True)
@@ -449,7 +452,11 @@ async def upload_document(
         existing_source = await get_collection("document_sources").find_one({"file_hash": file_hash})
         if existing_source:
             existing_doc = await get_collection("documents").find_one({"id": existing_source.get("document_id")})
-            if existing_doc and existing_doc.get("status") == "ready":
+            same_org = (
+                not organization_id
+                or existing_doc.get("organization_id") == organization_id
+            ) if existing_doc else False
+            if existing_doc and existing_doc.get("status") == "ready" and same_org:
                 return _doc_to_out(existing_doc)
 
         doc_id = str(uuid.uuid4())
@@ -471,6 +478,7 @@ async def upload_document(
             "total_chunks": 0,
             "ocr_used": False,
             "error_message": None,
+            "organization_id": organization_id,
         }
         await get_collection("documents").insert_one(doc_doc)
 
@@ -584,6 +592,7 @@ async def upload_document(
                             "ocr_used": meta["ocr_used"],
                             "char_count": len(rec["text"]),
                             "created_at": datetime.now(timezone.utc),
+                            "organization_id": organization_id,
                         }
                     )
                     if meta["ocr_used"]:
@@ -645,9 +654,15 @@ async def get_document_source(db, doc_id: str) -> Optional[dict]:
     return _source_to_out(source) if source else None
 
 
-async def list_documents(db, skip: int = 0, limit: int = 50) -> tuple[list[dict], int]:
-    total = await get_collection("documents").count_documents({})
-    cursor = get_collection("documents").find({}).sort("created_at", -1).skip(skip).limit(limit)
+async def list_documents(
+    db,
+    skip: int = 0,
+    limit: int = 50,
+    organization_id: str | None = None,
+) -> tuple[list[dict], int]:
+    query = {"organization_id": organization_id} if organization_id else {}
+    total = await get_collection("documents").count_documents(query)
+    cursor = get_collection("documents").find(query).sort("created_at", -1).skip(skip).limit(limit)
     docs = [_doc_to_out(doc) async for doc in cursor]
     return docs, int(total)
 

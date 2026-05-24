@@ -98,6 +98,61 @@ def _current_user_id(user: dict | None) -> str:
     return str(raw_id) if raw_id else ""
 
 
+def _organization_scope(user: dict | None) -> str | None:
+    if not user or user.get("role") == "super_admin":
+        return None
+    return user.get("organization_id")
+
+
+async def _save_chat_history(
+    db: Any,
+    user: dict | None,
+    question: str,
+    answer: str,
+    sources_count: int,
+    document_filename: str | None = None,
+) -> None:
+    if not user:
+        return
+    try:
+        user_id = _current_user_id(user)
+        doc = {
+            "user_id": user_id,
+            "organization_id": user.get("organization_id"),
+            "question": question,
+            "answer": answer,
+            "sources_count": sources_count,
+            "created_at": datetime.now(timezone.utc),
+        }
+        if document_filename:
+            doc["document_filename"] = document_filename
+        await db["chat_history"].insert_one(doc)
+    except Exception:
+        logger.debug("Could not save chat history (non-fatal)", exc_info=True)
+
+
+def _can_access_org_notifications(user: dict | None) -> bool:
+    return bool(user and user.get("role") in {"owner", "admin", "member"})
+
+
+def _chat_history_created_at_filter(entry_id: str) -> Any:
+    try:
+        parsed = datetime.fromisoformat(entry_id.replace("Z", "+00:00"))
+    except ValueError:
+        return entry_id
+    return {"$in": [entry_id, parsed]}
+
+
+async def _require_document_access(db: Any, doc_id: str, user: dict | None) -> dict:
+    if not doc_id:
+        raise HTTPException(404, "Document not found")
+    doc = await document_service.get_document(db, doc_id)
+    org_scope = _organization_scope(user)
+    if doc is None or (org_scope and doc.get("organization_id") != org_scope):
+        raise HTTPException(404, "Document not found")
+    return doc
+
+
 def _resolve_bulk_upload_dir(raw_path: str, base_dir: Path) -> Path:
     if not raw_path:
         raise HTTPException(400, "data_dir is required")
@@ -144,7 +199,7 @@ async def upload_document(
     _key: str | None = Depends(require_api_key),
 ):
     """Upload and process a document (PDF or DOCX only)."""
-    if clear_db and current_user and current_user.get("role") != "super_admin":
+    if clear_db and (not current_user or current_user.get("role") != "super_admin"):
         raise HTTPException(403, "Seul le super admin peut vider la base documentaire")
     if clear_db:
         await document_service.clear_all_documents(db)
@@ -204,6 +259,7 @@ async def upload_document(
         content,
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
+        organization_id=_organization_scope(current_user),
     )
     if doc.get("status") == "error":
         raise HTTPException(422, doc.get("error_message") or "Processing failed")
@@ -359,8 +415,14 @@ async def list_documents(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     db: Any = Depends(get_db),
+    _user: dict = Depends(get_current_user),
 ):
-    docs, total = await document_service.list_documents(db, skip, limit)
+    docs, total = await document_service.list_documents(
+        db,
+        skip,
+        limit,
+        organization_id=_organization_scope(_user),
+    )
     return DocumentListOut(documents=docs, total=total)
 
 
@@ -368,15 +430,20 @@ async def list_documents(
 
 
 @router.get("/documents/{doc_id}", response_model=DocumentOut)
-async def get_document(doc_id: str, db: Any = Depends(get_db)):
+async def get_document(doc_id: str, db: Any = Depends(get_db), _user: dict = Depends(get_current_user)):
     doc = await document_service.get_document(db, doc_id)
-    if doc is None:
+    org_scope = _organization_scope(_user)
+    if doc is None or (org_scope and doc.get("organization_id") != org_scope):
         raise HTTPException(404, "Document not found")
     return doc
 
 
 @router.get("/documents/{doc_id}/source", response_model=DocumentSourceOut)
-async def get_document_source(doc_id: str, db: Any = Depends(get_db)):
+async def get_document_source(doc_id: str, db: Any = Depends(get_db), _user: dict = Depends(get_current_user)):
+    doc = await document_service.get_document(db, doc_id)
+    org_scope = _organization_scope(_user)
+    if doc is None or (org_scope and doc.get("organization_id") != org_scope):
+        raise HTTPException(404, "Document not found")
     source = await document_service.get_document_source(db, doc_id)
     if source is None:
         raise HTTPException(404, "Document source not found")
@@ -392,9 +459,11 @@ async def get_chunks(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     db: Any = Depends(get_db),
+    _user: dict = Depends(get_current_user),
 ):
     doc = await document_service.get_document(db, doc_id)
-    if doc is None:
+    org_scope = _organization_scope(_user)
+    if doc is None or (org_scope and doc.get("organization_id") != org_scope):
         raise HTTPException(404, "Document not found")
     chunks, total = await document_service.get_chunks(db, doc_id, skip, limit)
     return ChunkListOut(chunks=chunks, total=total, document_id=doc_id)
@@ -406,9 +475,11 @@ async def get_raw_pages(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     db: Any = Depends(get_db),
+    _user: dict = Depends(get_current_user),
 ):
     doc = await document_service.get_document(db, doc_id)
-    if doc is None:
+    org_scope = _organization_scope(_user)
+    if doc is None or (org_scope and doc.get("organization_id") != org_scope):
         raise HTTPException(404, "Document not found")
     raw_pages, total = await document_service.get_raw_pages(db, doc_id, skip, limit)
     return RawPageListOut(raw_pages=raw_pages, total=total, document_id=doc_id)
@@ -420,9 +491,11 @@ async def get_cleaned_pages(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     db: Any = Depends(get_db),
+    _user: dict = Depends(get_current_user),
 ):
     doc = await document_service.get_document(db, doc_id)
-    if doc is None:
+    org_scope = _organization_scope(_user)
+    if doc is None or (org_scope and doc.get("organization_id") != org_scope):
         raise HTTPException(404, "Document not found")
     cleaned_pages, total = await document_service.get_cleaned_pages(
         db, doc_id, skip, limit
@@ -441,9 +514,11 @@ async def get_exigences(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     db: Any = Depends(get_db),
+    _user: dict = Depends(get_current_user),
 ):
     doc = await document_service.get_document(db, doc_id)
-    if doc is None:
+    org_scope = _organization_scope(_user)
+    if doc is None or (org_scope and doc.get("organization_id") != org_scope):
         raise HTTPException(404, "Document not found")
     exigences, total, type_counts = await document_service.get_exigences(
         db, doc_id, exigence_type=exigence_type, skip=skip, limit=limit
@@ -456,10 +531,12 @@ async def get_exigences(
     )
 
 
-@router.post("/documents/{doc_id}/extract-exigences", dependencies=[Depends(require_api_key)])
+@router.post("/documents/{doc_id}/extract-exigences")
 async def extract_exigences_endpoint(
     doc_id: str,
     db: Any = Depends(get_db),
+    _key: str | None = Depends(require_api_key),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """
     Manually trigger exigence extraction for a document.
@@ -469,9 +546,7 @@ async def extract_exigences_endpoint(
     - exigences_extracted: count of exigences extracted
     - by_type: breakdown by exigence type
     """
-    doc = await document_service.get_document(db, doc_id)
-    if doc is None:
-        raise HTTPException(404, "Document not found")
+    doc = await _require_document_access(db, doc_id, current_user)
 
     # Get all cleaned pages for this document
     cleaned_pages, _ = await document_service.get_cleaned_pages(
@@ -504,7 +579,16 @@ async def extract_exigences_endpoint(
 
 
 @router.delete("/documents/{doc_id}", status_code=204)
-async def delete_document(doc_id: str, db: Any = Depends(get_db), _key: str | None = Depends(require_api_key)):
+async def delete_document(
+    doc_id: str,
+    db: Any = Depends(get_db),
+    _key: str | None = Depends(require_api_key),
+    current_user: dict | None = Depends(get_optional_current_user),
+):
+    doc = await document_service.get_document(db, doc_id)
+    org_scope = _organization_scope(current_user)
+    if doc is None or (org_scope and doc.get("organization_id") != org_scope):
+        raise HTTPException(404, "Document not found")
     deleted = await document_service.delete_document(db, doc_id)
     if not deleted:
         raise HTTPException(404, "Document not found")
@@ -519,6 +603,7 @@ async def search(
     request: Request,
     body: SearchRequest,
     db: Any = Depends(get_db),
+    _user: dict = Depends(get_current_user),
 ):
     """Vector similarity search across all documents."""
     results = await search_service.semantic_search(
@@ -527,6 +612,7 @@ async def search(
         top_k=body.top_k,
         language_filter=body.language_filter,
         document_id=body.document_id,
+        organization_id=_organization_scope(_user),
     )
     return SearchResponse(
         query=body.query,
@@ -544,6 +630,7 @@ async def ask_question(
     request: Request,
     body: AskRequest,
     db: Any = Depends(get_db),
+    _user: dict = Depends(get_current_user),
 ):
     """Ask a legal question. Retrieves relevant documents and generates an answer using LLM."""
     result = await llm_service.ask(
@@ -559,42 +646,17 @@ async def ask_question(
         use_domain_router=body.use_domain_router,
         use_quality_guard=body.use_quality_guard,
         intent=body.intent,
+        organization_id=_organization_scope(_user),
     )
 
-    # Save Q&A to conversation history
-    try:
-        from app.api.auth import _bearer_scheme
-        from fastapi.security import HTTPAuthorizationCredentials
-        creds = await _bearer_scheme(request)
-        user = None
-        if creds:
-            try:
-                from app.services import auth_service as _as
-                payload = _as.decode_token(creds.credentials)
-                if payload.get("type") == "access":
-                    user = await _as.get_user_by_id(payload["sub"])
-            except Exception:
-                pass
-        if user:
-            from datetime import datetime, timezone
-            user_id = _current_user_id(user)
-            await db["chat_history"].insert_one({
-                "user_id": user_id,
-                "organization_id": user.get("organization_id"),
-                "question": body.question,
-                "answer": result.get("answer", ""),
-                "sources_count": len(result.get("sources", [])),
-                "created_at": datetime.now(timezone.utc),
-            })
-    except Exception:
-        logger.debug("Could not save chat history (non-fatal)", exc_info=True)
+    await _save_chat_history(db, _user, body.question, result.get("answer", ""), len(result.get("sources", [])))
 
     return AskResponse(**result)
 
 
 @router.post("/ask-agentic", response_model=AgenticAskResponse)
 @limiter.limit("10/minute")
-async def ask_question_agentic(request: Request, body: AskRequest, db: Any = Depends(get_db)):
+async def ask_question_agentic(request: Request, body: AskRequest, db: Any = Depends(get_db), _user: dict = Depends(get_current_user)):
     """Ask a legal question using an agentic retrieval loop (non-breaking mode)."""
     result = await llm_service.ask_agentic(
         db,
@@ -608,34 +670,10 @@ async def ask_question_agentic(request: Request, body: AskRequest, db: Any = Dep
         use_domain_router=body.use_domain_router,
         use_quality_guard=body.use_quality_guard,
         intent=body.intent,
+        organization_id=_organization_scope(_user),
     )
 
-    # Save Q&A to conversation history
-    try:
-        from app.api.auth import _bearer_scheme
-        creds = await _bearer_scheme(request)
-        user = None
-        if creds:
-            try:
-                from app.services import auth_service as _as
-                payload = _as.decode_token(creds.credentials)
-                if payload.get("type") == "access":
-                    user = await _as.get_user_by_id(payload["sub"])
-            except Exception:
-                pass
-        if user:
-            from datetime import datetime, timezone
-            user_id = _current_user_id(user)
-            await db["chat_history"].insert_one({
-                "user_id": user_id,
-                "organization_id": user.get("organization_id"),
-                "question": body.question,
-                "answer": result.get("answer", ""),
-                "sources_count": len(result.get("sources", [])),
-                "created_at": datetime.now(timezone.utc),
-            })
-    except Exception:
-        logger.debug("Could not save chat history (non-fatal)", exc_info=True)
+    await _save_chat_history(db, _user, body.question, result.get("answer", ""), len(result.get("sources", [])))
 
     return AgenticAskResponse(**result)
 
@@ -654,6 +692,7 @@ async def ask_with_document(
     history: str | None = Form(default=None),
     db: Any = Depends(get_db),
     _key: str | None = Depends(require_api_key),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """Ask a question about an uploaded document (PDF, DOCX, TXT, image).
 
@@ -698,41 +737,17 @@ async def ask_with_document(
         response_language=response_language,
         history=parsed_history,
         document_context=f"[{filename}]\n{extraction['text']}",
+        organization_id=_organization_scope(current_user),
     )
 
-    # ── Save to chat history ──
-    try:
-        from app.api.auth import _bearer_scheme
-        creds = await _bearer_scheme(request)
-        user = None
-        if creds:
-            try:
-                from app.services import auth_service as _as
-                payload = _as.decode_token(creds.credentials)
-                if payload.get("type") == "access":
-                    user = await _as.get_user_by_id(payload["sub"])
-            except Exception:
-                pass
-        if user:
-            user_id = _current_user_id(user)
-            await db["chat_history"].insert_one({
-                "user_id": user_id,
-                "organization_id": user.get("organization_id"),
-                "question": question,
-                "document_filename": filename,
-                "answer": result.get("answer", ""),
-                "sources_count": len(result.get("sources", [])),
-                "created_at": datetime.now(timezone.utc),
-            })
-    except Exception:
-        logger.warning("Could not save chat history for doc upload (non-fatal)", exc_info=True)
+    await _save_chat_history(db, current_user, question, result.get("answer", ""), len(result.get("sources", [])), document_filename=filename)
 
     return AgenticAskResponse(**result)
 
 
 @router.post("/ask-auto", response_model=AgenticAskResponse)
 @limiter.limit("10/minute")
-async def ask_question_auto(request: Request, body: AskRequest, db: Any = Depends(get_db)):
+async def ask_question_auto(request: Request, body: AskRequest, db: Any = Depends(get_db), _user: dict = Depends(get_current_user)):
     """Ask a legal question with automatic backend mode selection (classic vs agentic)."""
     result = await llm_service.ask_auto(
         db,
@@ -746,13 +761,14 @@ async def ask_question_auto(request: Request, body: AskRequest, db: Any = Depend
         use_domain_router=body.use_domain_router,
         use_quality_guard=body.use_quality_guard,
         intent=body.intent,
+        organization_id=_organization_scope(_user),
     )
     return AgenticAskResponse(**result)
 
 
 @router.post("/ask-stream")
 @limiter.limit("10/minute")
-async def ask_question_stream(request: Request, body: AskRequest, db: Any = Depends(get_db)):
+async def ask_question_stream(request: Request, body: AskRequest, db: Any = Depends(get_db), _user: dict = Depends(get_current_user)):
     """
     Streaming RAG Q&A via Server-Sent Events (SSE).
 
@@ -777,6 +793,7 @@ async def ask_question_stream(request: Request, body: AskRequest, db: Any = Depe
             use_domain_router=body.use_domain_router,
             use_quality_guard=body.use_quality_guard,
             intent=body.intent,
+            organization_id=_organization_scope(_user),
         ):
             yield f"event: {evt['event']}\ndata: {evt['data']}\n\n"
 
@@ -792,7 +809,7 @@ async def ask_question_stream(request: Request, body: AskRequest, db: Any = Depe
 
 @router.post("/feedback", response_model=FeedbackOut, status_code=201)
 @limiter.limit("20/minute")
-async def create_feedback_entry(request: Request, body: FeedbackCreate, db: Any = Depends(get_db)):
+async def create_feedback_entry(request: Request, body: FeedbackCreate, db: Any = Depends(get_db), _user: dict = Depends(get_current_user)):
     """Store a user-corrected answer to improve future responses."""
     item = await feedback_service.create_feedback(
         db,
@@ -803,6 +820,7 @@ async def create_feedback_entry(request: Request, body: FeedbackCreate, db: Any 
         notes=body.notes,
         source_document_id=body.source_document_id,
         tags=body.tags,
+        organization_id=_organization_scope(_user),
     )
     return FeedbackOut(**item)
 
@@ -812,9 +830,15 @@ async def list_feedback_entries(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     db: Any = Depends(get_db),
+    _user: dict = Depends(get_current_user),
 ):
     """List stored user feedback entries (latest first)."""
-    items, total = await feedback_service.list_feedback(db, skip=skip, limit=limit)
+    items, total = await feedback_service.list_feedback(
+        db,
+        skip=skip,
+        limit=limit,
+        organization_id=_organization_scope(_user),
+    )
     return FeedbackListOut(items=[FeedbackOut(**item) for item in items], total=total)
 
 
@@ -828,6 +852,7 @@ async def create_company_profile(
     body: CompanyProfileCreate,
     db: Any = Depends(get_db),
     _key: str | None = Depends(require_api_key),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """Create a new company profile for applicability evaluation."""
     profile = await applicability_service.create_company_profile(
@@ -839,6 +864,7 @@ async def create_company_profile(
         activities=body.activities,
         jurisdiction=body.jurisdiction,
         notes=body.notes,
+        organization_id=_organization_scope(current_user),
     )
     return profile
 
@@ -848,10 +874,11 @@ async def list_company_profiles(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     db: Any = Depends(get_db),
+    _user: dict = Depends(get_current_user),
 ):
     """List all company profiles."""
     profiles, total = await applicability_service.list_company_profiles(
-        db, skip=skip, limit=limit
+        db, skip=skip, limit=limit, organization_id=_organization_scope(_user)
     )
     return CompanyProfileListOut(profiles=profiles, total=total)
 
@@ -860,24 +887,30 @@ async def list_company_profiles(
 async def get_company_profile(
     profile_id: str,
     db: Any = Depends(get_db),
+    _user: dict = Depends(get_current_user),
 ):
     """Get a specific company profile by ID."""
-    profile = await applicability_service.get_company_profile(db, profile_id)
+    profile = await applicability_service.get_company_profile(
+        db, profile_id, organization_id=_organization_scope(_user)
+    )
     if not profile:
         raise HTTPException(404, "Company profile not found")
     return profile
 
 
-@router.put("/company-profiles/{profile_id}", response_model=CompanyProfileOut, dependencies=[Depends(require_api_key)])
+@router.put("/company-profiles/{profile_id}", response_model=CompanyProfileOut)
 async def update_company_profile(
     profile_id: str,
     body: CompanyProfileCreate,
     db: Any = Depends(get_db),
+    _key: str | None = Depends(require_api_key),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """Update a company profile."""
     updated = await applicability_service.update_company_profile(
         db,
         profile_id,
+        organization_id=_organization_scope(current_user),
         name=body.name,
         sector=body.sector,
         size=body.size,
@@ -891,13 +924,17 @@ async def update_company_profile(
     return updated
 
 
-@router.delete("/company-profiles/{profile_id}", status_code=204, dependencies=[Depends(require_api_key)])
+@router.delete("/company-profiles/{profile_id}", status_code=204)
 async def delete_company_profile(
     profile_id: str,
     db: Any = Depends(get_db),
+    _key: str | None = Depends(require_api_key),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """Delete a company profile (cascades to applicabilities)."""
-    deleted = await applicability_service.delete_company_profile(db, profile_id)
+    deleted = await applicability_service.delete_company_profile(
+        db, profile_id, organization_id=_organization_scope(current_user)
+    )
     if not deleted:
         raise HTTPException(404, "Company profile not found")
 
@@ -905,12 +942,14 @@ async def delete_company_profile(
 # ── Applicability Evaluation ──
 
 
-@router.post("/company-profiles/{profile_id}/evaluate-applicabilities", dependencies=[Depends(require_api_key)])
+@router.post("/company-profiles/{profile_id}/evaluate-applicabilities")
 async def evaluate_applicabilities(
     profile_id: str,
     db: Any = Depends(get_db),
     exigence_ids: list[str] | None = None,
     document_id: str | None = None,
+    _key: str | None = Depends(require_api_key),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """
     Evaluate applicability of exigences to a company profile using LLM.
@@ -922,7 +961,9 @@ async def evaluate_applicabilities(
     If both are None, evaluates ALL exigences across all documents.
     """
     # Verify profile exists
-    profile = await applicability_service.get_company_profile(db, profile_id)
+    profile = await applicability_service.get_company_profile(
+        db, profile_id, organization_id=_organization_scope(current_user)
+    )
     if not profile:
         raise HTTPException(404, "Company profile not found")
 
@@ -932,16 +973,19 @@ async def evaluate_applicabilities(
             profile_id,
             exigence_ids=exigence_ids,
             document_id=document_id,
+            organization_id=_organization_scope(current_user),
         )
     except Exception as e:
-        logger.error(f"Error evaluating applicabilities: {e}")
+        logger.error("Error evaluating applicabilities: %s", e)
         raise HTTPException(500, "Internal error during applicability evaluation")
 
     if count == 0:
         raise HTTPException(422, "No exigences found to evaluate with given filters")
 
     # Get summary statistics
-    summary = await applicability_service.get_applicability_summary(db, profile_id)
+    summary = await applicability_service.get_applicability_summary(
+        db, profile_id, organization_id=_organization_scope(current_user)
+    )
 
     return ApplicabilityEvalResponse(
         profile_id=profile_id,
@@ -964,6 +1008,7 @@ async def get_applicabilities(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     db: Any = Depends(get_db),
+    _user: dict = Depends(get_current_user),
 ):
     """
     Get applicabilities for a company profile.
@@ -972,16 +1017,25 @@ async def get_applicabilities(
     - is_applicable: true or false to filter results
     """
     # Verify profile exists
-    profile = await applicability_service.get_company_profile(db, profile_id)
+    profile = await applicability_service.get_company_profile(
+        db, profile_id, organization_id=_organization_scope(_user)
+    )
     if not profile:
         raise HTTPException(404, "Company profile not found")
 
     applicabilities, total = await applicability_service.get_applicabilities(
-        db, profile_id, is_applicable=is_applicable, skip=skip, limit=limit
+        db,
+        profile_id,
+        is_applicable=is_applicable,
+        skip=skip,
+        limit=limit,
+        organization_id=_organization_scope(_user),
     )
 
     # Get summary for counts
-    summary = await applicability_service.get_applicability_summary(db, profile_id)
+    summary = await applicability_service.get_applicability_summary(
+        db, profile_id, organization_id=_organization_scope(_user)
+    )
 
     return ExigenceApplicabilityListOut(
         applicabilities=applicabilities,
@@ -995,14 +1049,19 @@ async def get_applicabilities(
 async def get_applicability_summary(
     profile_id: str,
     db: Any = Depends(get_db),
+    _user: dict = Depends(get_current_user),
 ):
     """Get summary statistics of applicabilities for a company profile."""
     # Verify profile exists
-    profile = await applicability_service.get_company_profile(db, profile_id)
+    profile = await applicability_service.get_company_profile(
+        db, profile_id, organization_id=_organization_scope(_user)
+    )
     if not profile:
         raise HTTPException(404, "Company profile not found")
 
-    summary = await applicability_service.get_applicability_summary(db, profile_id)
+    summary = await applicability_service.get_applicability_summary(
+        db, profile_id, organization_id=_organization_scope(_user)
+    )
     return {"profile_id": profile_id, "profile_name": profile["name"], **summary}
 
 
@@ -1044,6 +1103,7 @@ async def list_lois(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     db: Any = Depends(get_db),
+    _user: dict = Depends(get_current_user),
 ):
     """List all registered Lois with per-loi article counts."""
     lois, total = await loi_service.list_lois(db, skip=skip, limit=limit)
@@ -1054,6 +1114,7 @@ async def list_lois(
 async def get_loi(
     loi_id: str,
     db: Any = Depends(get_db),
+    _user: dict = Depends(get_current_user),
 ):
     """Get a Loi by UUID."""
     loi = await loi_service.get_loi(db, loi_id)
@@ -1138,6 +1199,7 @@ async def list_articles(
         None, description="Keyword filter on heading or article number"
     ),
     db: Any = Depends(get_db),
+    _user: dict = Depends(get_current_user),
 ):
     """List all articles for a Loi with active_version_id and total_versions."""
     loi = await loi_service.get_loi(db, loi_id)
@@ -1153,6 +1215,7 @@ async def list_articles(
 async def get_article(
     article_id: str,
     db: Any = Depends(get_db),
+    _user: dict = Depends(get_current_user),
 ):
     """Get an Article by UUID."""
     article = await loi_service.get_article(db, article_id)
@@ -1169,6 +1232,7 @@ async def get_article_by_key(
     loi_id: str,
     article_key: str,
     db: Any = Depends(get_db),
+    _user: dict = Depends(get_current_user),
 ):
     """Get an Article by its stable unique key within a Loi (e.g. 'CT-Art-95')."""
     article = await loi_service.get_article_by_key(db, loi_id, article_key)
@@ -1184,6 +1248,7 @@ async def get_article_by_key(
 async def list_article_versions(
     article_id: str,
     db: Any = Depends(get_db),
+    _user: dict = Depends(get_current_user),
 ):
     """
     List all versions of an Article (active + superseded + repealed).
@@ -1201,6 +1266,7 @@ async def list_article_versions(
 async def get_article_version(
     version_id: str,
     db: Any = Depends(get_db),
+    _user: dict = Depends(get_current_user),
 ):
     """Get a specific ArticleVersion by UUID."""
     version = await loi_service.get_article_version(db, version_id)
@@ -1219,6 +1285,7 @@ async def get_version_exigences(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     db: Any = Depends(get_db),
+    _user: dict = Depends(get_current_user),
 ):
     """Get all Exigences extracted from this ArticleVersion."""
     from app.services.document_service import _exigence_to_out
@@ -1295,6 +1362,7 @@ async def get_version_actions(
     skip: int = Query(0, ge=0),
     limit: int = Query(200, ge=1, le=1000),
     db: Any = Depends(get_db),
+    _user: dict = Depends(get_current_user),
 ):
     """Get all Actions extracted from this ArticleVersion, optionally filtered by modalite."""
     version = await loi_service.get_article_version(db, version_id)
@@ -1310,6 +1378,7 @@ async def get_version_actions(
 async def get_action(
     action_id: str,
     db: Any = Depends(get_db),
+    _user: dict = Depends(get_current_user),
 ):
     """Get a single Action by UUID."""
     action = await action_service.get_action(db, action_id)
@@ -1370,7 +1439,7 @@ async def compute_criticality_for_loi(
         )
         return result
     except Exception as e:
-        logger.error(f"Criticality computation error: {e}")
+        logger.error("Criticality computation error: %s", e)
         raise HTTPException(500, "Internal computation error")
 
 
@@ -1402,7 +1471,7 @@ async def compute_criticality_for_version(
         )
         return result
     except Exception as e:
-        logger.error(f"Criticality computation error: {e}")
+        logger.error("Criticality computation error: %s", e)
         raise HTTPException(500, "Internal computation error")
 
 
@@ -1410,6 +1479,7 @@ async def compute_criticality_for_version(
 async def get_action_criticality(
     action_id: str,
     db: Any = Depends(get_db),
+    _user: dict = Depends(get_current_user),
 ):
     """
     Get the criticality record for a specific Action.
@@ -1470,6 +1540,7 @@ async def add_action_dependency(
 async def list_action_dependencies(
     action_id: str,
     db: Any = Depends(get_db),
+    _user: dict = Depends(get_current_user),
 ):
     """
     List all dependencies declared for an Action (i.e., its prerequisites).
@@ -1503,6 +1574,7 @@ async def delete_action_dependency(
 async def get_roadmap(
     profile_id: str,
     db: Any = Depends(get_db),
+    _user: dict = Depends(get_current_user),
 ):
     """
     Generate the dynamic compliance action plan for a company profile.
@@ -1520,16 +1592,24 @@ async def get_roadmap(
     The roadmap is **dynamic**: calling this endpoint again after any change
     (profile update, new law version, re-evaluation) returns fresh results.
     """
-    profile = await applicability_service.get_company_profile(db, profile_id)
+    profile = await applicability_service.get_company_profile(
+        db,
+        profile_id,
+        organization_id=_organization_scope(_user),
+    )
     if not profile:
         raise HTTPException(404, "Company profile not found")
     try:
-        roadmap = await roadmap_service.generate_roadmap(db, profile_id)
+        roadmap = await roadmap_service.generate_roadmap(
+            db,
+            profile_id,
+            organization_id=_organization_scope(_user),
+        )
         return roadmap
     except ValueError as e:
         raise HTTPException(422, str(e))
     except Exception as e:
-        logger.error(f"Roadmap generation error for profile {profile_id}: {e}")
+        logger.error("Roadmap generation error for profile %s: %s", profile_id, e)
         raise HTTPException(500, "Internal error during roadmap generation")
 
 
@@ -1537,11 +1617,12 @@ async def get_roadmap(
     "/company-profiles/{profile_id}/roadmap/refresh",
     response_model=RoadmapOut,
     status_code=201,
-    dependencies=[Depends(require_api_key)],
 )
 async def refresh_roadmap(
     profile_id: str,
     db: Any = Depends(get_db),
+    _key: str | None = Depends(require_api_key),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """
     Force-regenerate the compliance roadmap after a profile or law update.
@@ -1549,16 +1630,24 @@ async def refresh_roadmap(
     Identical to GET /roadmap but signals intent to recalculate (useful
     after re-running applicability evaluation or extracting new actions).
     """
-    profile = await applicability_service.get_company_profile(db, profile_id)
+    profile = await applicability_service.get_company_profile(
+        db,
+        profile_id,
+        organization_id=_organization_scope(current_user),
+    )
     if not profile:
         raise HTTPException(404, "Company profile not found")
     try:
-        roadmap = await roadmap_service.generate_roadmap(db, profile_id)
+        roadmap = await roadmap_service.generate_roadmap(
+            db,
+            profile_id,
+            organization_id=_organization_scope(current_user),
+        )
         return roadmap
     except ValueError as e:
         raise HTTPException(422, str(e))
     except Exception as e:
-        logger.error(f"Roadmap refresh error for profile {profile_id}: {e}")
+        logger.error("Roadmap refresh error for profile %s: %s", profile_id, e)
         raise HTTPException(500, "Internal error during roadmap refresh")
 
 
@@ -1569,11 +1658,13 @@ async def refresh_roadmap(
 # ── Step 10 : Classification de document ──────────────────────────────────────
 
 
-@router.patch("/documents/{doc_id}/classify", dependencies=[Depends(require_api_key)])
+@router.patch("/documents/{doc_id}/classify")
 async def classify_document(
     doc_id: str,
     body: ClassifyDocumentRequest,
     db: Any = Depends(get_db),
+    _key: str | None = Depends(require_api_key),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """
     Classify an uploaded document and optionally link it to a Loi.
@@ -1586,6 +1677,7 @@ async def classify_document(
     Setting `modificatif` with a `loi_id` is the required first step before
     calling `POST /documents/{id}/extract-amendments`.
     """
+    await _require_document_access(db, doc_id, current_user)
     try:
         result = await amendment_service.classify_document(
             db,
@@ -1605,12 +1697,13 @@ async def classify_document(
     "/documents/{doc_id}/extract-amendments",
     response_model=ExtractAmendmentsResponse,
     status_code=201,
-    dependencies=[Depends(require_api_key)],
 )
 async def extract_amendments(
     doc_id: str,
     body: ExtractAmendmentsRequest,
     db: Any = Depends(get_db),
+    _key: str | None = Depends(require_api_key),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """
     Extract ADD / REPLACE / MODIFY / REPEAL operations from an amendment document via LLM.
@@ -1622,6 +1715,7 @@ async def extract_amendments(
     The extracted operations are stored with status **pending** and can be reviewed
     before applying with `POST /documents/{id}/apply-amendments`.
     """
+    await _require_document_access(db, doc_id, current_user)
     try:
         result = await amendment_service.extract_amendment_operations(
             db,
@@ -1633,7 +1727,7 @@ async def extract_amendments(
     except ValueError as e:
         raise HTTPException(422, str(e))
     except Exception as e:
-        logger.error(f"Amendment extraction error: {e}")
+        logger.error("Amendment extraction error: %s", e)
         raise HTTPException(500, "Internal error during amendment extraction")
 
 
@@ -1644,12 +1738,14 @@ async def list_amendments(
         None, description="Filter: pending | applied | rejected"
     ),
     db: Any = Depends(get_db),
+    _user: dict = Depends(get_current_user),
 ):
     """
     List all AmendmentOperations extracted from a document.
 
     Filter by status to review pending operations before applying.
     """
+    await _require_document_access(db, doc_id, _user)
     ops, total, by_type, by_status = await amendment_service.list_operations(
         db, doc_id, status=status
     )
@@ -1669,11 +1765,12 @@ async def list_amendments(
     "/amendment-operations/{op_id}/apply",
     response_model=ApplyAmendmentResponse,
     status_code=201,
-    dependencies=[Depends(require_api_key)],
 )
 async def apply_amendment(
     op_id: str,
     db: Any = Depends(get_db),
+    _key: str | None = Depends(require_api_key),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """
     Apply a single pending AmendmentOperation with immutable versioning.
@@ -1686,6 +1783,14 @@ async def apply_amendment(
 
     An `AuditLog` entry is written for every operation.
     """
+    op = await db["amendment_operations"].find_one(
+        {"id": op_id},
+        {"_id": 0, "amendment_doc_id": 1},
+    )
+    if not op:
+        raise HTTPException(404, "Amendment operation not found")
+    await _require_document_access(db, op.get("amendment_doc_id"), current_user)
+
     try:
         result = await amendment_service.apply_amendment_operation(db, op_id)
 
@@ -1734,7 +1839,7 @@ async def apply_amendment(
     except ValueError as e:
         raise HTTPException(422, str(e))
     except Exception as e:
-        logger.error(f"Amendment application error: {e}")
+        logger.error("Amendment application error: %s", e)
         raise HTTPException(500, "Internal error during amendment application")
 
 
@@ -1742,11 +1847,12 @@ async def apply_amendment(
     "/documents/{doc_id}/apply-amendments",
     response_model=ApplyAllAmendmentsResponse,
     status_code=201,
-    dependencies=[Depends(require_api_key)],
 )
 async def apply_all_amendments(
     doc_id: str,
     db: Any = Depends(get_db),
+    _key: str | None = Depends(require_api_key),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """
     Apply all pending AmendmentOperations for a document in a single batch.
@@ -1757,6 +1863,7 @@ async def apply_all_amendments(
     After applying, call `POST /lois/{loi_id}/recalculate` to update
     exigences, actions, criticality and the roadmap.
     """
+    await _require_document_access(db, doc_id, current_user)
     try:
         result = await amendment_service.apply_all_pending(db, doc_id)
 
@@ -1798,7 +1905,7 @@ async def apply_all_amendments(
 
         return result
     except Exception as e:
-        logger.error(f"Batch amendment error: {e}")
+        logger.error("Batch amendment error: %s", e)
         raise HTTPException(500, "Internal error during batch amendment processing")
 
 
@@ -1813,6 +1920,7 @@ async def get_audit_logs(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     db: Any = Depends(get_db),
+    _user: dict = Depends(get_current_user),
 ):
     """
     Query the audit log — append-only trail of all legislative update events.
@@ -1838,6 +1946,7 @@ async def get_loi_audit_logs(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     db: Any = Depends(get_db),
+    _user: dict = Depends(get_current_user),
 ):
     """Audit log filtered by Loi — full legislative history of this law."""
     loi = await loi_service.get_loi(db, loi_id)
@@ -1855,6 +1964,7 @@ async def get_article_audit_logs(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     db: Any = Depends(get_db),
+    _user: dict = Depends(get_current_user),
 ):
     """Audit log filtered by Article — full version history of one article."""
     article = await loi_service.get_article(db, article_id)
@@ -1897,7 +2007,7 @@ async def recalculate_loi(
         result = await recalculation_service.recalculate_for_loi(db, loi_id)
         return result
     except Exception as e:
-        logger.error(f"Recalculation error for loi {loi_id}: {e}")
+        logger.error("Recalculation error for loi %s: %s", loi_id, e)
         raise HTTPException(500, "Internal error during recalculation")
 
 
@@ -1929,7 +2039,7 @@ async def recalculate_versions(
         )
         return result
     except Exception as e:
-        logger.error(f"Targeted recalculation error: {e}")
+        logger.error("Targeted recalculation error: %s", e)
         raise HTTPException(500, "Internal error during recalculation")
 
 
@@ -1988,6 +2098,8 @@ async def get_admin_stats(db: Any = Depends(get_db)):
     total_logs = await _count("audit_logs")
     logs_by_event = await _count_by("audit_logs", "event_type")
 
+    total_questions = await _count("chat_history")
+
     return {
         "documents": {
             "total": total_docs,
@@ -2019,6 +2131,7 @@ async def get_admin_stats(db: Any = Depends(get_db)):
             "by_type": ops_by_type,
         },
         "audit_logs": {"total": total_logs, "by_event": logs_by_event},
+        "questions": {"total": total_questions},
     }
 
 
@@ -2114,11 +2227,15 @@ async def get_my_notifications(
     user: Any = Depends(get_current_user),
     db: Any = Depends(get_db),
 ):
-    """Notifications for the current user's organization (owner/admin view)."""
+    """Notifications for the current user's organization."""
+    if not _can_access_org_notifications(user):
+        return {"notifications": [], "total": 0}
+
     org_id = user.get("organization_id")
     if not org_id:
         return {"notifications": [], "total": 0}
 
+    user_id = _current_user_id(user)
     filt = {"details.organization_id": org_id}
     total = await db["notifications"].count_documents(filt)
     cursor = (
@@ -2128,8 +2245,35 @@ async def get_my_notifications(
         .skip(skip)
         .limit(limit)
     )
-    items = [doc async for doc in cursor]
+    items = []
+    async for doc in cursor:
+        doc["read"] = bool(doc.get("read")) or user_id in (doc.get("read_by") or [])
+        items.append(doc)
     return {"notifications": items, "total": total}
+
+
+@router.get("/notifications/unread-count")
+async def get_unread_count(
+    user: Any = Depends(get_current_user),
+    db: Any = Depends(get_db),
+):
+    """Count unread notifications for the current user."""
+    if user["role"] == "super_admin":
+        count = await db["notifications"].count_documents({"read": False})
+    elif not _can_access_org_notifications(user):
+        count = 0
+    else:
+        org_id = user.get("organization_id")
+        if not org_id:
+            count = 0
+        else:
+            user_id = _current_user_id(user)
+            count = await db["notifications"].count_documents({
+                "details.organization_id": org_id,
+                "read": {"$ne": True},
+                "read_by": {"$ne": user_id},
+            })
+    return {"unread": count}
 
 
 @router.post("/notifications/{notification_id}/read")
@@ -2141,7 +2285,16 @@ async def mark_notification_read(
     """Mark a notification as read."""
     from app.services.notification_service import mark_read
 
-    ok = await mark_read(db, notification_id)
+    if user.get("role") != "super_admin" and not _can_access_org_notifications(user):
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+
+    ok = await mark_read(
+        db,
+        notification_id,
+        organization_id=user.get("organization_id"),
+        allow_global=user.get("role") == "super_admin",
+        user_id=_current_user_id(user),
+    )
     if not ok:
         raise HTTPException(status_code=404, detail="Notification not found")
     return {"status": "ok"}
@@ -2312,12 +2465,13 @@ async def check_index_consistency():
 
 @router.post(
     "/company-profiles/{profile_id}/roadmap/export",
-    dependencies=[Depends(require_api_key)],
 )
 async def export_roadmap(
     profile_id: str,
     format: str = Query("xlsx", description="Export format: xlsx | csv"),
     db: Any = Depends(get_db),
+    _key: str | None = Depends(require_api_key),
+    current_user: dict | None = Depends(get_optional_current_user),
 ):
     """
     Export compliance roadmap as Excel (.xlsx) or CSV file.
@@ -2327,7 +2481,10 @@ async def export_roadmap(
     from fastapi.responses import Response
 
     content, media_type, filename = await export_roadmap_file(
-        db, profile_id, format=format
+        db,
+        profile_id,
+        format=format,
+        organization_id=_organization_scope(current_user),
     )
     return Response(
         content=content,
@@ -2400,12 +2557,21 @@ async def delete_chat_history_entry(
     db: Any = Depends(get_db),
 ):
     """Delete a single chat history entry (own entries or admin for org)."""
+    if user["role"] == "super_admin":
+        raise HTTPException(403, "Super admin cannot access company chat histories")
+
     current_user_id = _current_user_id(user)
-    entry = await db["chat_history"].find_one({"user_id": current_user_id, "created_at": entry_id})
-    if not entry:
-        if user["role"] not in ("admin", "owner"):
+    created_at_filter = _chat_history_created_at_filter(entry_id)
+    if user["role"] in ("admin", "owner"):
+        org_id = user.get("organization_id")
+        if not org_id:
             raise HTTPException(404, "Entry not found")
-    result = await db["chat_history"].delete_one({"_id": entry["_id"]}) if entry else None
-    if not result or result.deleted_count == 0:
+        query = {"organization_id": org_id, "created_at": created_at_filter}
+    else:
+        query = {"user_id": current_user_id, "created_at": created_at_filter}
+
+    entry = await db["chat_history"].find_one(query)
+    if not entry:
         raise HTTPException(404, "Entry not found")
+    await db["chat_history"].delete_one({"_id": entry["_id"]})
     return {"deleted": True}
