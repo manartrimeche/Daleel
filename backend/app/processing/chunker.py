@@ -307,7 +307,7 @@ def sliding_chunks(
 
 def make_chunk_id(source: str, page: int, idx: int) -> str:
     raw = f"{source}|page{page}|chunk{idx}"
-    return hashlib.md5(raw.encode()).hexdigest()[:14]
+    return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
 
 def build_records(

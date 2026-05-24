@@ -9,6 +9,7 @@ import re
 import shutil
 import sys
 import tempfile
+import threading
 from pathlib import Path
 from enum import Enum
 
@@ -24,11 +25,16 @@ class Language(str, Enum):
 # ─── STT: faster-whisper ───────────────────────────────────────────────────────
 
 _whisper_model = None
+_whisper_lock = threading.Lock()
 
 
 def _get_whisper_model():
     global _whisper_model
-    if _whisper_model is None:
+    if _whisper_model is not None:
+        return _whisper_model
+    with _whisper_lock:
+        if _whisper_model is not None:
+            return _whisper_model
         from faster_whisper import WhisperModel
         _whisper_model = WhisperModel(
             "medium",

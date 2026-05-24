@@ -542,7 +542,7 @@ async def upload_document(
                     await get_collection("document_raw_pages").insert_many(raw_pages)
                     await clean_and_store_pages(db, doc_id, raw_pages)
 
-                cleaned_pages_for_exigence = await get_collection("document_cleaned_texts").find({"document_id": doc_id}).to_list(length=None)
+                cleaned_pages_for_exigence = await get_collection("document_cleaned_texts").find({"document_id": doc_id}).to_list(length=2000)
                 detected_language = llm_service._get_detect_query_language(
                     cleaned_pages_for_exigence[0].get("cleaned_text", "") if cleaned_pages_for_exigence else ""
                 )
@@ -978,7 +978,7 @@ async def _detect_loi_from_text(text: str) -> tuple[dict | None, dict | None]:
     """
     text_norm = unicodedata.normalize("NFKC", text)
 
-    all_lois = await get_collection("lois").find({}).to_list(length=None)
+    all_lois = await get_collection("lois").find({}).to_list(length=1000)
     best_loi = None
     best_score = 0
 
@@ -1416,6 +1416,36 @@ async def clear_all_documents(db) -> int:
     invalidate_embedding_dimension_cache()
     await faiss_manager.rebuild()
     return int(doc_count)
+
+
+async def cleanup_orphaned_uploads(db, max_age_hours: int = 48) -> int:
+    """Remove uploaded files not referenced by any document or older than max_age_hours."""
+    upload_dir = settings.upload_dir
+    if not upload_dir.exists():
+        return 0
+
+    # Collect known doc IDs from the database
+    known_ids: set[str] = set()
+    async for doc in get_collection("documents").find({}, {"_id": 1}):
+        known_ids.add(str(doc["_id"]))
+
+    now = datetime.now(timezone.utc)
+    removed = 0
+    for file_path in upload_dir.iterdir():
+        if not file_path.is_file():
+            continue
+        file_doc_id = file_path.stem  # filename is {doc_id}.ext
+        if file_doc_id in known_ids:
+            continue
+        # Check age for safety — only remove files older than threshold
+        mtime = datetime.fromtimestamp(file_path.stat().st_mtime, tz=timezone.utc)
+        age_hours = (now - mtime).total_seconds() / 3600
+        if age_hours >= max_age_hours:
+            file_path.unlink(missing_ok=True)
+            removed += 1
+    if removed:
+        logger.info("Cleaned up %d orphaned upload(s) older than %dh", removed, max_age_hours)
+    return removed
 
 
 async def reindex_all_documents(

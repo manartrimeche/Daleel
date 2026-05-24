@@ -1365,114 +1365,98 @@ def _build_grounded_synthesis_from_chunks(
                 break
         return selected
 
-    if detected_lang == "ar":
-        used_section_lines: set[str] = set()
-        framework_lines = _dedup(manager_lines + procedure_lines + prohibition_lines + sanction_lines + generic_lines, 6)
-        detail_candidates = _pick_lines(framework_lines, ["ال", "gérant", "gerant", "المسير", "responsab", "pouvoir", "statut", "tiers"], 6)
-        condition_candidates = _pick_lines(procedure_lines + manager_lines + generic_lines, ["condition", "sous réserve", "sauf", "statuts", "doit", "يجب"], 6)
-        procedure_candidates = _dedup(procedure_lines, 6)
-        attention_candidates = _dedup(prohibition_lines + sanction_lines + generic_lines, 6)
+    _SYNTHESIS_PARAMS = {
+        "ar": {
+            "fw_dedup": 6, "limit": 4,
+            "detail_kw": ["ال", "gérant", "gerant", "المسير", "responsab", "pouvoir", "statut", "tiers"],
+            "cond_kw": ["condition", "sous réserve", "sauf", "statuts", "doit", "يجب"],
+            "proc_extra_kw": None, "attn_extra_kw": None,
+            "detail_with_sanctions": False,
+            "intro": "اعتمادا فقط على المقاطع المسترجعة، هذه خلاصة منضبطة ومهيكلة:",
+            "sec": ["الإطار القانوني:", "التحليل المفصل:", "الشروط والمتطلبات:", "الإجراءات المتبعة:", "نقاط مهمة:", "ما لم تؤكده المقاطع:"],
+            "ref_fmt": "الفصل {}", "refs_pre": "الإحالات المؤكدة في المصادر: ",
+            "empty": [
+                "لا توجد إحالات كافية لتحديد إطار قانوني إضافي بشكل مؤكد.",
+                "لا تتوفر فقرات كافية لتحليل مفصل إضافي.",
+                "الشروط أو المتطلبات غير مذكورة بوضوح في المقاطع المتاحة.",
+                "لا توجد نقاط تحذير إضافية مؤكدة في المقاطع المتاحة.",
+            ],
+            "unconfirmed": "المقاطع المتاحة لا تكفي لتأكيد كل الجوانب التفصيلية، لذلك تم الاكتفاء بما هو مثبت فقط.",
+        },
+        "fr": {
+            "fw_dedup": 8, "limit": 5,
+            "detail_kw": ["gérant", "gerant", "gérance", "gerance", "responsab", "pouvoir", "tiers", "statut", "objet social"],
+            "cond_kw": ["condition", "sous réserve", "sauf", "statuts", "doit", "obligation", "limite", "possible"],
+            "proc_extra_kw": ["immatric", "inscription", "publication", "registre", "dépôt", "statuts", "greffe"],
+            "attn_extra_kw": ["inopposable", "responsab", "infraction", "faute", "amende", "peine", "preuve"],
+            "detail_with_sanctions": True,
+            "intro": "Sur la base exclusive des extraits récupérés, voici une synthèse stricte et structurée :",
+            "sec": ["Cadre juridique :", "Analyse détaillée :", "Conditions et exigences :", "Procédure à suivre :", "Points d'attention :", "Ce qui n'est pas confirmé :"],
+            "ref_fmt": "Article {}", "refs_pre": "Articles confirmés dans les sources : ",
+            "empty": [
+                "Les extraits ne suffisent pas à confirmer davantage de dispositions.",
+                "Les extraits disponibles ne permettent pas un développement plus détaillé.",
+                "Les conditions précises ne sont pas explicitement confirmées dans les passages fournis.",
+                "Aucun point d'attention supplémentaire n'est confirmé par les extraits.",
+            ],
+            "unconfirmed": "Les extraits disponibles ne couvrent pas nécessairement tous les cas pratiques; les éléments non confirmés ont été volontairement omis.",
+        },
+        "en": {
+            "fw_dedup": 8, "limit": 5,
+            "detail_kw": ["manager", "gérant", "gerant", "responsab", "power", "tiers", "statut", "object", "obligation"],
+            "cond_kw": ["condition", "subject to", "unless", "statut", "must", "obligation", "limit"],
+            "proc_extra_kw": ["registration", "filing", "publication", "registry", "statute"],
+            "attn_extra_kw": ["liable", "penalty", "fine", "invalid", "cannot", "must not"],
+            "detail_with_sanctions": True,
+            "intro": "Based strictly on the retrieved excerpts, here is a grounded synthesis without unverified citations:",
+            "sec": ["Applicable legal framework:", "Detailed analysis:", "Conditions and requirements:", "Procedure:", "Important warnings:", "What is not confirmed:"],
+            "ref_fmt": "Article {}", "refs_pre": "Confirmed references: ",
+            "empty": [
+                "The excerpts do not confirm more legal provisions.",
+                "The retrieved excerpts do not support a more detailed analysis.",
+                "Specific conditions are not explicitly confirmed in the retrieved passages.",
+                "No additional warnings are explicitly confirmed in the excerpts.",
+            ],
+            "unconfirmed": "Any point not present in the retrieved excerpts was intentionally omitted.",
+        },
+    }
 
-        framework_pick = _take_unique_lines(framework_lines[:4], generic_lines, limit=4, used_keys=used_section_lines)
-        detail_lines = _take_unique_lines(detail_candidates, manager_lines + generic_lines, limit=4, used_keys=used_section_lines)
-        condition_lines = _take_unique_lines(condition_candidates, procedure_lines + generic_lines, limit=4, used_keys=used_section_lines)
-        procedure_pick = _take_unique_lines(procedure_candidates, generic_lines, limit=4, used_keys=used_section_lines)
-        attention_lines = _take_unique_lines(attention_candidates, generic_lines, limit=4, used_keys=used_section_lines)
+    p = _SYNTHESIS_PARAMS.get(detected_lang, _SYNTHESIS_PARAMS["en"])
+    lim, fw_d = p["limit"], p["fw_dedup"]
 
-        lines = ["اعتمادا فقط على المقاطع المسترجعة، هذه خلاصة منضبطة ومهيكلة:"]
-        lines.append("- الإطار القانوني:")
-        if verified_refs:
-            lines.append("  - الإحالات المؤكدة في المصادر: " + ", ".join(f"الفصل {r}" for r in verified_refs) + ".")
-        lines.extend([f"  - {x}" for x in framework_pick] or ["  - لا توجد إحالات كافية لتحديد إطار قانوني إضافي بشكل مؤكد."])
+    framework_lines = _dedup(manager_lines + procedure_lines + prohibition_lines + sanction_lines + generic_lines, fw_d)
+    detail_src = (framework_lines + sanction_lines) if p["detail_with_sanctions"] else framework_lines
+    detail_candidates = _pick_lines(detail_src, p["detail_kw"], fw_d)
+    condition_candidates = _pick_lines(procedure_lines + manager_lines + generic_lines, p["cond_kw"], fw_d)
+    proc_extra = _pick_lines(generic_lines, p["proc_extra_kw"], 5) if p["proc_extra_kw"] else []
+    attn_extra = _pick_lines(generic_lines, p["attn_extra_kw"], 5) if p["attn_extra_kw"] else []
+    procedure_candidates = _dedup(procedure_lines + proc_extra, fw_d)
+    attention_candidates = _dedup(prohibition_lines + sanction_lines + attn_extra, fw_d)
 
-        lines.append("- التحليل المفصل:")
-        lines.extend([f"  - {x}" for x in detail_lines] or ["  - لا تتوفر فقرات كافية لتحليل مفصل إضافي."])
-
-        lines.append("- الشروط والمتطلبات:")
-        lines.extend([f"  - {x}" for x in condition_lines] or ["  - الشروط أو المتطلبات غير مذكورة بوضوح في المقاطع المتاحة."])
-
-        if procedure_pick:
-            lines.append("- الإجراءات المتبعة:")
-            lines.extend([f"  - {x}" for x in procedure_pick])
-
-        lines.append("- نقاط مهمة:")
-        lines.extend([f"  - {x}" for x in attention_lines] or ["  - لا توجد نقاط تحذير إضافية مؤكدة في المقاطع المتاحة."])
-
-        lines.append("- ما لم تؤكده المقاطع:")
-        lines.append("  - المقاطع المتاحة لا تكفي لتأكيد كل الجوانب التفصيلية، لذلك تم الاكتفاء بما هو مثبت فقط.")
-        return "\n".join(lines)
-
-    if detected_lang == "fr":
-        used_section_lines: set[str] = set()
-        framework_lines = _dedup(manager_lines + procedure_lines + prohibition_lines + sanction_lines + generic_lines, 8)
-        detail_candidates = _pick_lines(framework_lines + sanction_lines, ["gérant", "gerant", "gérance", "gerance", "responsab", "pouvoir", "tiers", "statut", "objet social"], 8)
-        condition_candidates = _pick_lines(procedure_lines + manager_lines + generic_lines, ["condition", "sous réserve", "sauf", "statuts", "doit", "obligation", "limite", "possible"], 8)
-        procedure_candidates = _dedup(procedure_lines + _pick_lines(generic_lines, ["immatric", "inscription", "publication", "registre", "dépôt", "statuts", "greffe"], 5), 8)
-        attention_candidates = _dedup(prohibition_lines + sanction_lines + _pick_lines(generic_lines, ["inopposable", "responsab", "infraction", "faute", "amende", "peine", "preuve"], 5), 8)
-
-        framework_pick = _take_unique_lines(framework_lines[:5], generic_lines, limit=5, used_keys=used_section_lines)
-        detail_lines = _take_unique_lines(detail_candidates, manager_lines + generic_lines, limit=5, used_keys=used_section_lines)
-        condition_lines = _take_unique_lines(condition_candidates, procedure_lines + generic_lines, limit=5, used_keys=used_section_lines)
-        procedure_pick = _take_unique_lines(procedure_candidates, generic_lines, limit=5, used_keys=used_section_lines)
-        attention_lines = _take_unique_lines(attention_candidates, generic_lines, limit=5, used_keys=used_section_lines)
-
-        lines = ["Sur la base exclusive des extraits récupérés, voici une synthèse stricte et structurée :"]
-        lines.append("- Cadre juridique :")
-        if verified_refs:
-            lines.append("  - Articles confirmés dans les sources : " + ", ".join(f"Article {r}" for r in verified_refs) + ".")
-        lines.extend([f"  - {x}" for x in framework_pick] or ["  - Les extraits ne suffisent pas à confirmer davantage de dispositions."])
-
-        lines.append("- Analyse détaillée :")
-        lines.extend([f"  - {x}" for x in detail_lines] or ["  - Les extraits disponibles ne permettent pas un développement plus détaillé."])
-
-        lines.append("- Conditions et exigences :")
-        lines.extend([f"  - {x}" for x in condition_lines] or ["  - Les conditions précises ne sont pas explicitement confirmées dans les passages fournis."])
-
-        if procedure_pick:
-            lines.append("- Procédure à suivre :")
-            lines.extend([f"  - {x}" for x in procedure_pick])
-
-        lines.append("- Points d'attention :")
-        lines.extend([f"  - {x}" for x in attention_lines] or ["  - Aucun point d'attention supplémentaire n'est confirmé par les extraits."])
-
-        lines.append("- Ce qui n'est pas confirmé :")
-        lines.append("  - Les extraits disponibles ne couvrent pas nécessairement tous les cas pratiques; les éléments non confirmés ont été volontairement omis.")
-        return "\n".join(lines)
-
-    framework_lines = _dedup(manager_lines + procedure_lines + prohibition_lines + sanction_lines + generic_lines, 8)
     used_section_lines: set[str] = set()
-    detail_candidates = _pick_lines(framework_lines + sanction_lines, ["manager", "gérant", "gerant", "responsab", "power", "tiers", "statut", "object", "obligation"], 8)
-    condition_candidates = _pick_lines(procedure_lines + manager_lines + generic_lines, ["condition", "subject to", "unless", "statut", "must", "obligation", "limit"], 8)
-    procedure_candidates = _dedup(procedure_lines + _pick_lines(generic_lines, ["registration", "filing", "publication", "registry", "statute"], 5), 8)
-    attention_candidates = _dedup(prohibition_lines + sanction_lines + _pick_lines(generic_lines, ["liable", "penalty", "fine", "invalid", "cannot", "must not"], 5), 8)
+    framework_pick = _take_unique_lines(framework_lines[:lim], generic_lines, limit=lim, used_keys=used_section_lines)
+    detail_lines = _take_unique_lines(detail_candidates, manager_lines + generic_lines, limit=lim, used_keys=used_section_lines)
+    condition_lines = _take_unique_lines(condition_candidates, procedure_lines + generic_lines, limit=lim, used_keys=used_section_lines)
+    procedure_pick = _take_unique_lines(procedure_candidates, generic_lines, limit=lim, used_keys=used_section_lines)
+    attention_lines = _take_unique_lines(attention_candidates, generic_lines, limit=lim, used_keys=used_section_lines)
 
-    framework_pick = _take_unique_lines(framework_lines[:5], generic_lines, limit=5, used_keys=used_section_lines)
-    detail_lines = _take_unique_lines(detail_candidates, manager_lines + generic_lines, limit=5, used_keys=used_section_lines)
-    condition_lines = _take_unique_lines(condition_candidates, procedure_lines + generic_lines, limit=5, used_keys=used_section_lines)
-    procedure_pick = _take_unique_lines(procedure_candidates, generic_lines, limit=5, used_keys=used_section_lines)
-    attention_lines = _take_unique_lines(attention_candidates, generic_lines, limit=5, used_keys=used_section_lines)
-
-    lines = ["Based strictly on the retrieved excerpts, here is a grounded synthesis without unverified citations:"]
-    lines.append("- Applicable legal framework:")
+    sec = p["sec"]
+    lines = [p["intro"]]
+    lines.append(f"- {sec[0]}")
     if verified_refs:
-        lines.append("  - Confirmed references: " + ", ".join(f"Article {r}" for r in verified_refs) + ".")
-    lines.extend([f"  - {x}" for x in framework_pick] or ["  - The excerpts do not confirm more legal provisions."])
-
-    lines.append("- Detailed analysis:")
-    lines.extend([f"  - {x}" for x in detail_lines] or ["  - The retrieved excerpts do not support a more detailed analysis."])
-
-    lines.append("- Conditions and requirements:")
-    lines.extend([f"  - {x}" for x in condition_lines] or ["  - Specific conditions are not explicitly confirmed in the retrieved passages."])
-
+        lines.append("  - " + p["refs_pre"] + ", ".join(p["ref_fmt"].format(r) for r in verified_refs) + ".")
+    lines.extend([f"  - {x}" for x in framework_pick] or [f"  - {p['empty'][0]}"])
+    lines.append(f"- {sec[1]}")
+    lines.extend([f"  - {x}" for x in detail_lines] or [f"  - {p['empty'][1]}"])
+    lines.append(f"- {sec[2]}")
+    lines.extend([f"  - {x}" for x in condition_lines] or [f"  - {p['empty'][2]}"])
     if procedure_pick:
-        lines.append("- Procedure:")
+        lines.append(f"- {sec[3]}")
         lines.extend([f"  - {x}" for x in procedure_pick])
-
-    lines.append("- Important warnings:")
-    lines.extend([f"  - {x}" for x in attention_lines] or ["  - No additional warnings are explicitly confirmed in the excerpts."])
-
-    lines.append("- What is not confirmed:")
-    lines.append("  - Any point not present in the retrieved excerpts was intentionally omitted.")
+    lines.append(f"- {sec[4]}")
+    lines.extend([f"  - {x}" for x in attention_lines] or [f"  - {p['empty'][3]}"])
+    lines.append(f"- {sec[5]}")
+    lines.append(f"  - {p['unconfirmed']}")
     return "\n".join(lines)
 
 
@@ -2174,7 +2158,7 @@ async def ask(
     # Étape 1.b: reranker les chunks et garder les meilleurs
     chunks = _rerank_chunks_for_question(question, chunks, detected_lang, domain_config=domain_config)[:effective_top_k]
     reranking_service = _get_reranking_service()
-    if reranking_service.is_available():
+    if await reranking_service.is_available():
         chunks = await reranking_service.rerank(question, chunks)
 
     cached = llm_cache.get(question, chunks)
@@ -2714,7 +2698,7 @@ async def ask_agentic(
         }
 
     reranking_service = _get_reranking_service()
-    if reranking_service.is_available():
+    if await reranking_service.is_available():
         final_chunks = await reranking_service.rerank(question, final_chunks)
 
     if getattr(settings, "strict_grounded_only", False):
@@ -3367,7 +3351,7 @@ async def ask_stream(
 
     chunks = _rerank_chunks_for_question(question, chunks, detected_lang, domain_config=domain_config)[:effective_top_k]
     reranking_service = _get_reranking_service()
-    if reranking_service.is_available():
+    if await reranking_service.is_available():
         chunks = await reranking_service.rerank(question, chunks)
 
     # Send sources immediately so the UI can show them while generating
@@ -3445,11 +3429,6 @@ async def ask_stream(
             "quality_guard_status": "skipped_streaming",
         })
     }
-
-
-def _get_detect_query_language(text: str) -> str:
-    """Expose la détection de langue pour les autres services."""
-    return _detect_query_language(text)
 
 
 def _get_ack_message(lang: str) -> str:

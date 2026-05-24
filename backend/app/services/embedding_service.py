@@ -8,6 +8,7 @@ skip the model entirely.
 import asyncio
 import hashlib
 import logging
+import threading
 from pathlib import Path
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
@@ -23,6 +24,8 @@ logger = logging.getLogger(__name__)
 
 _model = None
 _model_dim_384 = None
+_model_lock = threading.Lock()
+_model_384_lock = threading.Lock()
 
 
 def _resolve_model_name_or_path(model_name_or_path: str) -> str:
@@ -125,7 +128,11 @@ def get_embedding_cache_stats() -> dict:
 
 def _get_model():
     global _model
-    if _model is None:
+    if _model is not None:
+        return _model
+    with _model_lock:
+        if _model is not None:
+            return _model
         from sentence_transformers import SentenceTransformer
         settings = get_settings()
         model_name_or_path = _resolve_model_name_or_path(settings.embedding_model)
@@ -142,7 +149,11 @@ def get_primary_embedding_dimension() -> int:
 
 def _get_model_dim_384():
     global _model_dim_384
-    if _model_dim_384 is None:
+    if _model_dim_384 is not None:
+        return _model_dim_384
+    with _model_384_lock:
+        if _model_dim_384 is not None:
+            return _model_dim_384
         from sentence_transformers import SentenceTransformer
         settings = get_settings()
         name = _resolve_model_name_or_path(settings.embedding_model_dim_384)

@@ -15,7 +15,9 @@ async def test_rerank_returns_chunks_sorted_by_score(monkeypatch):
     ]
     score_by_text = {"alpha": 0.1, "beta": 0.9, "gamma": 0.4}
 
-    monkeypatch.setattr(service, "_ensure_model_loaded", lambda: True)
+    async def _fake_loaded():
+        return True
+    monkeypatch.setattr(service, "_ensure_model_loaded", _fake_loaded)
     monkeypatch.setattr(
         service,
         "_score_pairs",
@@ -45,7 +47,9 @@ async def test_rerank_limits_to_20_chunks(monkeypatch):
 
     chunks = [{"id": i, "text": f"chunk-{i}"} for i in range(25)]
 
-    monkeypatch.setattr(service, "_ensure_model_loaded", lambda: True)
+    async def _fake_loaded():
+        return True
+    monkeypatch.setattr(service, "_ensure_model_loaded", _fake_loaded)
     monkeypatch.setattr(
         service,
         "_score_pairs",
@@ -67,6 +71,6 @@ async def test_rerank_fallback_when_feature_disabled(monkeypatch):
     chunks = [{"id": "x", "text": "one"}, {"id": "y", "text": "two"}]
     result = await service.rerank("query", chunks)
 
-    assert service.is_available() is False
+    assert await service.is_available() is False
     assert result == chunks
     assert all("rerank_score" not in chunk for chunk in result)

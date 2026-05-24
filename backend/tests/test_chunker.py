@@ -88,7 +88,7 @@ class TestMakeChunkId(unittest.TestCase):
 
     def test_id_length(self):
         cid = make_chunk_id("test", 1, 0)
-        self.assertEqual(len(cid), 14)
+        self.assertEqual(len(cid), 16)
 
 
 class TestChunkingService(unittest.TestCase):

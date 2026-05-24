@@ -341,7 +341,8 @@ async def get_me(user: dict = Depends(get_current_user)):
 
 
 @router.put("/me/password")
-async def change_password(body: ChangePasswordRequest, user: dict = Depends(get_current_user)):
+@limiter.limit("3/minute")
+async def change_password(request: Request, body: ChangePasswordRequest, user: dict = Depends(get_current_user)):
     if not auth_service.verify_password(body.current_password, user["password_hash"]):
         raise HTTPException(status_code=400, detail="Current password is incorrect")
     new_hash = auth_service.hash_password(body.new_password)

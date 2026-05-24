@@ -7,7 +7,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-import threading
 import time
 
 from app.config import get_settings
@@ -36,9 +35,9 @@ class RerankingService:
         self._model = None
         self._load_attempted = False
         self._load_failed = False
-        self._load_lock = threading.Lock()
+        self._load_lock = asyncio.Lock()
 
-    def _ensure_model_loaded(self) -> bool:
+    async def _ensure_model_loaded(self) -> bool:
         if not self.enabled:
             return False
         if self._model is not None:
@@ -46,7 +45,7 @@ class RerankingService:
         if self._load_attempted and self._load_failed:
             return False
 
-        with self._load_lock:
+        async with self._load_lock:
             if self._model is not None:
                 return True
             if self._load_attempted and self._load_failed:
@@ -54,9 +53,11 @@ class RerankingService:
 
             self._load_attempted = True
             try:
-                from sentence_transformers import CrossEncoder
+                def _load():
+                    from sentence_transformers import CrossEncoder
+                    return CrossEncoder(self.MODEL_NAME)
 
-                self._model = CrossEncoder(self.MODEL_NAME)
+                self._model = await asyncio.get_event_loop().run_in_executor(None, _load)
                 self._load_failed = False
                 logger.info("Cross-encoder reranker loaded: %s", self.MODEL_NAME)
                 return True
@@ -66,8 +67,8 @@ class RerankingService:
                 logger.exception("Failed to load cross-encoder reranker")
                 return False
 
-    def is_available(self) -> bool:
-        return self._ensure_model_loaded()
+    async def is_available(self) -> bool:
+        return await self._ensure_model_loaded()
 
     def _score_pairs(self, pairs: list[tuple[str, str]]) -> list[float]:
         if self._model is None:
@@ -78,7 +79,7 @@ class RerankingService:
     async def rerank(self, query: str, chunks: list[dict]) -> list[dict]:
         if not chunks:
             return chunks
-        if not self._ensure_model_loaded():
+        if not await self._ensure_model_loaded():
             return chunks
 
         limited_chunks = chunks[:20]

@@ -12,6 +12,8 @@ import logging
 import uuid
 from datetime import datetime, timezone
 
+from pymongo import ReturnDocument
+
 from app.config import get_settings
 from app.database import get_collection
 from app.services import llm_service
@@ -219,7 +221,7 @@ async def update_company_profile(
     result = await get_collection("company_profiles").find_one_and_update(
         query,
         {"$set": updates},
-        return_document=__import__("pymongo").ReturnDocument.AFTER,
+        return_document=ReturnDocument.AFTER,
     )
     return _profile_to_dict(result) if result else None
 
@@ -262,7 +264,7 @@ async def evaluate_applicabilities(
     if document_id:
         query["document_id"] = document_id
 
-    exigences = await get_collection("exigences").find(query).to_list(length=None)
+    exigences = await get_collection("exigences").find(query).to_list(length=5000)
     if not exigences:
         logger.info("No exigences found for profile %s", profile_id)
         return 0
@@ -359,7 +361,13 @@ async def get_applicability_summary(
     avg_confidence = sum(float(app.get("confidence", 0.0)) for app in applicabilities) / len(applicabilities) if applicabilities else 0.0
 
     by_type: dict[str, dict[str, int]] = {}
-    exigences = {exigence["id"]: exigence for exigence in await get_collection("exigences").find({}).to_list(length=None)}
+    exigence_ids_needed = [app.get("exigence_id") for app in applicabilities if app.get("exigence_id")]
+    exigences = {
+        exigence["id"]: exigence
+        for exigence in await get_collection("exigences").find(
+            {"id": {"$in": exigence_ids_needed}}
+        ).to_list(length=5000)
+    }
     for app in applicabilities:
         exig = exigences.get(app.get("exigence_id"))
         exig_type = exig.get("exigence_type") if exig else "unknown"

@@ -181,37 +181,55 @@ async def resolve_loi_context(
         articles = [a for a in articles if str(a.get("num")) == str(article_num)]
     result["articles"] = articles
 
-    # 3. Versions + exigences + actions (depth 1)
+    # 3. Versions + exigences + actions (depth 1) — batch queries
+    all_art_ids = [art["_id"] for art in articles]
+
+    # Batch-load versions for all articles at once
+    all_versions: dict[str, list] = {aid: [] for aid in all_art_ids}
+    async for v in db["article_versions"].find({"article_id": {"$in": all_art_ids}}).sort("version", -1):
+        v["_id"] = _safe_id(v["_id"])
+        bucket = all_versions.get(v.get("article_id"))
+        if bucket is not None and len(bucket) < 3:
+            bucket.append(v)
+
+    # Batch-load exigences for all articles at once
+    all_exigences: dict[str, list] = {aid: [] for aid in all_art_ids}
+    all_exigence_ids: list[str] = []
+    async for e in db["exigences"].find({"article_id": {"$in": all_art_ids}}):
+        e["_id"] = _safe_id(e["_id"])
+        bucket = all_exigences.get(e.get("article_id"))
+        if bucket is not None:
+            bucket.append(e)
+        all_exigence_ids.append(e["_id"])
+
+    # Batch-load actions for all exigences at once
+    all_actions_by_exigence: dict[str, list] = {}
+    if all_exigence_ids:
+        async for ac in db["actions"].find({"exigence_id": {"$in": all_exigence_ids}}):
+            ac["_id"] = _safe_id(ac["_id"])
+            all_actions_by_exigence.setdefault(ac.get("exigence_id"), []).append(ac)
+
+    # Assign to articles
     for art in articles:
         art_id = art["_id"]
-        versions = []
-        async for v in db["article_versions"].find({"article_id": art_id}).sort("version", -1).limit(3):
-            v["_id"] = _safe_id(v["_id"])
-            versions.append(v)
-        art["versions"] = versions
-
-        exigences = []
-        async for e in db["exigences"].find({"article_id": art_id}):
-            e["_id"] = _safe_id(e["_id"])
-            exigences.append(e)
-        art["exigences"] = exigences
-
+        art["versions"] = all_versions.get(art_id, [])
+        art["exigences"] = all_exigences.get(art_id, [])
+        exigence_ids = [e["_id"] for e in art["exigences"]]
         actions = []
-        exigence_ids = [e["_id"] for e in exigences]
-        if exigence_ids:
-            async for ac in db["actions"].find({"exigence_id": {"$in": exigence_ids}}):
-                ac["_id"] = _safe_id(ac["_id"])
-                actions.append(ac)
+        for eid in exigence_ids:
+            actions.extend(all_actions_by_exigence.get(eid, []))
         art["actions"] = actions
 
-        # Depth 2: criticalities + dependencies
+        # Depth 2: criticalities + dependencies (batch per article)
         if max_depth >= 2:
             action_ids = [ac["_id"] for ac in actions]
+            crit_map: dict[str, dict] = {}
+            if action_ids:
+                async for c in db["action_criticalities"].find({"action_id": {"$in": action_ids}}):
+                    c["_id"] = _safe_id(c["_id"])
+                    crit_map[c.get("action_id")] = c
             for ac in actions:
-                crit = await db["action_criticalities"].find_one({"action_id": ac["_id"]})
-                if crit:
-                    crit["_id"] = _safe_id(crit["_id"])
-                ac["criticality"] = crit
+                ac["criticality"] = crit_map.get(ac["_id"])
 
             if action_ids:
                 deps = []

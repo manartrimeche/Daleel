@@ -67,6 +67,16 @@ async def lifespan(app: FastAPI):
             await log_consistency_warning_if_needed()
         except Exception:
             logger.warning("Index consistency check failed (non-fatal)", exc_info=True)
+
+    # Cleanup orphaned upload files on startup
+    try:
+        from app.services.document_service import cleanup_orphaned_uploads
+        from app.database import mongo_db
+        removed = await cleanup_orphaned_uploads(mongo_db)
+        if removed:
+            logger.info("Startup cleanup: removed %d orphaned upload(s)", removed)
+    except Exception:
+        logger.warning("Upload cleanup failed (non-fatal)", exc_info=True)
     yield
     logger.info("Shutting down")
     await close_db()
