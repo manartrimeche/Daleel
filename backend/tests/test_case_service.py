@@ -19,7 +19,32 @@ def _make_client():
         mock_faiss.rebuild = AsyncMock()
         mock_faiss.size = 0
         from app.main import app
+        from app.api.auth import get_current_user, get_optional_current_user, require_api_key
+        from app.api.case_router import require_case_user
+        from app.api.case_conversation_router import require_case_user as require_case_conversation_user
+        from app.api.case_orchestrator_router import require_case_user as require_case_orchestrator_user
         from fastapi.testclient import TestClient
+
+        async def fake_current_user():
+            return {
+                "_id": "507f1f77bcf86cd799439011",
+                "role": "super_admin",
+                "is_active": True,
+                "organization_id": None,
+            }
+
+        async def fake_optional_user():
+            return await fake_current_user()
+
+        async def fake_key():
+            return "test"
+
+        app.dependency_overrides[get_current_user] = fake_current_user
+        app.dependency_overrides[get_optional_current_user] = fake_optional_user
+        app.dependency_overrides[require_api_key] = fake_key
+        app.dependency_overrides[require_case_user] = fake_key
+        app.dependency_overrides[require_case_conversation_user] = fake_key
+        app.dependency_overrides[require_case_orchestrator_user] = fake_key
         return TestClient(app, raise_server_exceptions=False)
 
 
@@ -145,6 +170,90 @@ class MockAggregation:
 # ═══════════════════════════════════════════════════════════════════════════════
 # Test: Case CRUD via API endpoints
 # ═══════════════════════════════════════════════════════════════════════════════
+
+class TestCaseOrganizationScope(unittest.IsolatedAsyncioTestCase):
+    @patch("app.services.audit_service.log_event", new_callable=AsyncMock)
+    @patch("app.services.case_service._collection")
+    async def test_create_case_stores_org_and_scopes_profile(
+        self,
+        mock_col,
+        mock_log_event,
+    ):
+        from app.services import case_service
+
+        profile_col = AsyncMock()
+        profile_col.find_one = AsyncMock(
+            return_value={"id": "profile-1", "organization_id": "org-a"}
+        )
+
+        cases_col = AsyncMock()
+        stored_case = {}
+
+        async def insert_case(doc):
+            stored_case.update(doc)
+
+        cases_col.insert_one = AsyncMock(side_effect=insert_case)
+
+        sub_col = AsyncMock()
+        sub_col.count_documents = AsyncMock(return_value=0)
+
+        def col_router(name):
+            if name == "company_profiles":
+                return profile_col
+            if name == "compliance_cases":
+                return cases_col
+            return sub_col
+
+        mock_col.side_effect = col_router
+
+        case = await case_service.create_case(
+            None,
+            title="Scoped case",
+            company_profile_id="profile-1",
+            organization_id="org-a",
+        )
+
+        profile_col.find_one.assert_awaited_once_with(
+            {"id": "profile-1", "organization_id": "org-a"}
+        )
+        self.assertEqual(stored_case["organization_id"], "org-a")
+        self.assertEqual(case["organization_id"], "org-a")
+        mock_log_event.assert_awaited_once()
+
+    @patch("app.services.case_service._collection")
+    async def test_list_cases_filters_by_organization(self, mock_col):
+        from app.services import case_service
+
+        cases_col = MagicMock()
+        cases_col.count_documents = AsyncMock(return_value=1)
+        cases_col.find = MagicMock(
+            return_value=MockCursor([
+                _fake_case("c1", organization_id="org-a"),
+            ])
+        )
+
+        sub_col = AsyncMock()
+        sub_col.count_documents = AsyncMock(return_value=0)
+
+        def col_router(name):
+            if name == "compliance_cases":
+                return cases_col
+            return sub_col
+
+        mock_col.side_effect = col_router
+
+        cases, total = await case_service.list_cases(
+            None,
+            organization_id="org-a",
+        )
+
+        cases_col.count_documents.assert_awaited_once_with(
+            {"organization_id": "org-a"}
+        )
+        cases_col.find.assert_called_once_with({"organization_id": "org-a"})
+        self.assertEqual(total, 1)
+        self.assertEqual(cases[0]["organization_id"], "org-a")
+
 
 class TestCaseEndpoints(unittest.TestCase):
     @classmethod

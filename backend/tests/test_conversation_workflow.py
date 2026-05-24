@@ -47,6 +47,8 @@ def client():
         mock_faiss.rebuild = AsyncMock()
         mock_faiss.size = 0
         from app.main import app
+        from app.config import get_settings
+        get_settings().api_key = "test-key"
         with TestClient(app) as c:
             yield c
 
@@ -143,7 +145,7 @@ def mock_case_backend(monkeypatch):
         state["case"]["created_by"] = kwargs.get("created_by") or state["case"]["created_by"]
         return dict(state["case"])
 
-    async def fake_get_case(db, asked_case_id):
+    async def fake_get_case(db, asked_case_id, organization_id=None):
         if asked_case_id != case_id:
             return None
         case_copy = dict(state["case"])
@@ -151,7 +153,7 @@ def mock_case_backend(monkeypatch):
         case_copy["updated_at"] = datetime.now(timezone.utc)
         return case_copy
 
-    async def fake_add_message(db, asked_case_id, *, role, content, metadata=None):
+    async def fake_add_message(db, asked_case_id, *, role, content, metadata=None, organization_id=None):
         msg_id = f"msg-{state['next_msg_id']:03d}"
         state["next_msg_id"] += 1
         message = {
@@ -165,7 +167,7 @@ def mock_case_backend(monkeypatch):
         state["messages"].append(message)
         return dict(message)
 
-    async def fake_list_messages(db, asked_case_id, skip=0, limit=200):
+    async def fake_list_messages(db, asked_case_id, skip=0, limit=200, organization_id=None):
         sliced = state["messages"][skip : skip + limit]
         return [dict(m) for m in sliced], len(state["messages"])
 
@@ -174,12 +176,12 @@ def mock_case_backend(monkeypatch):
         state["case"]["updated_at"] = datetime.now(timezone.utc)
         return dict(state["case"])
 
-    async def fake_save_conversation_context(asked_case_id, context):
+    async def fake_save_conversation_context(asked_case_id, context, organization_id=None):
         saved = dict(context)
         saved["updated_at"] = datetime.now(timezone.utc)
         state["context"] = saved
 
-    async def fake_load_conversation_context(asked_case_id):
+    async def fake_load_conversation_context(asked_case_id, organization_id=None):
         return dict(state["context"])
 
     async def fake_log_event(*args, **kwargs):
@@ -342,7 +344,7 @@ def test_unknown_case_returns_404(
 
     from app.services import case_conversation_service
 
-    async def raise_not_found(db, case_id):
+    async def raise_not_found(db, case_id, organization_id=None):
         raise HTTPException(status_code=404, detail="Case not found")
 
     monkeypatch.setattr(case_conversation_service.case_service, "get_case", raise_not_found)

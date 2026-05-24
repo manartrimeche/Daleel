@@ -22,6 +22,26 @@ def _make_client():
         mock_faiss.rebuild = AsyncMock()
         mock_faiss.size = 0
         from app.main import app
+        from app.api.auth import get_current_user, get_optional_current_user, require_admin, require_api_key
+
+        async def fake_current_user():
+            return {
+                "_id": ObjectId("507f1f77bcf86cd799439011"),
+                "role": "super_admin",
+                "is_active": True,
+                "organization_id": None,
+            }
+
+        async def fake_optional_user():
+            return await fake_current_user()
+
+        async def fake_key():
+            return "test"
+
+        app.dependency_overrides[get_current_user] = fake_current_user
+        app.dependency_overrides[get_optional_current_user] = fake_optional_user
+        app.dependency_overrides[require_api_key] = fake_key
+        app.dependency_overrides[require_admin] = fake_key
         return TestClient(app, raise_server_exceptions=False)
 
 
@@ -149,12 +169,11 @@ class TestAskEndpoints(unittest.TestCase):
         data = r.json()
         self.assertIn("answer", data)
 
-    @patch("app.services.auth_service.get_user_by_id", new_callable=AsyncMock)
     @patch("app.services.llm_service.ask_agentic", new_callable=AsyncMock)
-    def test_ask_agentic_saves_history_with_mongo_user_id(self, mock_ask, mock_user):
+    def test_ask_agentic_saves_history_with_mongo_user_id(self, mock_ask):
+        from app.api.auth import get_current_user
         from app.database import get_db
         from app.main import app
-        from app.services import auth_service
 
         class FakeCollection:
             def __init__(self):
@@ -175,12 +194,15 @@ class TestAskEndpoints(unittest.TestCase):
             yield fake_db
 
         user_id = "507f1f77bcf86cd799439011"
-        mock_user.return_value = {
-            "_id": ObjectId(user_id),
-            "role": "member",
-            "organization_id": "org-1",
-            "is_active": True,
-        }
+
+        async def override_current_user():
+            return {
+                "_id": ObjectId(user_id),
+                "role": "member",
+                "organization_id": "org-1",
+                "is_active": True,
+            }
+
         mock_ask.return_value = {
             "answer": "reponse agentique.",
             "sources": [],
@@ -194,16 +216,21 @@ class TestAskEndpoints(unittest.TestCase):
             "timings_ms": {"search": 10, "generation": 50, "total": 60},
         }
 
-        token = auth_service.create_access_token(user_id, "member", "org-1")
+        original_user_override = app.dependency_overrides.get(get_current_user)
         app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[get_current_user] = override_current_user
         try:
             r = self.client.post(
                 "/api/v1/ask-agentic",
-                json={"question": "Conseils conformitÃ©", "top_k": 5},
-                headers={"Authorization": f"Bearer {token}"},
+                json={"question": "Conseils conformité", "top_k": 5},
+                headers={"Authorization": "Bearer fake"},
             )
         finally:
             app.dependency_overrides.pop(get_db, None)
+            if original_user_override is not None:
+                app.dependency_overrides[get_current_user] = original_user_override
+            else:
+                app.dependency_overrides.pop(get_current_user, None)
 
         self.assertEqual(r.status_code, 200)
         history = fake_db["chat_history"].rows
@@ -272,6 +299,7 @@ def _make_client_with_auth(api_key="test-secret"):
             import app.config as app_config
             app_config.get_settings.cache_clear()
             from app.main import app
+            app.dependency_overrides.clear()
             client = TestClient(app, raise_server_exceptions=False)
             app_config.get_settings.cache_clear()
             return client, api_key, env_patcher

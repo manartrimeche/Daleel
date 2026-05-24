@@ -27,8 +27,14 @@ def _make_client():
         mock_faiss.rebuild = AsyncMock()
         mock_faiss.size = 0
         from app.main import app
+        from app.config import get_settings
         from fastapi.testclient import TestClient
-        return TestClient(app, raise_server_exceptions=False)
+        get_settings().api_key = "test-key"
+        return TestClient(
+            app,
+            raise_server_exceptions=False,
+            headers={"X-API-Key": "test-key"},
+        )
 
 
 # ─────────────────────────────────────────────────────────────
@@ -603,24 +609,23 @@ class TestConversationSchemaValidation(unittest.TestCase):
 
 class TestBuildCaseContextForRAG(unittest.TestCase):
 
-    @patch("app.services.case_conversation_service._collection")
-    def test_build_rag_context(self, mock_col):
+    @patch("app.services.case_conversation_service._load_conversation_context", new_callable=AsyncMock)
+    @patch("app.services.case_conversation_service.case_service.get_case", new_callable=AsyncMock)
+    def test_build_rag_context(self, mock_get_case, mock_load_context):
         """build_case_context_for_rag produces a structured prompt injection string."""
         import asyncio
         from app.services.case_conversation_service import build_case_context_for_rag
 
-        mock_cases_col = AsyncMock()
-        mock_cases_col.find_one = AsyncMock(return_value={
+        mock_get_case.return_value = {
             "id": "case-001",
-            "conversation_context": {
-                "facts_known": ["Company is a SARL", "15 employees"],
-                "facts_missing": ["Industry sector"],
-                "matter_type": "labour_compliance",
-                "urgency": "high",
-                "article_references": ["Art. 14"],
-            },
-        })
-        mock_col.return_value = mock_cases_col
+        }
+        mock_load_context.return_value = {
+            "facts_known": ["Company is a SARL", "15 employees"],
+            "facts_missing": ["Industry sector"],
+            "matter_type": "labour_compliance",
+            "urgency": "high",
+            "article_references": ["Art. 14"],
+        }
 
         result = asyncio.run(
             build_case_context_for_rag(None, "case-001", detected_lang="fr")
@@ -633,18 +638,17 @@ class TestBuildCaseContextForRAG(unittest.TestCase):
         self.assertIn("Industry sector", result)
         self.assertIn("Art. 14", result)
 
-    @patch("app.services.case_conversation_service._collection")
-    def test_build_rag_context_no_context(self, mock_col):
+    @patch("app.services.case_conversation_service._load_conversation_context", new_callable=AsyncMock)
+    @patch("app.services.case_conversation_service.case_service.get_case", new_callable=AsyncMock)
+    def test_build_rag_context_no_context(self, mock_get_case, mock_load_context):
         """Returns None when case has no conversation context."""
         import asyncio
         from app.services.case_conversation_service import build_case_context_for_rag
 
-        mock_cases_col = AsyncMock()
-        mock_cases_col.find_one = AsyncMock(return_value={
+        mock_get_case.return_value = {
             "id": "case-001",
-            "conversation_context": {},
-        })
-        mock_col.return_value = mock_cases_col
+        }
+        mock_load_context.return_value = {}
 
         result = asyncio.run(
             build_case_context_for_rag(None, "case-001", detected_lang="fr")
