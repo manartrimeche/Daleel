@@ -91,7 +91,11 @@ export async function authFetch(url, options = {}) {
       }
       token = getAccessToken();
     }
-  } catch {
+  } catch (err) {
+    if (err.message === 'Session expired') {
+      clearAuth();
+      throw err;
+    }
     // token decode failed — use token as-is
   }
   const headers = { ...options.headers, Authorization: `Bearer ${token}` };
@@ -102,6 +106,8 @@ export async function authFetch(url, options = {}) {
       headers.Authorization = `Bearer ${getAccessToken()}`;
       return fetch(url, { ...options, headers });
     }
+    clearAuth();
+    throw new Error('Session expired');
   }
   return res;
 }
