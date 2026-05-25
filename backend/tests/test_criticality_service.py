@@ -1,101 +1,205 @@
-"""
-Unit tests for app.services.criticality_service — rule-based criticality scoring.
-"""
+"""Tests for criticality_service — scoring engine and helpers."""
 
-import unittest
+import pytest
+from app.services.criticality_service import (
+    compute_criticality_score,
+    score_to_level,
+    _crit_to_dict,
+    _BASE_SCORES,
+)
 
-from app.services.criticality_service import compute_criticality_score, score_to_level
 
-
-class TestScoreToLevel(unittest.TestCase):
+class TestScoreToLevel:
     def test_critique(self):
-        self.assertEqual(score_to_level(0.75), "critique")
-        self.assertEqual(score_to_level(0.90), "critique")
-        self.assertEqual(score_to_level(1.0), "critique")
+        assert score_to_level(0.75) == "critique"
+        assert score_to_level(0.90) == "critique"
+        assert score_to_level(1.0) == "critique"
 
     def test_importante(self):
-        self.assertEqual(score_to_level(0.50), "importante")
-        self.assertEqual(score_to_level(0.74), "importante")
+        assert score_to_level(0.50) == "importante"
+        assert score_to_level(0.74) == "importante"
 
     def test_secondaire(self):
-        self.assertEqual(score_to_level(0.49), "secondaire")
-        self.assertEqual(score_to_level(0.0), "secondaire")
+        assert score_to_level(0.49) == "secondaire"
+        assert score_to_level(0.0) == "secondaire"
 
 
-class TestComputeCriticalityScore(unittest.TestCase):
-    def test_sanction_modalite_high_base(self):
-        action = {"modalite": "sanction", "action_precise": "Amende de 5000 DT."}
+class TestComputeCriticalityScore:
+    def test_obligation_base_score(self):
+        score, factors = compute_criticality_score({"modalite": "obligation"})
+        assert score == _BASE_SCORES["obligation"]
+        assert any("obligation" in f for f in factors)
+
+    def test_sanction_base_score(self):
+        score, factors = compute_criticality_score({"modalite": "sanction"})
+        assert score == _BASE_SCORES["sanction"]
+
+    def test_interdiction_base_score(self):
+        score, factors = compute_criticality_score({"modalite": "interdiction"})
+        assert score == _BASE_SCORES["interdiction"]
+
+    def test_condition_base_score(self):
+        score, factors = compute_criticality_score({"modalite": "condition"})
+        assert score == _BASE_SCORES["condition"]
+
+    def test_unknown_modalite_default(self):
+        score, _ = compute_criticality_score({"modalite": "weird"})
+        assert score == 0.50
+
+    def test_no_modalite(self):
+        score, _ = compute_criticality_score({})
+        assert score == 0.50
+
+    def test_sanction_keyword_boost(self):
+        action = {
+            "modalite": "obligation",
+            "action_precise": "amende de 5000 dinars",
+        }
         score, factors = compute_criticality_score(action)
-        self.assertGreaterEqual(score, 0.75)
-        self.assertEqual(score_to_level(score), "critique")
-
-    def test_obligation_modalite(self):
-        action = {"modalite": "obligation", "action_precise": "Déposer les comptes annuels."}
-        score, factors = compute_criticality_score(action)
-        self.assertGreaterEqual(score, 0.50)
-        self.assertGreater(len(factors), 0)
-
-    def test_condition_modalite_low(self):
-        action = {"modalite": "condition", "action_precise": "Si applicable, informer le registre."}
-        score, factors = compute_criticality_score(action)
-        self.assertLess(score, 0.50)
-
-    def test_sanction_keywords_boost(self):
-        base_action = {"modalite": "obligation", "action_precise": "Respecter les délais."}
-        base_score, _ = compute_criticality_score(base_action)
-
-        boosted_action = {"modalite": "obligation", "action_precise": "Respecter les délais sous peine d'amende."}
-        boosted_score, factors = compute_criticality_score(boosted_action)
-        self.assertGreater(boosted_score, base_score)
-        self.assertTrue(any("sanction" in f.lower() or "pénalité" in f.lower() for f in factors))
+        assert score > _BASE_SCORES["obligation"]
+        assert any("Sanction" in f for f in factors)
 
     def test_monetary_amount_boost(self):
-        base_action = {"modalite": "obligation", "action_precise": "Payer la cotisation."}
-        base_score, _ = compute_criticality_score(base_action)
-
-        money_action = {"modalite": "obligation", "action_precise": "Amende de 10000 DT."}
-        money_score, _ = compute_criticality_score(money_action)
-        self.assertGreater(money_score, base_score)
-
-    def test_domain_boost_personal_data(self):
-        action = {"modalite": "obligation", "action_precise": "Protection des données personnelles conformément à l'INPDP."}
+        action = {
+            "modalite": "condition",
+            "action_precise": "paiement de 10000 DT",
+        }
         score, factors = compute_criticality_score(action)
-        self.assertTrue(any("données personnelles" in f.lower() for f in factors))
+        assert score > _BASE_SCORES["condition"]
+        assert any("Montant" in f for f in factors)
 
-    def test_domain_boost_health_safety(self):
-        action = {"modalite": "obligation", "action_precise": "Assurer la santé au travail et fournir les EPI."}
+    def test_domain_boost_donnees_personnelles(self):
+        action = {
+            "modalite": "obligation",
+            "action_precise": "protection des données personnelles",
+        }
         score, factors = compute_criticality_score(action)
-        self.assertTrue(any("santé" in f.lower() or "sécurité" in f.lower() for f in factors))
+        assert score > _BASE_SCORES["obligation"]
+        assert any("données personnelles" in f for f in factors)
+
+    def test_domain_boost_sante(self):
+        action = {
+            "modalite": "obligation",
+            "action_precise": "hygiène et sécurité au travail",
+        }
+        score, factors = compute_criticality_score(action)
+        assert score > _BASE_SCORES["obligation"]
+
+    def test_domain_boost_fiscal(self):
+        action = {
+            "modalite": "obligation",
+            "action_precise": "déclaration fiscale TVA",
+        }
+        score, factors = compute_criticality_score(action)
+        assert score > _BASE_SCORES["obligation"]
+
+    def test_domain_boost_travail_clandestin(self):
+        action = {
+            "modalite": "obligation",
+            "action_precise": "lutte contre le travail non déclaré",
+        }
+        score, factors = compute_criticality_score(action)
+        assert score > _BASE_SCORES["obligation"]
 
     def test_conditional_language_penalty(self):
-        action = {"modalite": "obligation", "action_precise": "Le cas échéant, déposer une déclaration complémentaire."}
+        action = {
+            "modalite": "obligation",
+            "action_precise": "le cas échéant, remettre un document",
+        }
         score, factors = compute_criticality_score(action)
-        self.assertTrue(any("conditionnel" in f.lower() or "facultatif" in f.lower() for f in factors))
+        assert score < _BASE_SCORES["obligation"]
+        assert any("conditionnel" in f for f in factors)
 
-    def test_arabic_sanction_keyword(self):
-        action = {"modalite": "obligation", "action_precise": "يعاقب بغرامة مالية كل من يخالف أحكام هذا القانون"}
-        score, factors = compute_criticality_score(action)
-        self.assertGreaterEqual(score, 0.65)
-
-    def test_unknown_modalite_gets_default(self):
-        action = {"modalite": "unknown_type", "action_precise": "Something."}
-        score, factors = compute_criticality_score(action)
-        self.assertIsInstance(score, float)
-        self.assertGreater(len(factors), 0)
-
-    def test_score_capped_at_one(self):
+    def test_score_capped_at_1(self):
         action = {
             "modalite": "sanction",
-            "action_precise": "Amende de 50000 DT et emprisonnement. Protection des données personnelles.",
+            "action_precise": "amende 50000 DT pour travail non déclaré données personnelles sécurité au travail",
         }
         score, _ = compute_criticality_score(action)
-        self.assertLessEqual(score, 1.0)
+        assert score <= 1.0
 
     def test_score_minimum_zero(self):
-        action = {"modalite": "condition", "action_precise": "Le cas échéant, éventuellement, si applicable, sous réserve."}
+        action = {
+            "modalite": "condition",
+            "action_precise": "le cas échéant, éventuellement, si applicable, sous réserve",
+        }
         score, _ = compute_criticality_score(action)
-        self.assertGreaterEqual(score, 0.0)
+        assert score >= 0.0
+
+    def test_conditions_and_preuve_included(self):
+        action = {
+            "modalite": "condition",
+            "conditions": ["amende en cas de non-respect"],
+            "preuve": "procès-verbal de contravention",
+        }
+        score, factors = compute_criticality_score(action)
+        assert score > _BASE_SCORES["condition"]
+
+    def test_arabic_sanction_keyword(self):
+        action = {
+            "modalite": "obligation",
+            "action_precise": "عقوبة السجن",
+        }
+        score, factors = compute_criticality_score(action)
+        assert score > _BASE_SCORES["obligation"]
+
+    def test_arabic_domain_donnees(self):
+        action = {
+            "modalite": "obligation",
+            "action_precise": "حماية البيانات الشخصية",
+        }
+        score, _ = compute_criticality_score(action)
+        assert score > _BASE_SCORES["obligation"]
+
+    def test_emprisonnement_keyword(self):
+        action = {
+            "modalite": "obligation",
+            "action_precise": "passible d'emprisonnement",
+        }
+        score, _ = compute_criticality_score(action)
+        assert score > _BASE_SCORES["obligation"]
+
+    def test_multiple_boosts_stack(self):
+        action = {
+            "modalite": "sanction",
+            "action_precise": "amende 10000 DT et données personnelles",
+        }
+        score_multi, _ = compute_criticality_score(action)
+        action_single = {
+            "modalite": "sanction",
+            "action_precise": "simple infraction",
+        }
+        score_single, _ = compute_criticality_score(action_single)
+        assert score_multi >= score_single
 
 
-if __name__ == "__main__":
-    unittest.main()
+class TestCritToDict:
+    def test_full_record(self):
+        rec = {
+            "id": "c1",
+            "action_id": "a1",
+            "level": "critique",
+            "score": 0.85,
+            "factors": ["f1"],
+            "computed_at": "2026-01-01",
+            "computed_by": "rule-engine",
+        }
+        result = _crit_to_dict(rec)
+        assert result["id"] == "c1"
+        assert result["level"] == "critique"
+        assert result["factors"] == ["f1"]
+        assert result["computed_by"] == "rule-engine"
+
+    def test_missing_fields(self):
+        result = _crit_to_dict({})
+        assert result["id"] is None
+        assert result["factors"] == []
+        assert result["action_id"] is None
+
+    def test_null_factors_returns_empty_list(self):
+        result = _crit_to_dict({"factors": None})
+        assert result["factors"] == []
+
+    def test_extra_fields_not_leaked(self):
+        result = _crit_to_dict({"id": "c1", "internal_data": "secret"})
+        assert "internal_data" not in result
