@@ -1,6 +1,5 @@
 """Tests for criticality_service — scoring engine and helpers."""
 
-import pytest
 from app.services.criticality_service import (
     compute_criticality_score,
     score_to_level,

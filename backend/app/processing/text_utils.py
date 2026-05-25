@@ -155,7 +155,8 @@ def clean_arabic_ocr_text(text: str, ta_marbuta_form: str = "ة") -> str:
 
     # 2) Remove control and invisible direction marks that pollute OCR output.
     cleaned = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", cleaned)
-    cleaned = re.sub(r"[​‌‍‎‏﻿]", "", cleaned)
+    invisible_marks = "\u200b\u200c\u200d\u200e\u200f\ufeff"
+    cleaned = re.sub(f"[{invisible_marks}]", "", cleaned)
 
     # 3) Normalize punctuation and digits to one consistent representation.
     cleaned = cleaned.translate(_ARABIC_PUNCT_TRANSLATION)

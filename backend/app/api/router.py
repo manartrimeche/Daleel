@@ -211,7 +211,7 @@ async def upload_document(
     allowed_ext = {".pdf", ".docx", ".doc"}
     ext = "." + file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
     if ext not in allowed_ext:
-        raise HTTPException(400, f"Type de fichier non supporté. Formats acceptés : PDF, DOCX")
+        raise HTTPException(400, "Type de fichier non supporté. Formats acceptés : PDF, DOCX")
 
     max_bytes = settings.max_upload_mb * 1024 * 1024
     chunks = []

@@ -1220,8 +1220,6 @@ def _build_grounded_synthesis_from_chunks(
     supported_refs: set[str],
 ) -> str:
     """Reconstruit une reponse directement à partir des extraits récupérés."""
-    q = (question or "").lower()
-
     # Multi-language keyword buckets to extract useful lines directly from sources.
     prohibition_keys = [
         "interdit", "interdite", "interdits", "prohibition", "prohibe",

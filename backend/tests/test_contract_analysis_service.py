@@ -3,7 +3,7 @@ Unit tests for contract_analysis_service — score computation, helpers, CRUD.
 """
 
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock
 from datetime import datetime, timezone
 
 from app.services.contract_analysis_service import (

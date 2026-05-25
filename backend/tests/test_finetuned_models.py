@@ -3,7 +3,6 @@
 These tests verify that reasoning_model_service and llm_style_formatter
 load correctly and return fallback values when models are not configured.
 """
-import pytest
 from app.services import reasoning_model_service, llm_style_formatter
 
 

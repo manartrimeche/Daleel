@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DCard, Badge, EmptyState } from '../../components/UI';
 import DIcon from '../../components/DIcon';
@@ -58,37 +58,12 @@ export default function ContractAnalysis() {
   const [activeTab, setActiveTab] = useState('overview');
   const pollRef = useRef(null);
 
-  /* ── Charger les documents ── */
-  useEffect(() => {
-    authFetch('/api/v1/documents?skip=0&limit=100')
-      .then(r => r.json())
-      .then(data => {
-        const list = Array.isArray(data) ? data : data.documents || [];
-        setDocs(list);
-      })
-      .catch(() => {});
+  const stopPolling = useCallback(() => {
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
   }, []);
 
-  /* ── Charger l'analyse si document selectionne ── */
-  useEffect(() => {
-    if (!selectedDocId) { setAnalysis(null); return; }
-    setLoading(true);
-    authFetch(`/api/v1/documents/${selectedDocId}/contract-analysis`)
-      .then(r => {
-        if (r.status === 404) return null;
-        return r.json();
-      })
-      .then(data => {
-        setAnalysis(data);
-        if (data && data.status === 'analyzing') startPolling();
-        setLoading(false);
-      })
-      .catch(() => { setAnalysis(null); setLoading(false); });
-    return () => stopPolling();
-  }, [selectedDocId]);
-
-  /* ── Polling pour analyse en cours ── */
-  function startPolling() {
+  const startPolling = useCallback(() => {
+    if (!selectedDocId) return;
     stopPolling();
     setAnalyzing(true);
     pollRef.current = setInterval(async () => {
@@ -103,11 +78,35 @@ export default function ContractAnalysis() {
         }
       } catch { /* polling is best-effort */ }
     }, 4000);
-  }
+  }, [selectedDocId, stopPolling]);
 
-  function stopPolling() {
-    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
-  }
+  /* ── Charger les documents ── */
+  useEffect(() => {
+    authFetch('/api/v1/documents?skip=0&limit=100')
+      .then(r => r.json())
+      .then(data => {
+        const list = Array.isArray(data) ? data : data.documents || [];
+        setDocs(list);
+      })
+      .catch(() => {});
+  }, []);
+
+  /* ── Charger l'analyse si document selectionne ── */
+  useEffect(() => {
+    if (!selectedDocId) return undefined;
+    authFetch(`/api/v1/documents/${selectedDocId}/contract-analysis`)
+      .then(r => {
+        if (r.status === 404) return null;
+        return r.json();
+      })
+      .then(data => {
+        setAnalysis(data);
+        if (data && data.status === 'analyzing') startPolling();
+        setLoading(false);
+      })
+      .catch(() => { setAnalysis(null); setLoading(false); });
+    return () => stopPolling();
+  }, [selectedDocId, startPolling, stopPolling]);
 
   /* ── Lancer l'analyse ── */
   async function triggerAnalysis() {
@@ -139,7 +138,6 @@ export default function ContractAnalysis() {
   ];
 
   const a = analysis;
-  const colors = scoreColors[a?.score_category] || scoreColors.attention;
 
   return (
     <div style={{ padding: '28px 32px', maxWidth: 1200 }}>
@@ -156,7 +154,18 @@ export default function ContractAnalysis() {
         <DIcon name="fileSearch" size={22} style={{ color: 'var(--gold)' }} />
         <select
           value={selectedDocId}
-          onChange={e => setSelectedDocId(e.target.value)}
+          onChange={e => {
+            const nextDocId = e.target.value;
+            setSelectedDocId(nextDocId);
+            if (!nextDocId) {
+              stopPolling();
+              setAnalyzing(false);
+              setLoading(false);
+              setAnalysis(null);
+            } else {
+              setLoading(true);
+            }
+          }}
           style={{
             flex: 1, minWidth: 200, padding: '8px 12px', borderRadius: 8,
             border: '1px solid var(--border)', background: 'var(--surface)',

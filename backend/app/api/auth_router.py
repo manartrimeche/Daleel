@@ -27,7 +27,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.limiter import limiter
 
@@ -35,7 +35,6 @@ from app.api.auth import get_current_user, require_role
 from app.config import get_settings
 from app.database import mongo_db
 from app.services import auth_service
-from app.services.email_service import send_invitation_email
 from app.services.notification_service import create_notification
 from app.schemas_auth import (
     AcceptInvitationRequest,
@@ -179,7 +178,6 @@ async def login(request: Request, body: LoginRequest):
 
     # Check subscription expiration for owner
     if user.get("role") == "owner" and org_id and org:
-        from datetime import timedelta
         sub_end = org.get("subscription_ends_at")
         if sub_end:
             now = datetime.now(timezone.utc)

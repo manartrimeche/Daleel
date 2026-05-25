@@ -2,7 +2,6 @@
 
 These functions are pure / side-effect free and easy to test in isolation.
 """
-import pytest
 
 from app.services import document_service as ds
 

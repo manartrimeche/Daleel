@@ -2,7 +2,6 @@
 
 import csv
 import io
-import pytest
 from app.services.export_service import _to_csv
 
 

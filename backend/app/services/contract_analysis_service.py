@@ -19,7 +19,6 @@ import re
 import time
 import uuid
 from datetime import datetime, timezone
-from typing import Optional
 
 from app.config import get_settings
 from app.database import get_collection
@@ -857,8 +856,6 @@ async def _pass3_detect_missing_clauses(
     """
     type_config = CONTRACT_TYPES.get(contract_type, CONTRACT_TYPES["autre"])
     all_expected = type_config["mandatory_clauses"] + type_config["recommended_clauses"]
-    mandatory_set = set(type_config["mandatory_clauses"])
-
     # ── RAG : chercher les références juridiques ──
     legal_sources: list[dict] = []
     rag_context = ""
@@ -1089,8 +1086,12 @@ async def _generate_recommendations(
 
     # Fallback : découper la réponse texte en lignes
     lines = [
-        re.sub(r'^[\s\-•*\d.)\]]+', '', l).strip()
-        for l in response.split("\n")
-        if l.strip()
+        re.sub(r'^[\s\-•*\d.)\]]+', '', line).strip()
+        for line in response.split("\n")
+        if line.strip()
     ]
-    return [l for l in lines if len(l) > 20 and not l.startswith("{") and not l.startswith("[")][:10]
+    return [
+        line
+        for line in lines
+        if len(line) > 20 and not line.startswith("{") and not line.startswith("[")
+    ][:10]

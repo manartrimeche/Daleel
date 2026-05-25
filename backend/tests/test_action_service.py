@@ -1,6 +1,5 @@
 """Tests for action_service — _action_to_dict helper and prompt structure."""
 
-import pytest
 from app.services.action_service import _action_to_dict, _ACTION_PROMPT
 
 

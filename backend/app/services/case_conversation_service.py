@@ -255,11 +255,11 @@ async def extract_context_from_conversation(
             base_url=settings.llm_base_url,
         )
         parsed = _parse_llm_json(raw)
-        
+
         # Merge fine-tuned extraction
         if reasoning_model_service.is_confident(conf) and case_type:
             parsed["matter_type"] = case_type
-            
+
         if extra_facts and extra_facts.get("_confidence", 0.0) >= settings.reasoning_confidence_threshold:
             known = parsed.get("facts_known") or []
             if extra_facts.get("parties"):
@@ -269,7 +269,7 @@ async def extract_context_from_conversation(
             if extra_facts.get("amounts"):
                 known.append(f"Amounts: {', '.join(extra_facts['amounts'])}")
             parsed["facts_known"] = known
-            
+
         return _sanitize_context(parsed)
     except Exception as e:
         logger.error("Context extraction LLM call failed: %s", e)

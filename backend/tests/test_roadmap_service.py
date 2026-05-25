@@ -1,6 +1,5 @@
 """Tests for roadmap_service — topological sort and roadmap generation."""
 
-import pytest
 from app.services.roadmap_service import _topological_sort, _LEVEL_ORDER
 
 

@@ -30,7 +30,6 @@ EXEMPLE D'INTÉGRATION
 """
 from __future__ import annotations
 
-import json
 import logging
 import os
 import re
@@ -93,8 +92,9 @@ def _load_model() -> Optional[dict[str, Any]]:
         from transformers import AutoTokenizer, AutoModel
         from torch import nn
 
-        tok = AutoTokenizer.from_pretrained(str(path))
-        encoder = AutoModel.from_pretrained(str(path))
+        # The reasoning bundle is loaded from DALEEL_REASONING_MODEL_PATH only.
+        tok = AutoTokenizer.from_pretrained(str(path), local_files_only=True)  # nosec B615
+        encoder = AutoModel.from_pretrained(str(path), local_files_only=True)  # nosec B615
         hid = encoder.config.hidden_size
 
         class MultiHead(nn.Module):
@@ -128,7 +128,9 @@ def _softmax_predict(text: str, head_name: str) -> tuple[Optional[str], float]:
     if bundle is None:
         return None, 0.0
 
-    tok = bundle["tok"]; model = bundle["model"]; torch = bundle["torch"]
+    tok = bundle["tok"]
+    model = bundle["model"]
+    torch = bundle["torch"]
     enc = tok(text, truncation=True, max_length=256, padding=True, return_tensors="pt")
     with torch.no_grad():
         logits_dom, logits_case, logits_risk = model(**enc)

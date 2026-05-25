@@ -3,7 +3,6 @@
 from datetime import datetime, timezone, timedelta
 from unittest.mock import patch, MagicMock
 
-import pytest
 from bson import ObjectId
 
 from app.services.auth_service import (

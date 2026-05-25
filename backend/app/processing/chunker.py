@@ -149,7 +149,6 @@ class ChunkingService:
         ]
 
     def _split_long_text(self, text: str) -> list[str]:
-        step = max(self.max_size - self.overlap, 1)
         chunks: list[str] = []
         start = 0
         text_len = len(text)

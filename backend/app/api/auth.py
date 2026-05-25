@@ -16,7 +16,7 @@ import hmac
 import logging
 from typing import Optional
 
-from fastapi import Depends, HTTPException, Request, Security, status
+from fastapi import Depends, HTTPException, Security, status
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 
 from app.config import get_settings
