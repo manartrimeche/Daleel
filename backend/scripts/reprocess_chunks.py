@@ -30,7 +30,7 @@ async def reprocess():
     docs = await get_collection("documents").find(
         {"status": "ready"},
         {"id": 1, "filename": 1, "_id": 0},
-    ).to_list(length=None)
+    ).to_list(length=10_000)
 
     print(f"Found {len(docs)} documents to reprocess\n")
 
@@ -49,7 +49,7 @@ async def reprocess():
         raw_pages = await get_collection("document_raw_pages").find(
             {"document_id": doc_id},
             {"page_number": 1, "raw_text": 1, "ocr_used": 1, "_id": 0},
-        ).sort("page_number", 1).to_list(length=None)
+        ).sort("page_number", 1).to_list(length=5_000)
 
         if not raw_pages:
             print(f"  SKIP {filename}: no raw pages stored")

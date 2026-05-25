@@ -2,7 +2,7 @@
 
 **Plateforme RAG de Recherche Juridique Tunisienne**
 *Projet de Fin d'Etudes (PFE)*
-*Date de generation : 4 mai 2026 (Version 10 Sprints)*
+*Date de generation : 24 mai 2026 (Version 10 Sprints — 3 audits qualite)*
 
 ---
 
@@ -28,7 +28,7 @@ scannes (OCR).
 | **PDF**                 | PyMuPDF + pdfminer.six                                            |
 | **Recherche vectorielle** | FAISS (IndexHNSWFlat, M=32, efConstruction=200) + fallback Python cosine |
 | **Reranker**            | Cross-encoder `ms-marco-MiniLM-L-6-v2` (22M params)              |
-| **Frontend**            | React.js + Vite (14 pages : 5 principales + 9 admin), i18n FR/AR/EN |
+| **Frontend**            | React.js + Vite (16 pages : 6 principales + 10 admin), i18n FR/AR/EN |
 | **CI/CD**               | GitHub Actions — Ruff lint + pytest (Python 3.11/3.12/3.13)       |
 | **Auth**                | JWT (HS256) — access token 30min, refresh 7j, blacklist JTI       |
 | **Multi-tenant**        | Organisations, rôles (super_admin/owner/admin/member), invitations |
@@ -40,21 +40,21 @@ scannes (OCR).
 
 | Composant              | Fichiers | Lignes de code |
 |------------------------|----------|----------------|
-| **Application** (`backend/app/`) | 65       | ~29 600        |
-| **Tests** (`backend/tests/`)     | 33       | ~9 200         |
+| **Application** (`backend/app/`) | 65       | ~30 600        |
+| **Tests** (`backend/tests/`)     | 37       | ~9 700         |
 | **Training pipeline**            | 17       | ~3 800         |
-| **Frontend** (React.js/Vite)     | 23       | ~3 200         |
+| **Frontend** (React.js/Vite)     | 27       | ~3 700         |
 | **Scripts & divers**             | 9        | ~1 000         |
-| **TOTAL**                        | **147**  | **~46 800**    |
+| **TOTAL**                        | **155**  | **~48 800**    |
 
 ### Fichiers les plus volumineux
 | Fichier                        | Lignes | Role                                  |
 |--------------------------------|--------|---------------------------------------|
-| `llm_service.py`               | 3 583  | Pipeline RAG, reranking, grounding    |
-| `router.py`                    | 2 473  | 79 endpoints API (routeur principal)  |
-| `document_service.py`          | 1 542  | Upload, extraction, chunking          |
+| `llm_service.py`               | 3 573  | Pipeline RAG, reranking, grounding    |
+| `router.py`                    | 2 577  | 79 endpoints API (routeur principal)  |
+| `document_service.py`          | 1 587  | Upload, extraction, chunking, cleanup |
 | `schemas.py`                   | 755    | Modeles Pydantic (request/response)   |
-| `graph_resolver.py`            | 716    | KG Light sur MongoDB                  |
+| `graph_resolver.py`            | 734    | KG Light sur MongoDB (batch queries)  |
 | `legal_retrieval_orchestrator` | 392    | Retrieval partitionne base/amendements|
 
 ---
@@ -194,37 +194,50 @@ scannes (OCR).
 
 ---
 
-## 5. COLLECTIONS MONGODB (27)
+## 5. COLLECTIONS MONGODB (35)
 
 | Collection                 | Role                                        |
 |---------------------------|----------------------------------------------|
+| **Documents & RAG**       |                                              |
 | `documents`               | Metadata des documents uploades              |
 | `document_sources`        | Fichier source + hash (deduplication)        |
 | `document_raw_pages`      | Pages brutes extraites                       |
 | `document_cleaned_texts`  | Texte nettoye (arabic reshape, etc.)         |
 | `chunks`                  | Chunks + embeddings 768d                     |
-| `exigences`               | Exigences reglementaires extraites           |
-| `company_profiles`        | Profils d'entreprise                         |
-| `exigence_applicabilities`| Resultats applicabilite profil/exigence      |
+| `chat_history`            | Historique des conversations Q&A             |
+| `qa_feedback`             | Feedback utilisateur pour apprentissage      |
+| **Juridique**             |                                              |
 | `lois`                    | Registre des lois                            |
 | `articles`                | Articles de loi                              |
 | `article_versions`        | Versions immutables des articles             |
+| `exigences`               | Exigences reglementaires extraites           |
 | `actions`                 | Actions reglementaires decomposees           |
 | `action_criticalities`    | Scores de criticite                          |
 | `action_dependencies`     | Graphe de dependances (DAG)                  |
 | `amendment_operations`    | Operations d'amendement (ADD/REPLACE/etc.)   |
 | `audit_logs`              | Journal d'audit complet                      |
-| `qa_feedback`             | Feedback utilisateur pour apprentissage      |
-| `compliance_cases`        | Dossiers de conformité (Case Management)     |
+| **Profils & Applicabilite** |                                            |
+| `company_profiles`        | Profils d'entreprise                         |
+| `exigence_applicabilities`| Resultats applicabilite profil/exigence      |
+| **Case Management**       |                                              |
+| `compliance_cases`        | Dossiers de conformite (Case Management)     |
 | `case_messages`           | Fil de messages par dossier                  |
-| `case_documents`          | Documents spécifiques rattachés à un case    |
-| `case_findings`           | Constats de non-conformité par case          |
-| `case_actions`            | Actions de remédiation par case              |
-| `compliance_assessments`  | Évaluations de conformité (Gap Analysis)     |
-| `controls`                | Mesures et contrôles internes                |
-| `control_evidences`       | Preuves d'application des contrôles          |
-| `requirement_control_links`| Mapping Exigences <-> Contrôles             |
-| `exception_register`      | Registre des exceptions et risques acceptés  |
+| `case_documents`          | Documents specifiques rattaches a un case    |
+| `case_document_analyses`  | Analyses documentaires par case              |
+| `case_findings`           | Constats de non-conformite par case          |
+| `case_actions`            | Actions de remediation par case              |
+| **Compliance Steering**   |                                              |
+| `compliance_assessments`  | Evaluations de conformite (Gap Analysis)     |
+| `controls`                | Mesures et controles internes                |
+| `control_evidences`       | Preuves d'application des controles          |
+| `requirement_control_links`| Mapping Exigences <-> Controles             |
+| `exception_register`      | Registre des exceptions et risques acceptes  |
+| **Auth & Multi-tenant**   |                                              |
+| `users`                   | Comptes utilisateurs (bcrypt hash)           |
+| `organizations`           | Organisations multi-tenant                   |
+| `invitations`             | Invitations par email (token + expiration)   |
+| `token_blacklist`         | JWT blacklist avec TTL index                 |
+| `notifications`           | Notifications utilisateur                    |
 
 ---
 
@@ -306,57 +319,97 @@ Question utilisateur
 
 ---
 
-## 8. API — 66 ENDPOINTS
+## 8. API — 152 ENDPOINTS
 
-| Sprint | Methodes | Exemples principaux                                            |
-|--------|----------|----------------------------------------------------------------|
-| 1      | 12       | upload, search, ask, ask/agentic, ask/auto, feedback           |
-| 2      | 6        | company-profiles, exigences, applicability                     |
-| 3      | 8        | lois, segment-document, articles, versions, actions            |
-| 4      | 4        | criticality compute, dependencies, roadmap                     |
-| 5      | 7        | classify, amendments extract/apply, audit-logs, recalculate    |
-| 6      | ~29      | admin stats, vector-stats, domain-routing, export, etc.        |
-| 7-10   | ~25      | cases, assessments, controls, orchestrate, case-messages       |
+| Sprint / Module | Methodes | Exemples principaux                                            |
+|-----------------|----------|----------------------------------------------------------------|
+| 1               | 12       | upload, search, ask, ask/agentic, ask/auto, feedback           |
+| 2               | 6        | company-profiles, exigences, applicability                     |
+| 3               | 8        | lois, segment-document, articles, versions, actions            |
+| 4               | 4        | criticality compute, dependencies, roadmap                     |
+| 5               | 7        | classify, amendments extract/apply, audit-logs, recalculate    |
+| 6               | ~29      | admin stats, vector-stats, domain-routing, export, etc.        |
+| 7-10            | ~25      | cases, assessments, controls, orchestrate, case-messages       |
+| Auth            | 19       | register, login, refresh, logout, me, password, invitations    |
+| Compliance      | 22       | assessments, controls, evidences, links, posture, exceptions   |
+| Case            | 21       | cases CRUD, findings, actions, documents, states               |
+| Orchestrator    | 5        | orchestrate-case, decision trees                               |
+| Voix            | 3        | transcribe (STT), synthesize (TTS), voice-chat                 |
+| Case Conversation | 3      | case-messages (thread, send, history)                          |
 
-**Securite** : API Key (X-API-Key) avec comparaison constant-time, 2 niveaux (user/admin).
-**Multi-tenant** : Middleware X-Org-Id optionnel pour isolation par organisation.
-
----
-
-## 9. FRONTEND
-
-| Page        | Fichier          | Description                                     |
-|-------------|------------------|-------------------------------------------------|
-| **Chatbot** | `index.html`     | Interface Q&A, affichage sources, historique     |
-| **Admin**   | `admin.html`     | Upload, gestion documents, stats, vector index   |
-
-**Stack** : HTML/CSS/JS vanilla, dark theme, responsive.
+**Securite** : JWT (HS256) access/refresh tokens, blacklist JTI, rate limiting (SlowAPI), bcrypt, XSS escaping.
+**Multi-tenant** : Middleware organisation avec roles (super_admin/owner/admin/member).
 
 ---
 
-## 10. TESTS
+## 9. FRONTEND (React.js + Vite)
+
+| Page             | Fichier                | Description                                           |
+|------------------|------------------------|-------------------------------------------------------|
+| **Landing**      | `Landing.jsx`          | Page d'accueil, presentation de la plateforme         |
+| **Login**        | `Login.jsx`            | Authentification (connexion / inscription)             |
+| **Reset Password** | `ResetPassword.jsx`  | Reinitialisation du mot de passe                      |
+| **Chat**         | `Chat.jsx`             | Interface Q&A, sources, historique, voix              |
+| **Dashboard**    | `Dashboard.jsx`        | Tableau de bord principal utilisateur                 |
+| **Invite**       | `Invite.jsx`           | Acceptation d'invitation a une organisation           |
+| **Documents**    | `admin/Documents.jsx`  | Upload, gestion documents, stats, vector index        |
+| **Users**        | `admin/Users.jsx`      | Gestion des utilisateurs et roles                     |
+| **Organizations** | `admin/Organizations.jsx` | Gestion multi-tenant des organisations            |
+| **Cases**        | `admin/Cases.jsx`      | Gestion des dossiers de conformite                    |
+| **Amendments**   | `admin/Amendments.jsx` | Suivi des amendements legislatifs                     |
+| **Company Profile** | `admin/CompanyProfile.jsx` | Profil entreprise pour applicabilite           |
+| **Notifications** | `admin/Notifications.jsx` | Centre de notifications                           |
+| **History**      | `admin/History.jsx`    | Historique des conversations                          |
+| **Contract Analysis** | `admin/ContractAnalysis.jsx` | Analyse multi-passes de contrats (score, risques, clauses) |
+| **Settings**     | `admin/Settings.jsx`   | Parametres de la plateforme                           |
+
+**Stack** : React.js 19 + Vite, React Router v7, i18n (FR/AR/EN), CSS variables (dark theme), responsive.
+**Build** : `npm run build` → `frontend/dist/` servi par FastAPI en production.
+
+---
+
+## 10. TESTS (604 tests, 37 fichiers)
 
 | Fichier de test                          | Couverture                               |
 |------------------------------------------|------------------------------------------|
 | `test_api.py`                            | Endpoints principaux (CRUD, search, ask) |
-| `test_auth.py`                           | Authentification API key                 |
-| `test_chunker.py`                        | Chunking section-aware                   |
+| `test_auth.py`                           | JWT auth, register, login, refresh, roles |
+| `test_chunker.py`                        | Chunking section-aware (SHA256 IDs)      |
+| `test_reranker.py`                       | Cross-encoder reranking (async)          |
 | `test_criticality_service.py`            | Scoring criticite                        |
 | `test_domain_router.py`                  | Routage domaine juridique                |
 | `test_embedding_cache.py`                | Cache LRU embeddings                     |
 | `test_faiss_index.py`                    | Index FAISS                              |
-| `test_graph_resolver.py`                 | KG Light (graphe connaissances)          |
+| `test_graph_resolver.py`                 | KG Light (batch queries)                 |
 | `test_integration_sprint6.py`            | Integration Sprint 6 end-to-end          |
 | `test_legal_retrieval_orchestrator.py`   | Retrieval partitionne                    |
 | `test_llm_grounding_validation.py`       | Validation du grounding LLM             |
 | `test_llm_helpers.py`                    | Helpers LLM (detection langue, intent)   |
 | `test_llm_retry.py`                      | Resilience LLM (retry, backoff)          |
+| `test_llm_cache.py`                      | Cache des reponses LLM                   |
 | `test_quality_guard_service.py`          | Quality Guard (hallucination)            |
 | `test_search_service.py`                 | Service de recherche vectorielle         |
 | `test_text_utils.py`                     | Utilitaires texte                        |
-| `benchmark_models.py`                    | Benchmark A/B modeles LLM               |
+| `test_case_service.py`                   | Case Management CRUD                     |
+| `test_case_document_service.py`          | Documents rattaches aux cases            |
+| `test_case_conversation_service.py`      | Messages et threads case                 |
+| `test_compliance_service.py`             | Compliance Steering (assessments, controls) |
+| `test_compliance_case_orchestrator.py`   | Arbres de decision (Sprint 10)           |
+| `test_advisor_response_composer.py`      | Formatage Advisor Markdown               |
+| `test_amendment_service.py`              | Amendements (classify, extract, apply)   |
+| `test_document_service_helpers.py`       | Helpers document (cleanup, extraction)   |
+| `test_notification_service.py`           | Service de notifications                 |
+| `test_feedback_service.py`              | Feedback utilisateur                     |
+| `test_finetuned_models.py`               | Modeles fine-tunes (Track 1 & 2)        |
+| `test_derja_normalizer.py`               | Normalisation dialecte tunisien          |
+| `test_conversation_workflow.py`          | Workflow conversationnel end-to-end      |
+| `test_context_rewrite_prompt.py`         | Rewriting de prompts contextuels         |
+| `test_request.py`                        | Schemas de requetes                      |
+| `test_request_final.py`                  | Validation schemas finale                |
+| `conftest.py`                            | Fixtures partagees (MonkeyPatch MongoDB) |
 
 **CI** : GitHub Actions (Python 3.11/3.12/3.13, MongoDB 7, Ruff lint, pytest).
+**Resultat** : 604 tests, 0 failures.
 
 ---
 
@@ -492,14 +545,23 @@ documentent les apports methodologiques :
 - Ollama + `qwen2.5:7b`
 - Tesseract 5.x (optionnel, pour OCR)
 
-### Lancement
+### Lancement (developpement)
 
 ```bash
+# Backend
+cd backend
 pip install -r requirements.txt
 uvicorn app.main:app --reload
-# -> http://localhost:8000 (chatbot)
-# -> http://localhost:8000/admin (admin)
 # -> http://localhost:8000/docs (Swagger)
+
+# Frontend (dev server)
+cd frontend
+npm install && npm run dev
+# -> http://localhost:5173
+
+# Production (Docker)
+docker-compose up --build -d
+# -> http://localhost:8000 (app complete)
 ```
 
 ---
@@ -508,84 +570,183 @@ uvicorn app.main:app --reload
 
 ```
 Daleel/
-|-- .github/workflows/ci.yml          # CI GitHub Actions
-|-- app/
-|   |-- main.py                        # Point d'entree FastAPI + lifespan
-|   |-- config.py                      # Settings Pydantic (~30 params)
-|   |-- database.py                    # Motor client, indexes, seeds
-|   |-- schemas.py                     # 40+ modeles Pydantic
-|   |-- api/
-|   |   |-- router.py                  # Endpoints principaux
-|   |   |-- compliance_router.py       # Endpoints Compliance Steering
-|   |   |-- case_router.py             # Endpoints Case Management
-|   |   |-- auth.py                    # API Key auth (constant-time)
-|   |   |-- tenant.py                  # Multi-tenant middleware
-|   |-- services/
-|   |   |-- llm_service.py             # Pipeline RAG complet (~3300 lignes)
-|   |   |-- compliance_case_orchestrator.py # Arbres de décision (Sprint 10)
-|   |   |-- advisor_response_composer.py    # Formatage LLM (Sprint 10)
-|   |   |-- case_service.py            # Case Management (Sprint 7)
-|   |   |-- compliance_service.py      # Compliance Steering (Sprint 8)
-|   |   |-- llm_style_formatter.py     # LLM Track 1
-|   |   |-- reasoning_model_service.py # LLM Track 2
-|   |   |-- document_service.py        # Upload, extraction, chunking
-|   |   |-- search_service.py          # Recherche vectorielle
-|   |   |-- embedding_service.py       # SentenceTransformer + cache
-|   |   |-- faiss_index.py             # Index FAISS in-memory
-|   |   |-- domain_router.py           # Routage domaine juridique
-|   |   |-- legal_retrieval_orchestrator.py  # Retrieval partitionne
-|   |   |-- quality_guard_service.py   # Anti-hallucination
-|   |   |-- graph_resolver.py          # KG Light (717 lignes)
-|   |   |-- loi_service.py             # Gestion lois + segmentation
-|   |   |-- action_service.py          # Extraction actions
-|   |   |-- amendment_service.py       # Amendements (25KB)
-|   |   |-- criticality_service.py     # Scoring criticite
-|   |   |-- roadmap_service.py         # Feuille de route conformite
-|   |   |-- applicability_service.py   # Evaluation applicabilite
-|   |   |-- feedback_service.py        # Apprentissage par feedback
-|   |   |-- audit_service.py           # Journal d'audit
-|   |   |-- recalculation_service.py   # Pipeline recalcul post-amendement
-|   |   |-- analytics_service.py       # Stats admin
-|   |   |-- export_service.py          # Export Excel/CSV
-|   |   |-- notification_service.py    # Notifications
-|   |-- processing/
-|   |   |-- extractor.py               # Extraction PDF/DOCX/images
-|   |   |-- ocr.py                     # Tesseract + EasyOCR
-|   |   |-- chunker.py                 # Chunking section-aware
-|   |   |-- legal_cleaner.py           # Nettoyage texte arabe/francais
-|   |   |-- article_segmenter.py       # Segmentation en articles
-|   |   |-- text_utils.py              # Utilitaires texte
-|   |-- static/
-|       |-- index.html                 # Interface chatbot
-|       |-- admin.html                 # Panneau admin
-|-- data/                              # PDFs juridiques source (~5.7 MB)
+|-- .github/workflows/ci.yml              # CI GitHub Actions
+|-- backend/
+|   |-- app/
+|   |   |-- main.py                        # Point d'entree FastAPI + lifespan + cleanup
+|   |   |-- config.py                      # Settings Pydantic (~30 params)
+|   |   |-- database.py                    # Motor client, indexes, seeds
+|   |   |-- schemas.py                     # 40+ modeles Pydantic
+|   |   |-- limiter.py                     # Rate limiting (SlowAPI)
+|   |   |-- api/
+|   |   |   |-- router.py                  # 79 endpoints principaux
+|   |   |   |-- auth_router.py             # 19 endpoints auth (JWT, register, login)
+|   |   |   |-- compliance_router.py       # 22 endpoints Compliance Steering
+|   |   |   |-- case_router.py             # 21 endpoints Case Management
+|   |   |   |-- case_conversation_router.py # 3 endpoints messages case
+|   |   |   |-- case_orchestrator_router.py # 5 endpoints orchestration
+|   |   |   |-- voice_router.py            # 3 endpoints STT/TTS
+|   |   |   |-- auth.py                    # JWT auth + API Key (constant-time)
+|   |   |   |-- tenant.py                  # Multi-tenant middleware (X-Org-Id)
+|   |   |-- services/
+|   |   |   |-- llm_service.py             # Pipeline RAG complet (~3500 lignes)
+|   |   |   |-- compliance_case_orchestrator.py # Arbres de decision (Sprint 10)
+|   |   |   |-- advisor_response_composer.py    # Formatage LLM (Sprint 10)
+|   |   |   |-- case_service.py            # Case Management (Sprint 7)
+|   |   |   |-- compliance_service.py      # Compliance Steering (Sprint 8)
+|   |   |   |-- llm_style_formatter.py     # LLM Track 1 (LoRA/PEFT)
+|   |   |   |-- reasoning_model_service.py # LLM Track 2 (XLM-RoBERTa)
+|   |   |   |-- document_service.py        # Upload, extraction, chunking, cleanup
+|   |   |   |-- search_service.py          # Recherche vectorielle
+|   |   |   |-- embedding_service.py       # SentenceTransformer + cache + thread-safe
+|   |   |   |-- reranker.py                # Cross-encoder async (asyncio.Lock)
+|   |   |   |-- faiss_index.py             # Index FAISS in-memory
+|   |   |   |-- voice_service.py           # STT (faster-whisper) + TTS (Piper/Edge)
+|   |   |   |-- domain_router.py           # Routage domaine juridique
+|   |   |   |-- legal_retrieval_orchestrator.py  # Retrieval partitionne
+|   |   |   |-- quality_guard_service.py   # Anti-hallucination
+|   |   |   |-- graph_resolver.py          # KG Light (batch $in queries)
+|   |   |   |-- loi_service.py             # Gestion lois + segmentation
+|   |   |   |-- action_service.py          # Extraction actions
+|   |   |   |-- amendment_service.py       # Amendements (25KB)
+|   |   |   |-- criticality_service.py     # Scoring criticite
+|   |   |   |-- roadmap_service.py         # Feuille de route conformite
+|   |   |   |-- applicability_service.py   # Evaluation applicabilite
+|   |   |   |-- feedback_service.py        # Apprentissage par feedback
+|   |   |   |-- audit_service.py           # Journal d'audit
+|   |   |   |-- auth_service.py            # JWT tokens, bcrypt, blacklist
+|   |   |   |-- email_service.py           # Emails HTML (XSS-safe)
+|   |   |   |-- notification_service.py    # Notifications temps-reel
+|   |   |   |-- recalculation_service.py   # Pipeline recalcul post-amendement
+|   |   |   |-- analytics_service.py       # Stats admin
+|   |   |   |-- export_service.py          # Export Excel/CSV
+|   |   |   |-- index_consistency_service.py # Verification coherence FAISS/modele
+|   |   |-- processing/
+|   |   |   |-- extractor.py               # Extraction PDF/DOCX/images
+|   |   |   |-- ocr.py                     # Tesseract + EasyOCR
+|   |   |   |-- chunker.py                 # Chunking section-aware (SHA256)
+|   |   |   |-- legal_cleaner.py           # Nettoyage texte arabe/francais
+|   |   |   |-- article_segmenter.py       # Segmentation en articles
+|   |   |   |-- text_utils.py              # Utilitaires texte
+|   |-- tests/                             # 37 fichiers, ~9 700 lignes, 604 tests
+|   |   |-- conftest.py                    # Fixtures partagees (MongoDB mock)
+|   |   |-- test_api.py                    # Endpoints (CRUD, search, ask, agentic)
+|   |   |-- test_auth.py                   # JWT auth complet
+|   |   |-- test_reranker.py               # Cross-encoder async
+|   |   |-- test_chunker.py                # Chunking + SHA256
+|   |   |-- test_case_*.py                 # Case Management (3 fichiers)
+|   |   |-- test_compliance_*.py           # Compliance (2 fichiers)
+|   |   |-- test_advisor_response_composer.py
+|   |   |-- ... (34 fichiers de test)
+|   |-- requirements.txt                   # 30+ dependances
+|-- frontend/
+|   |-- src/
+|   |   |-- pages/                         # 16 pages React (6 principales + 10 admin)
+|   |   |-- components/                    # Composants reutilisables
+|   |   |-- utils/                         # AuthContext, authFetch, helpers
+|   |   |-- locales/                       # Traductions FR/AR/EN (react-i18next)
+|   |-- vite.config.js                     # Configuration Vite
+|   |-- package.json                       # React 19, Vite, react-i18next
+|-- data/                                  # PDFs juridiques source (~5.7 MB)
 |-- training/
-|   |-- 01_build_eval_set.py           # Annotation eval set
-|   |-- 02_build_train_set.py          # Generation train set
-|   |-- 03_evaluate_retrieval.py       # Benchmark retrieval
-|   |-- 04_finetune_embeddings.py      # Fine-tuning PyTorch
-|   |-- INTEGRATION.md                 # Guide integration modele
-|   |-- data/                          # Datasets (articles, eval, train)
-|   |-- models/daleel-embedding-finetuned/  # Modele fine-tune (1.06 GB)
-|-- tests/                             # 18 fichiers, 2185 lignes
-|-- requirements.txt                   # 20+ dependances
-|-- reset_and_rebuild.ps1              # Script reinitialisation
+|   |-- 01_build_eval_set.py               # Annotation eval set
+|   |-- 02_build_train_set.py              # Generation train set
+|   |-- 03_evaluate_retrieval.py           # Benchmark retrieval
+|   |-- 04_finetune_embeddings.py          # Fine-tuning PyTorch
+|   |-- INTEGRATION.md                     # Guide integration modele
+|   |-- data/                              # Datasets (articles, eval, train)
+|   |-- models/daleel-embedding-finetuned/ # Modele fine-tune (1.06 GB)
+|-- Dockerfile                             # Image Docker multi-stage
+|-- docker-compose.yml                     # Orchestration (app + MongoDB + Ollama)
+|-- reset_and_rebuild.ps1                  # Script reinitialisation
 ```
 
 ---
 
-## 16. RESUME QUANTITATIF
+## 16. SECURITE & AUDITS QUALITE
+
+### Systeme d'authentification
+
+| Composant                 | Implementation                                              |
+|---------------------------|-------------------------------------------------------------|
+| **Mots de passe**         | bcrypt (auto-salt, cost factor 12)                          |
+| **Access token**          | JWT HS256, 30 min TTL, claims `jti` + `iat`                |
+| **Refresh token**         | JWT HS256, 7 jours TTL                                      |
+| **Blacklist**             | Collection MongoDB avec TTL index (expiration automatique)  |
+| **Rate limiting**         | SlowAPI — 3/min sur `/me/password`, global configurable     |
+| **XSS**                   | `html.escape()` sur les URLs injectees dans les emails HTML |
+| **Multi-tenant**          | Isolation par `organization_id`, middleware `X-Org-Id`       |
+| **Roles**                 | super_admin, owner, admin, member — avec verification RBAC  |
+
+### 3 Audits de qualite realises
+
+| Audit | Corrections | Themes principaux                                            |
+|-------|-------------|--------------------------------------------------------------|
+| **#1** | 15 taches  | Blacklist JWT, Dockerfile, code mort, indexes DB, CI/CD      |
+| **#2** | 1 tache    | Session expiree frontend (authFetch)                         |
+| **#3** | 10 taches  | Sécurité (MD5→SHA256, rate limiting, XSS), performance (N+1 queries, pagination, thread-safety), qualite (code mort, duplication, cleanup uploads) |
+
+### Corrections notables (Audit #3)
+
+| Categorie     | Avant                                    | Apres                                          |
+|---------------|------------------------------------------|-------------------------------------------------|
+| Hashing       | MD5 (chunk IDs)                          | SHA256 (16 chars)                               |
+| Imports       | `__import__("pymongo")`                  | `from pymongo import ReturnDocument`            |
+| Queries       | N+1 dans graph_resolver (3 boucles)      | Batch `$in` queries (1 requete par type)        |
+| Pagination    | `to_list(length=None)` (unbounded)       | `to_list(length=5000)` (capped)                 |
+| Concurrence   | `threading.Lock` dans code async         | `asyncio.Lock` (reranker) + thread-safe globals |
+| Code mort     | `_get_detect_query_language()` (inutile) | Supprime                                        |
+| Duplication   | 3 blocs AR/FR/EN (~105 lignes)           | `_SYNTHESIS_PARAMS` dict (config-driven)        |
+| Cleanup       | Fichiers orphelins accumules             | `cleanup_orphaned_uploads()` au demarrage       |
+
+---
+
+## 17. DEPLOIEMENT DOCKER
+
+### Architecture
+
+```
+docker-compose.yml
+  |-- daleel-app     (Dockerfile multi-stage: Python + Node build)
+  |-- mongo          (MongoDB 7 officiel)
+  |-- ollama         (Ollama avec qwen2.5:7b)
+```
+
+### Dockerfile (multi-stage)
+
+| Stage          | Role                                                      |
+|----------------|-----------------------------------------------------------|
+| **frontend**   | Node 22 : `npm ci && npm run build` → `/app/dist/`       |
+| **backend**    | Python 3.11-slim : pip install, copie app + dist          |
+| **runtime**    | Uvicorn sur port 8000, healthcheck `/api/v1/health`       |
+
+### Commandes
+
+```bash
+# Build et lancement
+docker-compose up --build -d
+
+# Verification
+curl http://localhost:8000/api/v1/health
+```
+
+---
+
+## 18. RESUME QUANTITATIF
 
 | Metrique                        | Valeur           |
 |---------------------------------|------------------|
-| Lignes de code total            | ~31 700          |
-| Fichiers Python (app)           | 53               |
-| Fichiers de test                | 28               |
-| Endpoints API                   | ~70+             |
-| Collections MongoDB             | 27               |
+| Lignes de code total            | ~48 800          |
+| Fichiers Python (app)           | 65               |
+| Fichiers de test                | 37               |
+| Tests unitaires                 | 604              |
+| Endpoints API                   | 152              |
+| Collections MongoDB             | 35               |
 | Schemas Pydantic                | ~100+            |
-| Services metier                 | 30               |
+| Services metier                 | 37               |
 | Sprints implementes             | 10               |
+| Audits qualite realises         | 3 (26 corrections)|
+| Pages frontend React            | 15               |
 | Documents juridiques            | 6 PDFs (5.7 MB)  |
 | Articles extraits               | 2 344            |
 | Paires d'entrainement           | 4 584            |
@@ -597,4 +758,4 @@ Daleel/
 
 ---
 
-*Rapport genere automatiquement depuis l'analyse du code source.*
+*Rapport genere depuis l'analyse du code source — derniere mise a jour : 24 mai 2026.*

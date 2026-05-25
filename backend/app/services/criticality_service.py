@@ -235,7 +235,7 @@ async def compute_for_article_version(
     query: dict = {"article_version_id": article_version_id}
     if action_ids:
         query["id"] = {"$in": action_ids}
-    actions = await get_collection("actions").find(query).to_list(length=None)
+    actions = await get_collection("actions").find(query).to_list(length=5000)
 
     computed = 0
     skipped = 0
@@ -276,12 +276,12 @@ async def compute_for_loi(
     Compute criticality for all Actions linked to any ArticleVersion of a Loi.
     """
     # Get all active article versions for this loi
-    articles = await get_collection("articles").find({"loi_id": loi_id}).to_list(length=None)
+    articles = await get_collection("articles").find({"loi_id": loi_id}).to_list(length=5000)
     article_ids = [article["id"] for article in articles]
     versions = await get_collection("article_versions").find({
         "article_id": {"$in": article_ids},
         "status": "active",
-    }).to_list(length=None)
+    }).to_list(length=5000)
 
     total_computed = 0
     total_skipped = 0
@@ -326,14 +326,14 @@ async def get_criticality_summary_for_profile(
     applicable = await get_collection("exigence_applicabilities").find({
         "profile_id": profile_id,
         "is_applicable": True,
-    }).to_list(length=None)
+    }).to_list(length=5000)
     applicable_ids = [item["exigence_id"] for item in applicable]
 
     if not applicable_ids:
         return {"critique": 0, "importante": 0, "secondaire": 0, "uncomputed": 0, "total": 0}
 
     # Get actions for those exigences
-    actions = await get_collection("actions").find({"exigence_id": {"$in": applicable_ids}}).to_list(length=None)
+    actions = await get_collection("actions").find({"exigence_id": {"$in": applicable_ids}}).to_list(length=5000)
     action_ids = [action["id"] for action in actions]
 
     if not action_ids:
@@ -344,7 +344,7 @@ async def get_criticality_summary_for_profile(
     rows = await get_collection("action_criticalities").aggregate([
         {"$match": {"action_id": {"$in": action_ids}}},
         {"$group": {"_id": "$level", "count": {"$sum": 1}}},
-    ]).to_list(length=None)
+    ]).to_list(length=5000)
     for row in rows:
         level_counts[row["_id"]] = row["count"]
 

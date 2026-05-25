@@ -80,6 +80,7 @@ _COLLECTION_INDEXES: dict[str, list[dict[str, Any]]] = {
     ],
     "amendment_operations": [
         {"fields": [("document_id", 1)]},
+        {"fields": [("document_id", 1), ("status", 1)]},
         {"fields": [("operation_type", 1)]},
         {"fields": [("status", 1)]},
     ],
@@ -141,6 +142,14 @@ _COLLECTION_INDEXES: dict[str, list[dict[str, Any]]] = {
         {"fields": [("company_profile_id", 1), ("created_at", -1)]},
         {"fields": [("exigence_id", 1)]},
         {"fields": [("status", 1)]},
+    ],
+    # ── Contract Analysis ──
+    "contract_analyses": [
+        {"fields": [("document_id", 1)], "kwargs": {"unique": True}},
+        {"fields": [("organization_id", 1), ("created_at", -1)]},
+        {"fields": [("status", 1), ("created_at", -1)]},
+        {"fields": [("contract_type", 1)]},
+        {"fields": [("score", 1)]},
     ],
     # ── Auth & Multi-tenant ──
     "users": [

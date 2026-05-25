@@ -340,7 +340,7 @@ async def segment_document(
         raise ValueError(f"Document '{document_id}' not found")
 
     # ── 2. Load cleaned pages ──
-    cleaned_pages = await get_collection("document_cleaned_texts").find({"document_id": document_id}).sort("page_number", 1).to_list(length=None)
+    cleaned_pages = await get_collection("document_cleaned_texts").find({"document_id": document_id}).sort("page_number", 1).to_list(length=5000)
 
     if not cleaned_pages:
         raise ValueError(

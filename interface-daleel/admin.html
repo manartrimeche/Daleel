@@ -18,9 +18,8 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 
 /* Sidebar */
 .sidebar{width:300px;background:#111019;border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
-.sidebar-logo{height:98px;padding:0 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
-.logo-mark{width:45px;height:45px;border-radius:13px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:21px;box-shadow:0 12px 34px rgba(124,92,252,.32)}
-.brand-name{font-size:21px;font-weight:800;color:var(--accent2);letter-spacing:0}
+.sidebar-logo{height:98px;padding:12px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center}
+.sidebar-brand-logo{width:100%;max-width:190px;height:72px;object-fit:contain;object-position:left center;display:block}
 .nav{padding:24px 0 16px;flex:1;overflow-y:auto}
 .nav-group{margin-bottom:18px}
 .nav-group-title{padding:0 23px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:#7e769b}
@@ -220,8 +219,7 @@ pre{background:var(--bg3);border:1px solid var(--border);border-radius:8px;paddi
 <!-- Sidebar -->
 <nav class="sidebar">
   <div class="sidebar-logo">
-    <div class="logo-mark">D</div>
-    <div class="brand-name">Daleel</div>
+    <img class="sidebar-brand-logo" src="/static/daleel-logo.svg?v=20260524" alt="Daleel">
   </div>
   <div class="nav" id="nav"></div>
   <div class="sidebar-footer" id="sidebar-footer"></div>

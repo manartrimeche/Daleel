@@ -47,7 +47,7 @@ async def _get_applicable_actions(profile_id: str, organization_id: str | None =
     if not applicable_exigence_ids:
         return []
 
-    actions = await get_collection("actions").find({"exigence_id": {"$in": applicable_exigence_ids}}).to_list(length=None)
+    actions = await get_collection("actions").find({"exigence_id": {"$in": applicable_exigence_ids}}).to_list(length=5000)
     return [_action_to_dict(action) for action in actions]
 
 
@@ -57,7 +57,7 @@ async def _ensure_criticalities(actions: list[dict]) -> dict[str, dict]:
     if not action_ids:
         return {}
 
-    existing = await get_collection("action_criticalities").find({"action_id": {"$in": action_ids}}).to_list(length=None)
+    existing = await get_collection("action_criticalities").find({"action_id": {"$in": action_ids}}).to_list(length=5000)
     crit_map: dict[str, dict] = {criticality["action_id"]: criticality for criticality in existing if criticality.get("action_id")}
 
     missing = [action for action in actions if action["id"] not in crit_map]
@@ -169,7 +169,7 @@ async def generate_roadmap(db, profile_id: str, organization_id: str | None = No
     action_ids = [action["id"] for action in actions]
     dependencies = await get_collection("action_dependencies").find(
         {"action_id": {"$in": action_ids}, "depends_on_id": {"$in": action_ids}}
-    ).to_list(length=None)
+    ).to_list(length=5000)
 
     deps_by_action: dict[str, list[str]] = defaultdict(list)
     for dependency in dependencies:
@@ -265,7 +265,7 @@ async def add_dependency(db, action_id: str, depends_on_id: str, dependency_type
 
 async def list_dependencies(db, action_id: str) -> list[dict]:
     """List all dependencies where action_id is the dependent."""
-    dependencies = await get_collection("action_dependencies").find({"action_id": action_id}).to_list(length=None)
+    dependencies = await get_collection("action_dependencies").find({"action_id": action_id}).to_list(length=5000)
     return dependencies
 
 

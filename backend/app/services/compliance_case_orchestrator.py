@@ -482,17 +482,17 @@ async def _get_generic_exigences_for_matter(matter_type: str) -> list[dict]:
     # Get some key articles
     articles = await _collection("articles").find(
         {"loi_id": loi["id"]}
-    ).limit(10).to_list(length=None)
+    ).limit(10).to_list(length=10)
 
     article_ids = [a["id"] for a in articles]
     versions = await _collection("article_versions").find(
         {"article_id": {"$in": article_ids}, "status": "active"}
-    ).to_list(length=None)
+    ).to_list(length=500)
 
     version_ids = [v["id"] for v in versions]
     exigences = await _collection("exigences").find(
         {"article_version_id": {"$in": version_ids}}
-    ).limit(20).to_list(length=None)
+    ).limit(20).to_list(length=20)
 
     return [{"exigence": ex, "evaluation": {"is_applicable": True, "confidence": 0.7}}
             for ex in exigences]
@@ -1105,9 +1105,12 @@ async def analyze_and_orchestrate(
                 act.finding_idx = i
             return finding_controls, finding_actions, finding_evidences
 
-        # Parallelize across all findings
-        per_finding_results = await asyncio.gather(
-            *[_process_finding(i, f) for i, f in enumerate(proposed_findings)]
+        # Parallelize across all findings (timeout 120s par finding)
+        per_finding_results = await asyncio.wait_for(
+            asyncio.gather(
+                *[_process_finding(i, f) for i, f in enumerate(proposed_findings)]
+            ),
+            timeout=120.0 * max(len(proposed_findings), 1),
         )
         for finding_controls, finding_actions, finding_evidences in per_finding_results:
             controls.extend(finding_controls)

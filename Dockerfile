@@ -1,8 +1,18 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Daleel — Dockerfile
-# Multi-stage build for a production-ready FastAPI application.
+# Multi-stage build: frontend (Node) → backend (Python) → runtime
 # ─────────────────────────────────────────────────────────────────────────────
 
+# ── Stage 1 : Frontend (React/Vite) ──────────────────────────────────────────
+FROM node:20-slim AS frontend-builder
+
+WORKDIR /app/frontend
+COPY frontend/package*.json ./
+RUN npm ci --silent
+COPY frontend/ ./
+RUN npm run build
+
+# ── Stage 2 : Backend Python (dependencies) ──────────────────────────────────
 FROM python:3.12-slim AS builder
 
 WORKDIR /app
@@ -23,7 +33,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# ── Runtime stage ──
+# ── Stage 3 : Runtime ────────────────────────────────────────────────────────
 FROM python:3.12-slim AS runtime
 
 WORKDIR /app
@@ -44,7 +54,7 @@ ENV PYTHONPATH="/app/backend"
 
 # Copy application code
 COPY backend/ ./backend/
-COPY frontend/dist/ ./interface-daleel/
+COPY --from=frontend-builder /app/frontend/dist/ ./interface-daleel/
 
 # Create uploads directory
 RUN mkdir -p uploads

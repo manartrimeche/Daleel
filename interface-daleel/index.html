@@ -56,32 +56,19 @@
 
         .sidebar-logo {
             height: 98px;
-            padding: 0 22px;
+            padding: 12px 22px;
             border-bottom: 1px solid var(--border);
             display: flex;
             align-items: center;
-            gap: 12px;
         }
 
-        .logo-mark {
-            width: 45px;
-            height: 45px;
-            border-radius: 13px;
-            background: var(--gradient-1);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #fff;
-            font-weight: 800;
-            font-size: 21px;
-            box-shadow: 0 12px 34px rgba(124, 92, 252, 0.32);
-        }
-
-        .brand-name {
-            font-size: 21px;
-            font-weight: 800;
-            color: var(--accent-light);
-            letter-spacing: 0;
+        .sidebar-brand-logo {
+            width: 100%;
+            max-width: 190px;
+            height: 72px;
+            object-fit: contain;
+            object-position: left center;
+            display: block;
         }
 
         .sidebar-nav {
@@ -1161,8 +1148,7 @@
 <body>
     <nav class="app-sidebar" aria-label="Navigation principale">
         <div class="sidebar-logo">
-            <div class="logo-mark">D</div>
-            <div class="brand-name">Daleel</div>
+            <img class="sidebar-brand-logo" src="/static/daleel-logo.svg?v=20260524" alt="Daleel">
         </div>
         <div class="sidebar-nav">
             <div class="nav-group">

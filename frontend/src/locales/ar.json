@@ -122,6 +122,7 @@
     "users": "المستخدمون",
     "organizations": "المؤسسات",
     "notifications": "الإشعارات",
+    "contracts": "تحليل العقود",
     "settings": "الإعدادات",
     "defaultUser": "مستخدم",
     "defaultRole": "عضو",
@@ -380,6 +381,50 @@
     "notif_compliance": "تنبيهات الامتثال",
     "notif_docs": "وثائق مفهرسة جديدة",
     "notif_legislative": "تحديثات تشريعية"
+  },
+  "contracts": {
+    "title": "تحليل العقود",
+    "subtitle": "حدد المخاطر والبنود المفقودة والثغرات القانونية",
+    "selectDocument": "اختر مستند",
+    "analyze": "تحليل العقد",
+    "reAnalyze": "إعادة التحليل",
+    "analyzing": "جاري التحليل...",
+    "analyzingDesc": "يتم تحليل العقد بواسطة الذكاء الاصطناعي. قد يستغرق ذلك بضع دقائق.",
+    "noAnalysis": "لا يوجد تحليل",
+    "noAnalysisDesc": "اختر مستندًا ثم ابدأ التحليل للكشف عن المخاطر التعاقدية.",
+    "score": "النتيجة الإجمالية",
+    "excellent": "ممتاز",
+    "bon": "جيد",
+    "attention": "يتطلب انتباهًا",
+    "critique": "حرج",
+    "tabs": {
+      "overview": "نظرة عامة",
+      "risks": "المخاطر",
+      "missing": "البنود المفقودة",
+      "recommendations": "التوصيات"
+    },
+    "severity": {
+      "critical": "حرج",
+      "major": "رئيسي",
+      "minor": "ثانوي"
+    },
+    "importance": {
+      "mandatory": "إلزامي",
+      "recommended": "مستحسن"
+    },
+    "contractType": "نوع العقد",
+    "parties": "الأطراف",
+    "summary": "الملخص",
+    "legalRef": "المرجع القانوني",
+    "recommendation": "التوصية",
+    "riskIfMissing": "المخاطر في حالة الغياب",
+    "findings": "المشاكل المحددة",
+    "missingClauses": "البنود المفقودة",
+    "chunksAnalyzed": "الأقسام المحللة",
+    "duration": "مدة التحليل",
+    "noDocuments": "لا توجد مستندات",
+    "failedDesc": "فشل التحليل. يرجى المحاولة مرة أخرى.",
+    "delete": "حذف التحليل"
   },
   "invite": {
     "joinTitle": "دعوة للانضمام",

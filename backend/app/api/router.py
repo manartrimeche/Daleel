@@ -72,6 +72,7 @@ from app.services import (
     applicability_service,
     audit_service,
     auth_service,
+    contract_analysis_service,
     criticality_service,
     action_service,
     document_service,
@@ -1303,7 +1304,7 @@ async def get_version_exigences(
     rows = await db["exigences"].find(query).sort([
         ("page_number", 1),
         ("confidence_score", -1),
-    ]).skip(skip).limit(limit).to_list(length=None)
+    ]).skip(skip).limit(limit).to_list(length=limit)
 
     return ExigenceListOut(
         exigences=[_exigence_to_out(e) for e in rows],
@@ -2063,7 +2064,7 @@ async def get_admin_stats(db: Any = Depends(get_db)):
         rows = await db[collection_name].aggregate([
             {"$match": query or {}},
             {"$group": {"_id": f"${field}", "count": {"$sum": 1}}},
-        ]).to_list(length=None)
+        ]).to_list(length=500)
         return {str(row["_id"]): row["count"] for row in rows if row.get("_id") is not None}
 
     total_docs = await _count("documents")
@@ -2575,3 +2576,117 @@ async def delete_chat_history_entry(
         raise HTTPException(404, "Entry not found")
     await db["chat_history"].delete_one({"_id": entry["_id"]})
     return {"deleted": True}
+
+
+# ══════════════════════════════════════════════════════════════
+#  CONTRACT ANALYSIS  — Analyse de contrats (risques, score)
+# ══════════════════════════════════════════════════════════════
+
+
+@router.post(
+    "/documents/{doc_id}/contract-analysis",
+    tags=["contract-analysis"],
+    summary="Lancer l'analyse d'un contrat",
+    status_code=202,
+)
+async def analyze_contract(
+    doc_id: str,
+    request: Request,
+    language_override: str | None = Query(None, pattern=r"^(fr|ar|en)$"),
+    contract_type_override: str | None = Query(None),
+    db: Any = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    """Déclenche l'analyse multi-passes d'un contrat uploadé.
+
+    Retourne 202 Accepted avec l'ID de l'analyse.
+    Interroger GET pour suivre le statut (analyzing → completed | failed).
+    """
+    org_id = user.get("organization_id")
+
+    # Vérifier que le document existe et appartient à l'utilisateur
+    doc = await document_service.get_document(db, doc_id, organization_id=org_id)
+    if not doc:
+        raise HTTPException(404, "Document not found")
+
+    result = await contract_analysis_service.create_analysis(
+        db,
+        document_id=doc_id,
+        organization_id=org_id,
+        language_override=language_override,
+        contract_type_override=contract_type_override,
+    )
+    return result
+
+
+@router.get(
+    "/documents/{doc_id}/contract-analysis",
+    tags=["contract-analysis"],
+    summary="Résultat d'analyse d'un contrat",
+)
+async def get_contract_analysis(
+    doc_id: str,
+    db: Any = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    """Récupère l'analyse contractuelle pour un document donné."""
+    org_id = user.get("organization_id")
+
+    doc = await document_service.get_document(db, doc_id, organization_id=org_id)
+    if not doc:
+        raise HTTPException(404, "Document not found")
+
+    analysis = await contract_analysis_service.get_analysis_by_document(
+        document_id=doc_id,
+        organization_id=org_id,
+    )
+    if not analysis:
+        raise HTTPException(404, "No analysis found for this document")
+    return analysis
+
+
+@router.delete(
+    "/documents/{doc_id}/contract-analysis",
+    tags=["contract-analysis"],
+    summary="Supprimer l'analyse d'un contrat",
+    status_code=204,
+)
+async def delete_contract_analysis(
+    doc_id: str,
+    db: Any = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    """Supprime l'analyse contractuelle d'un document."""
+    org_id = user.get("organization_id")
+
+    doc = await document_service.get_document(db, doc_id, organization_id=org_id)
+    if not doc:
+        raise HTTPException(404, "Document not found")
+
+    deleted = await contract_analysis_service.delete_analysis_by_document(
+        document_id=doc_id,
+        organization_id=org_id,
+    )
+    if not deleted:
+        raise HTTPException(404, "No analysis found")
+
+
+@router.get(
+    "/contract-analyses",
+    tags=["contract-analysis"],
+    summary="Lister les analyses de contrats",
+)
+async def list_contract_analyses(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    db: Any = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    """Liste toutes les analyses de contrats de l'organisation."""
+    org_id = user.get("organization_id")
+    analyses, total = await contract_analysis_service.list_analyses(
+        organization_id=org_id,
+        skip=skip,
+        limit=limit,
+    )
+    return {"analyses": analyses, "total": total}

@@ -115,13 +115,11 @@ export default function Login() {
         <div style={styles.pattern} />
         <div style={styles.glow} />
         <div style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 48 }}>
-            <div style={{ width: 44, height: 44, borderRadius: 10, background: 'linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-heading)' }}>د</div>
-            <div>
-              <div style={{ fontSize: 28, fontWeight: 700, fontFamily: 'var(--font-heading)', letterSpacing: '-0.02em' }}>Daleel</div>
-              <div style={{ fontSize: 11, opacity: 0.5, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Legal Intelligence Platform</div>
-            </div>
-          </div>
+          <img
+            src="/daleel-logo.svg?v=20260524"
+            alt="Daleel"
+            style={{ width: 260, height: 82, objectFit: 'contain', objectPosition: 'left center', display: 'block', marginBottom: 48 }}
+          />
 
           <h2 style={{ fontSize: 26, fontWeight: 600, fontFamily: 'var(--font-heading)', marginBottom: 12, lineHeight: 1.3, whiteSpace: 'pre-line' }}>{t('login.heroTitle')}</h2>
           <p style={{ fontSize: 15, opacity: 0.55, lineHeight: 1.7, marginBottom: 40, maxWidth: 440 }}>{t('login.heroDesc')}</p>

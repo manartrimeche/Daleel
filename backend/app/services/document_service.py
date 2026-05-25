@@ -1128,7 +1128,7 @@ async def upload_amendment_document(
         old_doc_id = existing_doc["id"]
         old_cleaned = await get_collection("document_cleaned_texts").find(
             {"document_id": old_doc_id}
-        ).sort("page_number", 1).to_list(length=None)
+        ).sort("page_number", 1).to_list(length=5000)
 
         if old_cleaned:
             old_articles = _segment_by_language(old_cleaned, loi_code)
@@ -1190,7 +1190,7 @@ async def upload_amendment_document(
                 )
             all_versions = await versions_col.find(
                 {"article_id": existing_article["id"]}, {"version_num": 1}
-            ).to_list(length=None)
+            ).to_list(length=5000)
             max_v = max((int(v.get("version_num", 0)) for v in all_versions), default=0)
 
             new_ver = {
@@ -1468,7 +1468,7 @@ async def reindex_all_documents(
 
         raw_pages = await get_collection("document_raw_pages").find(
             {"document_id": doc_id}
-        ).sort("page_number", 1).to_list(length=None)
+        ).sort("page_number", 1).to_list(length=5000)
 
         pages = [
             {

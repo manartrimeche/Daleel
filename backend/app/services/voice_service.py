@@ -154,7 +154,11 @@ async def _tts_piper(text: str, model_path: str) -> bytes:
         env={**__import__("os").environ, "PYTHONIOENCODING": "utf-8"},
     )
     text_bytes = text.encode("utf-8", errors="replace")
-    stdout, stderr = await proc.communicate(input=text_bytes)
+    try:
+        stdout, stderr = await asyncio.wait_for(proc.communicate(input=text_bytes), timeout=30.0)
+    except asyncio.TimeoutError:
+        proc.kill()
+        raise RuntimeError("Piper TTS timed out after 30 seconds")
 
     if proc.returncode != 0:
         logger.error("Piper TTS error: %s", stderr.decode())

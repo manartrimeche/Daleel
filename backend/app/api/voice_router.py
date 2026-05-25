@@ -45,9 +45,9 @@ async def voice_tts(
     """Convert text to speech audio."""
     try:
         audio_bytes = await synthesize_speech(text, language)
-    except Exception as exc:
+    except Exception:
         logger.exception("TTS failed")
-        raise HTTPException(status_code=503, detail=f"Voice synthesis unavailable: {exc}")
+        raise HTTPException(status_code=503, detail="Voice synthesis unavailable")
     content_type = "audio/mpeg" if language == "ar" else "audio/wav"
 
     return Response(
@@ -72,9 +72,9 @@ async def voice_ask(
     # 1. Transcribe — langue détectée automatiquement depuis l'audio
     try:
         transcription = await transcribe_audio(audio_bytes)
-    except Exception as exc:
+    except Exception:
         logger.exception("Audio transcription failed")
-        raise HTTPException(status_code=503, detail=f"Voice transcription unavailable: {exc}")
+        raise HTTPException(status_code=503, detail="Voice transcription unavailable")
     user_text = transcription["text"]
     detected_lang = transcription["language"]
 

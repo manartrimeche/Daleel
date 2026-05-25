@@ -186,7 +186,7 @@ async def extract_amendment_operations(
         raise ValueError(f"Loi '{loi_id}' not found")
 
     # Load cleaned pages
-    cleaned_pages = await get_collection("document_cleaned_texts").find({"document_id": document_id}).sort("page_number", 1).to_list(length=None)
+    cleaned_pages = await get_collection("document_cleaned_texts").find({"document_id": document_id}).sort("page_number", 1).to_list(length=5000)
 
     if not cleaned_pages:
         raise ValueError(
@@ -372,8 +372,12 @@ async def apply_amendment_operation(
                     {"id": active_v["id"]},
                     {"$set": {"status": "superseded", "updated_at": now}},
                 )
-            versions = await get_collection("article_versions").find({"article_id": existing_article["id"]}, {"version_num": 1}).to_list(length=None)
-            max_v = max((int(v.get("version_num", 0)) for v in versions), default=0)
+            max_cursor = get_collection("article_versions").aggregate([
+                {"$match": {"article_id": existing_article["id"]}},
+                {"$group": {"_id": None, "max_v": {"$max": "$version_num"}}},
+            ])
+            max_row = await max_cursor.to_list(length=1)
+            max_v = int(max_row[0]["max_v"]) if max_row else 0
             article = existing_article
             version_num = max_v + 1
         else:
@@ -442,8 +446,12 @@ async def apply_amendment_operation(
                     confidence=op.get("confidence", 1.0),
                     actor=actor,
                 )
-            versions = await get_collection("article_versions").find({"article_id": article["id"]}, {"version_num": 1}).to_list(length=None)
-            max_v = max((int(v.get("version_num", 0)) for v in versions), default=0)
+            max_cursor = get_collection("article_versions").aggregate([
+                {"$match": {"article_id": article["id"]}},
+                {"$group": {"_id": None, "max_v": {"$max": "$version_num"}}},
+            ])
+            max_row = await max_cursor.to_list(length=1)
+            max_v = int(max_row[0]["max_v"]) if max_row else 0
             version_num = max_v + 1
 
         new_v = {
@@ -538,7 +546,7 @@ async def apply_all_pending(
     pending = await get_collection("amendment_operations").find({
         "amendment_doc_id": document_id,
         "status": "pending",
-    }).sort("created_at", 1).to_list(length=None)
+    }).sort("created_at", 1).to_list(length=5000)
 
     total_pending = len(pending)
     results = []
@@ -601,18 +609,18 @@ async def list_operations(
         query["status"] = status
 
     total = await get_collection("amendment_operations").count_documents(query)
-    ops = await get_collection("amendment_operations").find(query).sort("created_at", 1).to_list(length=None)
+    ops = await get_collection("amendment_operations").find(query).sort("created_at", 1).to_list(length=5000)
 
     by_type_rows = await get_collection("amendment_operations").aggregate([
         {"$match": {"amendment_doc_id": document_id}},
         {"$group": {"_id": "$operation_type", "count": {"$sum": 1}}},
-    ]).to_list(length=None)
+    ]).to_list(length=5000)
     by_type = {row["_id"]: row["count"] for row in by_type_rows}
 
     by_status_rows = await get_collection("amendment_operations").aggregate([
         {"$match": {"amendment_doc_id": document_id}},
         {"$group": {"_id": "$status", "count": {"$sum": 1}}},
-    ]).to_list(length=None)
+    ]).to_list(length=5000)
     by_status = {row["_id"]: row["count"] for row in by_status_rows}
 
     return [_op_to_dict(op) for op in ops], int(total), by_type, by_status

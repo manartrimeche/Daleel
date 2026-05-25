@@ -43,7 +43,7 @@ async def full_audit():
     docs_list = await db["documents"].find(
         {}, {"id": 1, "filename": 1, "language": 1, "total_pages": 1,
              "total_chunks": 1, "ocr_used": 1, "status": 1, "_id": 0}
-    ).to_list(length=None)
+    ).to_list(length=10_000)
 
     for d in docs_list:
         doc_id = d["id"]
@@ -84,7 +84,7 @@ async def full_audit():
 
     all_chunks = await db["chunks"].find(
         {}, {"text": 1, "language": 1, "page_number": 1, "document_id": 1, "_id": 0}
-    ).to_list(length=None)
+    ).to_list(length=200_000)
 
     for c in all_chunks:
         text = c.get("text", "")

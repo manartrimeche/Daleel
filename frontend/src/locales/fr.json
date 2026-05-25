@@ -122,6 +122,7 @@
     "users": "Utilisateurs",
     "organizations": "Organisations",
     "notifications": "Notifications",
+    "contracts": "Analyse contrats",
     "settings": "Paramètres",
     "defaultUser": "Utilisateur",
     "defaultRole": "Membre",
@@ -380,6 +381,50 @@
     "notif_compliance": "Alertes de conformité",
     "notif_docs": "Nouveaux documents indexés",
     "notif_legislative": "Mises à jour législatives"
+  },
+  "contracts": {
+    "title": "Analyse de contrats",
+    "subtitle": "Identifiez les risques, clauses manquantes et failles juridiques",
+    "selectDocument": "Sélectionner un document",
+    "analyze": "Analyser le contrat",
+    "reAnalyze": "Relancer l'analyse",
+    "analyzing": "Analyse en cours...",
+    "analyzingDesc": "Le contrat est en cours d'analyse par l'IA. Cela peut prendre quelques minutes.",
+    "noAnalysis": "Aucune analyse",
+    "noAnalysisDesc": "Sélectionnez un document uploadé puis lancez l'analyse pour identifier les risques contractuels.",
+    "score": "Score global",
+    "excellent": "Excellent",
+    "bon": "Bon",
+    "attention": "Attention requise",
+    "critique": "Critique",
+    "tabs": {
+      "overview": "Vue d'ensemble",
+      "risks": "Risques",
+      "missing": "Clauses manquantes",
+      "recommendations": "Recommandations"
+    },
+    "severity": {
+      "critical": "Critique",
+      "major": "Majeur",
+      "minor": "Mineur"
+    },
+    "importance": {
+      "mandatory": "Obligatoire",
+      "recommended": "Recommandé"
+    },
+    "contractType": "Type de contrat",
+    "parties": "Parties",
+    "summary": "Résumé",
+    "legalRef": "Référence juridique",
+    "recommendation": "Recommandation",
+    "riskIfMissing": "Risque en cas d'absence",
+    "findings": "Problèmes identifiés",
+    "missingClauses": "Clauses manquantes",
+    "chunksAnalyzed": "Sections analysées",
+    "duration": "Durée d'analyse",
+    "noDocuments": "Aucun document uploadé",
+    "failedDesc": "L'analyse a échoué. Veuillez réessayer.",
+    "delete": "Supprimer l'analyse"
   },
   "invite": {
     "joinTitle": "Invitation à rejoindre",

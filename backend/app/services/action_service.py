@@ -144,7 +144,7 @@ async def extract_and_store_actions(
     article_version_id: str,
     exigence_ids: list[str] | None = None,
 ) -> dict:
-    version = await getget_collection("article_versions").find_one({"id": article_version_id})
+    version = await get_collection("article_versions").find_one({"id": article_version_id})
     if not version:
         raise ValueError(f"ArticleVersion '{article_version_id}' not found")
 
@@ -152,7 +152,7 @@ async def extract_and_store_actions(
     if exigence_ids:
         query["id"] = {"$in": exigence_ids}
 
-    exigences = await getget_collection("exigences").find(query).to_list(length=None)
+    exigences = await get_collection("exigences").find(query).to_list(length=5000)
     if not exigences:
         logger.info(
             "No exigences directly linked to version %s, nothing to extract.",
@@ -188,7 +188,7 @@ async def extract_and_store_actions(
             }
             for action in raw_actions
         ]
-        await getget_collection("actions").insert_many(action_docs)
+        await get_collection("actions").insert_many(action_docs)
         actions_created += len(action_docs)
         exigences_processed += 1
 
@@ -217,9 +217,9 @@ async def get_actions_by_version(
     if modalite:
         query["modalite"] = modalite
 
-    total = await getget_collection("actions").count_documents(query)
+    total = await get_collection("actions").count_documents(query)
     cursor = (
-        getget_collection("actions")
+        get_collection("actions")
         .find(query)
         .sort([("modalite", 1), ("confidence", -1)])
         .skip(skip)
@@ -228,7 +228,7 @@ async def get_actions_by_version(
     actions = [_action_to_dict(action) async for action in cursor]
 
     modalite_counts: dict[str, int] = {}
-    async for row in getget_collection("actions").aggregate([
+    async for row in get_collection("actions").aggregate([
         {"$match": {"article_version_id": article_version_id}},
         {"$group": {"_id": "$modalite", "count": {"$sum": 1}}},
     ]):
@@ -241,12 +241,12 @@ async def get_actions_by_exigence(
     db,
     exigence_id: str,
 ) -> list[dict]:
-    cursor = getget_collection("actions").find({"exigence_id": exigence_id}).sort("confidence", -1)
+    cursor = get_collection("actions").find({"exigence_id": exigence_id}).sort("confidence", -1)
     return [_action_to_dict(action) async for action in cursor]
 
 
 async def get_action(db, action_id: str) -> dict | None:
-    action = await getget_collection("actions").find_one({"id": action_id})
+    action = await get_collection("actions").find_one({"id": action_id})
     return _action_to_dict(action) if action else None
 
 
@@ -254,7 +254,7 @@ async def delete_actions_by_version(
     db,
     article_version_id: str,
 ) -> int:
-    result = await getget_collection("actions").delete_many({"article_version_id": article_version_id})
+    result = await get_collection("actions").delete_many({"article_version_id": article_version_id})
     count = result.deleted_count
     logger.info("Deleted %s actions for version %s", count, article_version_id)
     return count

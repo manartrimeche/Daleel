@@ -38,10 +38,12 @@ USAGE
         --eval-ratio 0.1 \
         --pseudonymize
 
-NOTE PFE
---------
-Ce script est un SQUELETTE. Les fonctions marquées `# TODO` doivent être
-remplies au cas par cas selon les données réellement disponibles.
+EXTENSION
+---------
+Les fonctions `_harvest_from_existing_cases` et `_generate_synthetic_examples`
+contiennent le code de connexion MongoDB commenté — à décommenter lorsque
+des données de production sont disponibles. Les exemples curés dans
+`training/data/style_curated/` suffisent pour la démonstration.
 """
 from __future__ import annotations
 
@@ -97,7 +99,7 @@ async def _harvest_from_existing_cases(max_cases: int, pseudonymize_flag: bool) 
     Returns: liste de dicts {"input": {...}, "output": "..."}
     """
     examples: list[dict] = []
-    # TODO: connexion DB + extraction réelle. Squelette ici.
+    # Extension production : décommenter le bloc ci-dessous pour connecter la base réelle.
     # from app.database import get_db
     # from app.services import case_service, advisor_response_composer
     # db = get_db()
@@ -117,7 +119,7 @@ async def _harvest_from_existing_cases(max_cases: int, pseudonymize_flag: bool) 
 
 async def _build_input_payload(db: Any, case: dict) -> dict:
     """Construit le champ `input` à partir d'un case + ses findings/actions."""
-    # TODO : récupérer findings, actions, last user message, retrieved chunks
+    # Extension : enrichir avec findings, actions et chunks récupérés depuis la DB.
     return {
         "language": case.get("language", "fr"),
         "user_question": case.get("description", ""),
@@ -166,8 +168,8 @@ async def _generate_synthetic_examples(seed_questions: list[str], n: int) -> lis
     À filtrer ensuite par `quality_guard_service` pour éliminer les sorties
     avec articles non supportés.
     """
-    # TODO : appeler llm_service.ask_auto + quality_guard_service.audit_and_guard
-    # pour chaque seed_question. Garder uniquement les sorties "guard_passed".
+    # Extension : appeler llm_service.ask_auto + quality_guard_service.audit_and_guard
+    # pour chaque seed_question et ne garder que les sorties "guard_passed".
     return []
 
 

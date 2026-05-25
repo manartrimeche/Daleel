@@ -19,6 +19,7 @@ import History from './pages/admin/History';
 import CompanyProfile from './pages/admin/CompanyProfile';
 import Organizations from './pages/admin/Organizations';
 import Notifications from './pages/admin/Notifications';
+import ContractAnalysis from './pages/admin/ContractAnalysis';
 import Settings from './pages/admin/Settings';
 import Sidebar from './components/Sidebar';
 
@@ -249,6 +250,7 @@ function AppLayout() {
           <Route path="/chat" element={<Chat />} />
           <Route path="/admin/documents" element={<RoleRoute roles={['super_admin','owner','admin']}><Documents /></RoleRoute>} />
           <Route path="/admin/amendments" element={<RoleRoute roles={['super_admin','owner','admin']}><Amendments /></RoleRoute>} />
+          <Route path="/admin/contracts" element={<RoleRoute roles={['super_admin','owner','admin']}><ContractAnalysis /></RoleRoute>} />
           <Route path="/admin/cases" element={<RoleRoute roles={['owner','admin','member']}><Cases /></RoleRoute>} />
           <Route path="/admin/history" element={<RoleRoute roles={['owner','admin']}><History /></RoleRoute>} />
           <Route path="/admin/company" element={<RoleRoute roles={['owner','admin']}><CompanyProfile /></RoleRoute>} />
@@ -256,6 +258,14 @@ function AppLayout() {
           <Route path="/admin/organizations" element={<RoleRoute roles={['super_admin']}><Organizations /></RoleRoute>} />
           <Route path="/admin/notifications" element={<RoleRoute roles={['super_admin','owner','admin','member']}><Notifications /></RoleRoute>} />
           <Route path="/admin/settings" element={<Settings />} />
+          <Route path="*" element={
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 16, padding: 40 }}>
+              <DIcon name="alertTriangle" size={48} style={{ color: 'var(--text-muted)' }} />
+              <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', margin: 0 }}>404</h2>
+              <p style={{ fontSize: 14, color: 'var(--text-secondary)', margin: 0 }}>Page introuvable</p>
+              <a href="/dashboard" style={{ fontSize: 13, color: 'var(--gold)', fontWeight: 600, textDecoration: 'none', marginTop: 8 }}>Retour au tableau de bord</a>
+            </div>
+          } />
         </Routes>
         </div>
       </div>

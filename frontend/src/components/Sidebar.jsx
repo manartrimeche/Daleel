@@ -38,6 +38,7 @@ export default function Sidebar() {
       items: [
         { id: 'documents', icon: 'fileText', labelKey: 'sidebar.documents', path: '/admin/documents', roles: ['super_admin', 'owner', 'admin'] },
         { id: 'amendments', icon: 'edit', labelKey: 'sidebar.amendments', path: '/admin/amendments', roles: ['super_admin', 'owner', 'admin'] },
+        { id: 'contracts', icon: 'fileSearch', labelKey: 'sidebar.contracts', path: '/admin/contracts', roles: ['super_admin', 'owner', 'admin'] },
         { id: 'cases', icon: 'shieldCheck', labelKey: 'sidebar.cases', path: '/admin/cases', roles: ['owner', 'admin', 'member'] },
         { id: 'history', icon: 'clock', labelKey: 'sidebar.history', path: '/admin/history', roles: ['owner', 'admin'] },
       ],
@@ -69,13 +70,18 @@ export default function Sidebar() {
       <div style={sidebarStyles.pattern} />
 
       <div style={{ padding: '24px 20px 8px', position: 'relative', zIndex: 1 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 8, background: 'linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 16, fontWeight: 700, fontFamily: 'var(--font-heading)' }}>د</div>
-          <div>
-            <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'var(--font-heading)', color: '#fff', letterSpacing: '-0.02em' }}>Daleel</div>
-            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Legal Intelligence</div>
-          </div>
-        </div>
+        <img
+          src="/daleel-logo.svg"
+          alt="Daleel"
+          style={{
+            width: '100%',
+            maxWidth: 168,
+            height: 72,
+            objectFit: 'contain',
+            objectPosition: 'left center',
+            display: 'block',
+          }}
+        />
       </div>
 
       <div style={sidebarStyles.nav}>

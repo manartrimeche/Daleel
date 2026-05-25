@@ -26,13 +26,11 @@ export default function Landing() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)' }}>
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 40px', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 8, background: 'linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 16, fontWeight: 700, fontFamily: 'var(--font-heading)' }}>د</div>
-          <div>
-            <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'var(--font-heading)', color: 'var(--navy)' }}>Daleel</div>
-            <div style={{ fontSize: 9, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Legal Intelligence</div>
-          </div>
-        </div>
+        <img
+          src="/daleel-logo.svg?v=20260524"
+          alt="Daleel"
+          style={{ width: 230, height: 72, objectFit: 'contain', objectPosition: 'left center', display: 'block' }}
+        />
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <button onClick={() => navigate('/login')} style={{ padding: '8px 20px', borderRadius: 'var(--radius-md)', background: 'transparent', color: 'var(--navy)', fontSize: 13, fontWeight: 600, border: '1px solid var(--border)', cursor: 'pointer', transition: 'all .15s' }}>
             {t('landing.connexion')}

@@ -122,6 +122,7 @@
     "users": "Users",
     "organizations": "Organizations",
     "notifications": "Notifications",
+    "contracts": "Contract Analysis",
     "settings": "Settings",
     "defaultUser": "User",
     "defaultRole": "Member",
@@ -380,6 +381,50 @@
     "notif_compliance": "Compliance alerts",
     "notif_docs": "New indexed documents",
     "notif_legislative": "Legislative updates"
+  },
+  "contracts": {
+    "title": "Contract Analysis",
+    "subtitle": "Identify risks, missing clauses, and legal flaws",
+    "selectDocument": "Select a document",
+    "analyze": "Analyze contract",
+    "reAnalyze": "Re-analyze",
+    "analyzing": "Analysis in progress...",
+    "analyzingDesc": "The contract is being analyzed by AI. This may take a few minutes.",
+    "noAnalysis": "No analysis",
+    "noAnalysisDesc": "Select an uploaded document then launch the analysis to identify contractual risks.",
+    "score": "Overall score",
+    "excellent": "Excellent",
+    "bon": "Good",
+    "attention": "Attention required",
+    "critique": "Critical",
+    "tabs": {
+      "overview": "Overview",
+      "risks": "Risks",
+      "missing": "Missing clauses",
+      "recommendations": "Recommendations"
+    },
+    "severity": {
+      "critical": "Critical",
+      "major": "Major",
+      "minor": "Minor"
+    },
+    "importance": {
+      "mandatory": "Mandatory",
+      "recommended": "Recommended"
+    },
+    "contractType": "Contract type",
+    "parties": "Parties",
+    "summary": "Summary",
+    "legalRef": "Legal reference",
+    "recommendation": "Recommendation",
+    "riskIfMissing": "Risk if absent",
+    "findings": "Identified issues",
+    "missingClauses": "Missing clauses",
+    "chunksAnalyzed": "Sections analyzed",
+    "duration": "Analysis duration",
+    "noDocuments": "No uploaded documents",
+    "failedDesc": "Analysis failed. Please try again.",
+    "delete": "Delete analysis"
   },
   "invite": {
     "joinTitle": "Invitation to join",

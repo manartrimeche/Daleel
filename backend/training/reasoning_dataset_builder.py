@@ -75,7 +75,7 @@ PRIORITY_TO_RISK = {
 async def _harvest_classification_from_cases(max_cases: int) -> list[dict]:
     """Itère sur les cases en base et produit des exemples `classify`."""
     examples: list[dict] = []
-    # TODO :
+    # Extension production : décommenter pour connecter la base MongoDB réelle.
     # from app.database import get_db
     # from app.services import case_service
     # db = get_db()
@@ -104,8 +104,8 @@ async def _harvest_classification_from_cases(max_cases: int) -> list[dict]:
 async def _harvest_extraction_from_cases(max_cases: int) -> list[dict]:
     """Génère des exemples `extract` à partir de `conversation_context`."""
     examples: list[dict] = []
-    # TODO : itérer cases, lire conversation_context (parties, dates, amounts...)
-    # et produire un objet structuré.
+    # Extension : itérer les cases, lire conversation_context (parties, dates, amounts)
+    # et produire l'objet structuré d'extraction.
     logger.info("extract-from-cases : %d examples (stub)", len(examples))
     return examples
 

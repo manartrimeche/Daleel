@@ -355,7 +355,7 @@ async def get_applicability_summary(
             "by_type": {},
         }
 
-    applicabilities = await get_collection("exigence_applicabilities").find({"profile_id": profile_id}).to_list(length=None)
+    applicabilities = await get_collection("exigence_applicabilities").find({"profile_id": profile_id}).to_list(length=10000)
     applicable_count = sum(1 for app in applicabilities if app.get("is_applicable"))
     not_applicable_count = len(applicabilities) - applicable_count
     avg_confidence = sum(float(app.get("confidence", 0.0)) for app in applicabilities) / len(applicabilities) if applicabilities else 0.0

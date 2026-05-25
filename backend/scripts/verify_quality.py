@@ -48,7 +48,7 @@ async def verify():
     all_chunks = await db["chunks"].find(
         {"language": "ar"},
         {"text": 1, "page_number": 1, "document_id": 1, "_id": 0},
-    ).to_list(length=None)
+    ).to_list(length=200_000)
 
     for c in all_chunks:
         text = c.get("text", "")
@@ -187,7 +187,7 @@ async def verify():
     fr_texts = {}
     fr_chunks = await db["chunks"].find(
         {"language": "fr"}, {"text": 1, "_id": 0}
-    ).to_list(length=None)
+    ).to_list(length=200_000)
 
     for c in fr_chunks:
         text = c.get("text", "").strip()

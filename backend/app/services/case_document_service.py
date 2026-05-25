@@ -640,13 +640,13 @@ async def analyze_case_document(
     # Get cleaned text for analysis
     cleaned_pages = await get_collection("document_cleaned_texts").find(
         {"document_id": document_id}
-    ).sort("page_number", 1).to_list(length=None)
+    ).sort("page_number", 1).to_list(length=5000)
 
     if not cleaned_pages:
         # Try raw pages
         raw_pages = await get_collection("document_raw_pages").find(
             {"document_id": document_id}
-        ).sort("page_number", 1).to_list(length=None)
+        ).sort("page_number", 1).to_list(length=5000)
         texts = [p.get("raw_text", "") for p in raw_pages]
     else:
         texts = [p.get("cleaned_text", "") for p in cleaned_pages]

@@ -160,7 +160,7 @@ async def recalculate_for_loi(
         "article_id": {
             "$in": [article["id"] async for article in get_collection("articles").find({"loi_id": loi_id}, {"id": 1})],
         },
-    }).to_list(length=None)
+    }).to_list(length=5000)
 
     active_version_ids = [version["id"] for version in versions]
     return await recalculate_after_amendment(

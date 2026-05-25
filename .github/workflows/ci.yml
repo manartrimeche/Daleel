@@ -54,7 +54,7 @@ jobs:
       - name: Run unit tests with coverage
         run: |
           python -m pytest backend/tests/ -v --tb=short -x \
-            --cov=backend/app --cov-report=term-missing --cov-fail-under=30
+            --cov=backend/app --cov-report=term-missing --cov-fail-under=50
 
       - name: Upload coverage report
         if: matrix.python-version == '3.12'
