@@ -29,7 +29,6 @@ from __future__ import annotations
 
 import argparse
 import logging
-import os
 from pathlib import Path
 
 from peft import PeftModel
@@ -71,7 +70,6 @@ def merge_and_save(adapter_dir: Path, output_merged: Path, base_model_name: str 
 
     # Auto-detect base model from adapter config
     if base_model_name is None:
-        from peft.utils import infer_device
         import json as _json
         config_path = adapter_dir / "adapter_config.json"
         if config_path.exists():

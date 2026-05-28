@@ -14,18 +14,19 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="repla
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 os.environ.setdefault("ENVIRONMENT", "development")
 
-from datetime import datetime, timezone
-from motor.motor_asyncio import AsyncIOMotorClient
-from app.config import get_settings
-from app.processing.chunker import build_records
-from app.services.embedding_service import embed_texts_async, get_primary_embedding_dimension
-from app.database import get_collection
+from datetime import datetime, timezone  # noqa: E402
+from motor.motor_asyncio import AsyncIOMotorClient  # noqa: E402
+from app.config import get_settings  # noqa: E402
+from app.processing.chunker import build_records  # noqa: E402
+from app.services.embedding_service import embed_texts_async, get_primary_embedding_dimension  # noqa: E402
+from app.database import get_collection  # noqa: E402
 
 
 async def reprocess():
     settings = get_settings()
     client = AsyncIOMotorClient(settings.mongodb_url)
-    db = client[settings.mongodb_db_name]
+    # Ensure client connects (collection access uses get_collection())
+    _ = client[settings.mongodb_db_name]
 
     docs = await get_collection("documents").find(
         {"status": "ready"},
@@ -67,7 +68,7 @@ async def reprocess():
         print(f"  {filename}: {old_count} old -> {len(records)} new chunks ({len(pages)} pages)")
 
         if not records:
-            print(f"    WARNING: no chunks produced, keeping old data")
+            print("    WARNING: no chunks produced, keeping old data")
             continue
 
         # Delete old chunks

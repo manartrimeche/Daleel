@@ -190,7 +190,7 @@ async def full_audit():
     print(f"\n  Langues: {dict(lang_counts)}")
 
     if lengths:
-        print(f"\n  Longueur des chunks:")
+        print("\n  Longueur des chunks:")
         print(f"    Min:     {min(lengths)}")
         print(f"    Max:     {max(lengths)}")
         print(f"    Median:  {statistics.median(lengths):.0f}")
@@ -201,25 +201,22 @@ async def full_audit():
         (0, 50), (50, 100), (100, 300), (300, 500),
         (500, 1000), (1000, 2000), (2000, 3000), (3000, 99999),
     ]
-    print(f"\n  Distribution des longueurs:")
+    print("\n  Distribution des longueurs:")
     for lo, hi in brackets:
-        count = sum(1 for l in lengths if lo <= l < hi)
+        count = sum(1 for ln in lengths if lo <= ln < hi)
         pct = count / len(lengths) * 100 if lengths else 0
         bar = "#" * int(pct / 2)
         label = f"{lo}-{hi}" if hi < 99999 else f"{lo}+"
         print(f"    {label:>10}: {count:>4} ({pct:5.1f}%)  {bar}")
 
-    print(f"\n  Problemes detectes:")
-    any_issue = False
+    print("\n  Problemes detectes:")
     for k, v in issues.items():
         status = "OK" if v == 0 else f"ISSUE ({v})"
         icon = "+" if v == 0 else "!"
         print(f"    [{icon}] {k:.<35} {status}")
-        if v > 0:
-            any_issue = True
 
     if issue_samples:
-        print(f"\n  Echantillons:")
+        print("\n  Echantillons:")
         for issue_type, samples in issue_samples.items():
             if samples:
                 print(f"\n    --- {issue_type} ---")
@@ -232,7 +229,7 @@ async def full_audit():
         key=lambda x: -x[1],
     )[:5]
     if top_dups:
-        print(f"\n  Top doublons:")
+        print("\n  Top doublons:")
         for txt, count in top_dups:
             print(f"    x{count}: {txt[:80]}")
 
@@ -295,7 +292,7 @@ async def full_audit():
             print(f"    - {did}")
 
     # FAISS consistency
-    print(f"\n  FAISS index: 2160 vectors expected (from startup log)")
+    print("\n  FAISS index: 2160 vectors expected (from startup log)")
 
     # Summary
     print("\n" + "=" * 65)

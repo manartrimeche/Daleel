@@ -170,7 +170,7 @@ class ChatMessage(BaseModel):
     )
 
     role: str = Field(..., pattern=r"^(user|assistant)$")
-    content: str = Field(..., min_length=1)
+    content: str = Field(..., min_length=1, max_length=8000)
 
 
 class AskRequest(BaseModel):
@@ -210,6 +210,7 @@ class AskRequest(BaseModel):
     llm_model: Optional[str] = Field(default=None, min_length=1, max_length=120)
     temperature: float = Field(default=0.3, ge=0.0, le=1.0)
     history: List[ChatMessage] = Field(default_factory=list, max_length=20)
+    conversation_id: Optional[str] = Field(default=None, max_length=64)
     # Sprint 6+ toggles for domain-aware RAG and quality guard
     use_domain_router: bool = Field(default=True)
     use_quality_guard: Optional[bool] = Field(default=None)

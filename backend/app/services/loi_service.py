@@ -211,7 +211,9 @@ async def list_articles(
     """List articles for a Loi, optionally filtered by keyword."""
     query: dict = {"loi_id": loi_id}
     if search:
-        regex = {"$regex": search, "$options": "i"}
+        import re
+        escaped = re.escape(search)
+        regex = {"$regex": escaped, "$options": "i"}
         query["$or"] = [{"article_heading": regex}, {"article_number": regex}, {"article_key": regex}]
 
     total = await get_collection("articles").count_documents(query)

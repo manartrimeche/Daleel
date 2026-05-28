@@ -19,7 +19,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from app.processing.text_utils import clean_arabic_ocr_text
+from app.processing.text_utils import clean_arabic_ocr_text  # noqa: E402
 
 
 @dataclass

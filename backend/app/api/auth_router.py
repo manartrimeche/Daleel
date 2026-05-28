@@ -380,10 +380,15 @@ async def list_organizations(
     user: dict = Depends(require_role("super_admin")),
 ):
     orgs, total = await auth_service.list_organizations(skip, limit)
+
+    # Batch member counts in a single aggregation instead of N+1 queries
+    org_ids = [str(org["_id"]) for org in orgs]
+    member_counts = await auth_service.get_organization_member_counts(org_ids) if org_ids else {}
+
     items = []
     for org in orgs:
         org = await auth_service.expire_organization_if_needed(org)
-        count = await auth_service.get_organization_member_count(str(org["_id"]))
+        count = member_counts.get(str(org["_id"]), 0)
         items.append(OrganizationOut(**auth_service.serialize_organization(org, count)))
     return OrganizationListOut(organizations=items, total=total)
 

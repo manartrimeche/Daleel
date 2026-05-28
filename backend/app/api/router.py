@@ -112,6 +112,7 @@ async def _save_chat_history(
     answer: str,
     sources_count: int,
     document_filename: str | None = None,
+    conversation_id: str | None = None,
 ) -> None:
     if not user:
         return
@@ -127,6 +128,8 @@ async def _save_chat_history(
         }
         if document_filename:
             doc["document_filename"] = document_filename
+        if conversation_id:
+            doc["conversation_id"] = conversation_id
         await db["chat_history"].insert_one(doc)
     except Exception:
         logger.debug("Could not save chat history (non-fatal)", exc_info=True)
@@ -650,7 +653,7 @@ async def ask_question(
         organization_id=_organization_scope(_user),
     )
 
-    await _save_chat_history(db, _user, body.question, result.get("answer", ""), len(result.get("sources", [])))
+    await _save_chat_history(db, _user, body.question, result.get("answer", ""), len(result.get("sources", [])), conversation_id=body.conversation_id)
 
     return AskResponse(**result)
 
@@ -674,7 +677,7 @@ async def ask_question_agentic(request: Request, body: AskRequest, db: Any = Dep
         organization_id=_organization_scope(_user),
     )
 
-    await _save_chat_history(db, _user, body.question, result.get("answer", ""), len(result.get("sources", [])))
+    await _save_chat_history(db, _user, body.question, result.get("answer", ""), len(result.get("sources", [])), conversation_id=body.conversation_id)
 
     return AgenticAskResponse(**result)
 
@@ -691,6 +694,7 @@ async def ask_with_document(
     temperature: float = Form(default=0.3, ge=0.0, le=1.0),
     response_language: str | None = Form(default=None),
     history: str | None = Form(default=None),
+    conversation_id: str | None = Form(default=None),
     db: Any = Depends(get_db),
     _key: str | None = Depends(require_api_key),
     current_user: dict | None = Depends(get_optional_current_user),
@@ -741,7 +745,7 @@ async def ask_with_document(
         organization_id=_organization_scope(current_user),
     )
 
-    await _save_chat_history(db, current_user, question, result.get("answer", ""), len(result.get("sources", [])), document_filename=filename)
+    await _save_chat_history(db, current_user, question, result.get("answer", ""), len(result.get("sources", [])), document_filename=filename, conversation_id=conversation_id)
 
     return AgenticAskResponse(**result)
 
@@ -2502,32 +2506,80 @@ async def get_chat_history(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     user_id: str | None = Query(None),
+    scope: str = Query("personal", pattern="^(personal|organization)$"),
     user: dict = Depends(get_current_user),
     db: Any = Depends(get_db),
 ):
     """
-    List chat history with role-based access:
-    - member/viewer: own history only
-    - admin/owner: all members of their organization
-    - super_admin: no access (403)
-    """
-    if user["role"] == "super_admin":
-        raise HTTPException(403, "Super admin cannot access company chat histories")
+    List chat history grouped by conversation.
 
+    The default scope is always personal, for every role. Organization
+    history is reserved for the company owner.
+    Returns one entry per conversation (the first message as title),
+    with message_count and last_message_at. Falls back to ungrouped
+    for legacy entries without conversation_id.
+    """
     current_user_id = _current_user_id(user)
-    query: dict = {}
     org_id = user.get("organization_id")
 
-    if user["role"] in ("admin", "owner"):
-        query["organization_id"] = org_id
+    if scope == "organization":
+        if user["role"] != "owner":
+            raise HTTPException(403, "Only the company owner can access member chat histories")
+        if not org_id:
+            raise HTTPException(404, "Organization not found")
+        base_query: dict = {"organization_id": org_id}
         if user_id:
-            query["user_id"] = user_id
+            base_query["user_id"] = user_id
     else:
-        query["user_id"] = current_user_id
+        base_query = {"user_id": current_user_id}
 
-    total = await db["chat_history"].count_documents(query)
-    cursor = db["chat_history"].find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit)
-    entries = await cursor.to_list(length=limit)
+    conv_filter = {"conversation_id": {"$exists": True, "$ne": None}}
+    pipeline = [
+        {"$match": {"$and": [base_query, conv_filter]}},
+        {"$sort": {"created_at": 1}},
+        {"$group": {
+            "_id": "$conversation_id",
+            "conversation_id": {"$first": "$conversation_id"},
+            "question": {"$first": "$question"},
+            "answer": {"$first": "$answer"},
+            "created_at": {"$first": "$created_at"},
+            "last_message_at": {"$last": "$created_at"},
+            "message_count": {"$sum": 1},
+            "user_id": {"$first": "$user_id"},
+            "organization_id": {"$first": "$organization_id"},
+        }},
+        {"$sort": {"last_message_at": -1}},
+        {"$skip": skip},
+        {"$limit": limit},
+    ]
+    grouped = await db["chat_history"].aggregate(pipeline).to_list(length=limit)
+
+    no_conv_filter = {"$or": [{"conversation_id": {"$exists": False}}, {"conversation_id": None}]}
+    legacy_query = {"$and": [base_query, no_conv_filter]}
+    legacy_cursor = db["chat_history"].find(legacy_query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit)
+    legacy = await legacy_cursor.to_list(length=limit)
+
+    entries = []
+    for g in grouped:
+        entries.append({
+            "conversation_id": g["conversation_id"],
+            "question": g["question"],
+            "answer": g["answer"],
+            "created_at": g["created_at"].isoformat() if g.get("created_at") else None,
+            "last_message_at": g["last_message_at"].isoformat() if g.get("last_message_at") else None,
+            "message_count": g["message_count"],
+            "user_id": g.get("user_id"),
+            "organization_id": g.get("organization_id"),
+        })
+    for e in legacy:
+        if e.get("created_at"):
+            e["created_at"] = e["created_at"].isoformat()
+        e["conversation_id"] = None
+        e["message_count"] = 1
+        entries.append(e)
+
+    entries.sort(key=lambda x: x.get("last_message_at") or x.get("created_at") or "", reverse=True)
+    entries = entries[: limit]
 
     user_ids = list({e["user_id"] for e in entries if e.get("user_id")})
     user_map: dict[str, str] = {}
@@ -2545,25 +2597,56 @@ async def get_chat_history(
 
     for e in entries:
         e["user_name"] = user_map.get(e.get("user_id", ""), "?")
-        if e.get("created_at"):
-            e["created_at"] = e["created_at"].isoformat()
 
+    total = len(entries)
     return {"entries": entries, "total": total}
+
+
+@router.get("/chat-history/conversation/{conversation_id}")
+async def get_conversation_messages(
+    conversation_id: str,
+    scope: str = Query("personal", pattern="^(personal|organization)$"),
+    user: dict = Depends(get_current_user),
+    db: Any = Depends(get_db),
+):
+    """Load all messages of a conversation, ordered chronologically."""
+    current_user_id = _current_user_id(user)
+    query: dict = {"conversation_id": conversation_id}
+
+    if scope == "organization":
+        if user["role"] != "owner":
+            raise HTTPException(403, "Only the company owner can access member chat histories")
+        org_id = user.get("organization_id")
+        if not org_id:
+            raise HTTPException(404, "Organization not found")
+        query["organization_id"] = org_id
+    else:
+        query["user_id"] = current_user_id
+
+    cursor = db["chat_history"].find(query, {"_id": 0}).sort("created_at", 1)
+    messages = await cursor.to_list(length=100)
+
+    for m in messages:
+        if m.get("created_at"):
+            m["created_at"] = m["created_at"].isoformat()
+
+    return {"conversation_id": conversation_id, "messages": messages}
 
 
 @router.delete("/chat-history/{entry_id}")
 async def delete_chat_history_entry(
     entry_id: str,
+    scope: str = Query("personal", pattern="^(personal|organization)$"),
     user: dict = Depends(get_current_user),
     db: Any = Depends(get_db),
 ):
     """Delete a single chat history entry (own entries or admin for org)."""
-    if user["role"] == "super_admin":
-        raise HTTPException(403, "Super admin cannot access company chat histories")
-
     current_user_id = _current_user_id(user)
     created_at_filter = _chat_history_created_at_filter(entry_id)
-    if user["role"] in ("admin", "owner"):
+
+    if scope == "organization":
+        if user["role"] != "owner":
+            raise HTTPException(403, "Only the company owner can access member chat histories")
         org_id = user.get("organization_id")
         if not org_id:
             raise HTTPException(404, "Entry not found")
@@ -2690,3 +2773,69 @@ async def list_contract_analyses(
         limit=limit,
     )
     return {"analyses": analyses, "total": total}
+
+
+# ══════════════════════════════════════════════════════════════
+#  CONTRACT ANALYSIS — Chat (analyse légère sur texte brut)
+# ══════════════════════════════════════════════════════════════
+
+
+@router.post(
+    "/chat-contract-analysis",
+    tags=["contract-analysis"],
+    summary="Analyse de contrat légère pour le chat",
+)
+@limiter.limit("4/minute")
+async def chat_contract_analysis(
+    request: Request,
+    file: UploadFile = File(...),
+    action: str = Form(...),
+    response_language: str | None = Form(default=None),
+    conversation_id: str | None = Form(default=None),
+    db: Any = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Analyse de contrat dans le chat — pas besoin de document indexé.
+
+    Actions : summary, risks, missing_clauses, recommendations, full.
+    """
+    from app.processing.file_extract import extract_text_from_upload, _sanitize_filename
+    from app.services import contract_chat_service
+
+    if action not in contract_chat_service.ACTIONS:
+        raise HTTPException(422, f"action must be one of {contract_chat_service.ACTIONS}")
+
+    filename = _sanitize_filename(file.filename or "upload")
+    file_bytes = await file.read()
+    extraction = await extract_text_from_upload(file_bytes, filename, content_type=file.content_type)
+    del file_bytes
+
+    if extraction["error"]:
+        raise HTTPException(400, extraction["error"])
+    if not extraction["text"] or len(extraction["text"].strip()) < 50:
+        raise HTTPException(422, "Le document ne contient pas assez de texte pour une analyse.")
+
+    language = response_language or "fr"
+    result = await contract_chat_service.analyze_for_chat(
+        text=extraction["text"],
+        action=action,
+        language=language,
+    )
+
+    action_labels = {
+        "summary": "Résumé du contrat",
+        "risks": "Analyse des risques",
+        "missing_clauses": "Clauses manquantes",
+        "recommendations": "Recommandations",
+        "full": "Analyse complète",
+    }
+    await _save_chat_history(
+        db, current_user,
+        f"[{action_labels.get(action, action)}] {filename}",
+        result.get("analysis", {}).get("summary", "Analyse terminée."),
+        0,
+        document_filename=filename,
+        conversation_id=conversation_id,
+    )
+
+    return result

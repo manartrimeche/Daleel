@@ -44,7 +44,7 @@ import logging
 import random
 from collections import Counter
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Iterable
 
 logger = logging.getLogger(__name__)
 

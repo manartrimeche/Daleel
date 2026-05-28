@@ -1,5 +1,5 @@
 """Verify fine-tuning integration."""
-import os, json, sys
+import os
 
 # Check data files
 for f in [
@@ -19,7 +19,7 @@ for f in ['model.pt', 'labels.json', 'config.json']:
     print(f'OK: reasoning-v2/{f} ({sz:.1f} MB)')
 
 # Check ollama
-import httpx
+import httpx  # noqa: E402
 try:
     r = httpx.get('http://localhost:11434/api/tags', timeout=5)
     models = [m['name'] for m in r.json().get('models', [])]
@@ -29,7 +29,7 @@ except Exception as e:
     print(f'ERROR: Ollama: {e}')
 
 # Test services
-from app.services import reasoning_model_service, llm_style_formatter
+from app.services import reasoning_model_service  # noqa: E402
 print('OK: reasoning_model_service imported')
 print('OK: llm_style_formatter imported')
 

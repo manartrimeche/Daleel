@@ -40,7 +40,7 @@ from pathlib import Path
 from typing import Any
 
 import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM, TrainingArguments
+from transformers import AutoTokenizer, AutoModelForCausalLM
 from peft import LoraConfig, get_peft_model, TaskType
 from datasets import Dataset
 from trl import SFTTrainer, SFTConfig

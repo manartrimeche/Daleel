@@ -1,27 +1,31 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AuthProvider, useAuth } from './utils/AuthContext';
 import { LangSwitch } from './components/UI';
 import { authFetch } from './utils/auth';
 import DIcon from './components/DIcon';
+import Sidebar from './components/Sidebar';
+
+// Eager imports — small pages needed at first paint
 import Login from './pages/Login';
 import Invite from './pages/Invite';
 import ResetPassword from './pages/ResetPassword';
 import Landing from './pages/Landing';
-import Dashboard from './pages/Dashboard';
-import Chat from './pages/Chat';
-import Documents from './pages/admin/Documents';
-import Users from './pages/admin/Users';
-import Cases from './pages/admin/Cases';
-import Amendments from './pages/admin/Amendments';
-import History from './pages/admin/History';
-import CompanyProfile from './pages/admin/CompanyProfile';
-import Organizations from './pages/admin/Organizations';
-import Notifications from './pages/admin/Notifications';
-import ContractAnalysis from './pages/admin/ContractAnalysis';
-import Settings from './pages/admin/Settings';
-import Sidebar from './components/Sidebar';
+
+// Lazy imports — heavy pages loaded on demand (code-splitting)
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Chat = lazy(() => import('./pages/Chat'));
+const VoiceAssistant = lazy(() => import('./pages/VoiceAssistant'));
+const Documents = lazy(() => import('./pages/admin/Documents'));
+const Users = lazy(() => import('./pages/admin/Users'));
+const Cases = lazy(() => import('./pages/admin/Cases'));
+const Amendments = lazy(() => import('./pages/admin/Amendments'));
+const History = lazy(() => import('./pages/admin/History'));
+const CompanyProfile = lazy(() => import('./pages/admin/CompanyProfile'));
+const Organizations = lazy(() => import('./pages/admin/Organizations'));
+const Notifications = lazy(() => import('./pages/admin/Notifications'));
+const Settings = lazy(() => import('./pages/admin/Settings'));
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -235,6 +239,7 @@ function AppLayout() {
       <style>{`
         @keyframes sidebarSlideIn { from { transform: translateX(-100%); } to { transform: translateX(0); } }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--bg)' }}>
@@ -245,14 +250,20 @@ function AppLayout() {
           </div>
         )}
         <div style={{ flex: 1, overflow: 'auto' }}>
+        <Suspense fallback={
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', fontSize: 13 }}>
+            <DIcon name="loader" size={20} style={{ marginRight: 8, animation: 'spin 1s linear infinite' }} />
+            Chargement...
+          </div>
+        }>
         <Routes>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/chat" element={<Chat />} />
+          <Route path="/voice-assistant" element={<VoiceAssistant />} />
           <Route path="/admin/documents" element={<RoleRoute roles={['super_admin','owner','admin']}><Documents /></RoleRoute>} />
           <Route path="/admin/amendments" element={<RoleRoute roles={['super_admin','owner','admin']}><Amendments /></RoleRoute>} />
-          <Route path="/admin/contracts" element={<RoleRoute roles={['super_admin','owner','admin']}><ContractAnalysis /></RoleRoute>} />
           <Route path="/admin/cases" element={<RoleRoute roles={['owner','admin','member']}><Cases /></RoleRoute>} />
-          <Route path="/admin/history" element={<RoleRoute roles={['owner','admin']}><History /></RoleRoute>} />
+          <Route path="/admin/history" element={<RoleRoute roles={['owner']}><History /></RoleRoute>} />
           <Route path="/admin/company" element={<RoleRoute roles={['owner','admin']}><CompanyProfile /></RoleRoute>} />
           <Route path="/admin/users" element={<RoleRoute roles={['owner','admin']}><Users /></RoleRoute>} />
           <Route path="/admin/organizations" element={<RoleRoute roles={['super_admin']}><Organizations /></RoleRoute>} />
@@ -267,6 +278,7 @@ function AppLayout() {
             </div>
           } />
         </Routes>
+        </Suspense>
         </div>
       </div>
     </div>

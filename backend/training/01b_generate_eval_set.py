@@ -120,7 +120,7 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
-    articles = [json.loads(l) for l in args.articles.read_text(encoding="utf-8").splitlines() if l.strip()]
+    articles = [json.loads(line) for line in args.articles.read_text(encoding="utf-8").splitlines() if line.strip()]
     print(f"[load] {len(articles)} chunks dans le corpus")
 
     sample = stratified_sample(articles, args.per_bucket, args.seed)
@@ -157,7 +157,7 @@ def main() -> None:
 
     # ── Filtrage du train set ───────────────────────────────────────
     if args.train.exists():
-        train = [json.loads(l) for l in args.train.read_text(encoding="utf-8").splitlines() if l.strip()]
+        train = [json.loads(line) for line in args.train.read_text(encoding="utf-8").splitlines() if line.strip()]
         before = len(train)
         train_filtered = [p for p in train if p.get("article_key") not in eval_chunk_ids]
         removed = before - len(train_filtered)

@@ -52,7 +52,7 @@ from trl import SFTTrainer, SFTConfig
 
 import sys as _sys
 _sys.path.insert(0, str(Path(__file__).resolve().parent))
-from arabic_dataset_builder import format_example_as_chat, SYSTEM_PROMPT_AR
+from arabic_dataset_builder import format_example_as_chat
 
 logger = logging.getLogger(__name__)
 

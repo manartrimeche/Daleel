@@ -16,7 +16,7 @@ export default function History() {
   async function loadHistory() {
     setLoading(true);
     try {
-      const res = await authFetch(`/api/v1/chat-history?skip=${page * PAGE_SIZE}&limit=${PAGE_SIZE}`);
+      const res = await authFetch(`/api/v1/chat-history?scope=organization&skip=${page * PAGE_SIZE}&limit=${PAGE_SIZE}`);
       if (res.ok) {
         const data = await res.json();
         setEntries(data.entries || []);
@@ -33,7 +33,7 @@ export default function History() {
 
   return (
     <div style={{ padding: '28px 32px', maxWidth: 1200 }}>
-      <h1 style={{ fontSize: 24, fontWeight: 700, fontFamily: 'var(--font-heading)', marginBottom: 4 }}>{t('history.title')}</h1>
+      <h1 style={{ fontSize: 24, fontWeight: 700, fontFamily: 'var(--font-heading)', marginBottom: 4 }}>{t('history.companyTitle')}</h1>
       <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 24 }}>{t('history.conversations', { count: total })}</p>
 
       <DCard noPad>

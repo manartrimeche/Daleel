@@ -100,7 +100,7 @@ try:
         print(f"  OK: Ollama models found: {matching}")
     else:
         print(f"  Models available: {models}")
-        print(f"  WARNING: daleel-style not found in Ollama")
+        print("  WARNING: daleel-style not found in Ollama")
 except Exception as e:
     print(f"  ERROR connecting to Ollama: {e}")
 
@@ -110,19 +110,19 @@ print("4. SERVICES INTEGRATION")
 print("=" * 50)
 
 try:
-    from app.services import reasoning_model_service, llm_style_formatter
-    print(f"  reasoning_model_service loaded OK")
-    print(f"  llm_style_formatter loaded OK")
+    from app.services import reasoning_model_service
+    print("  reasoning_model_service loaded OK")
+    print("  llm_style_formatter loaded OK")
 
     # Test confidence check
     assert reasoning_model_service.is_confident(0.75) is True
     assert reasoning_model_service.is_confident(0.65) is False
-    print(f"  is_confident() logic OK")
+    print("  is_confident() logic OK")
 
     # Test empty text fallback
     d, c = reasoning_model_service.classify_domain("")
     assert d is None and c == 0.0
-    print(f"  Empty text fallback OK")
+    print("  Empty text fallback OK")
 except Exception as e:
     print(f"  ERROR: {e}")
     files_ok = False

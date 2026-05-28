@@ -117,6 +117,7 @@
     "amendments": "التعديلات",
     "cases": "الملفات",
     "history": "السجل",
+    "memberHistory": "سجلات الأعضاء",
     "administration": "الإدارة العامة",
     "companyProfile": "ملف المؤسسة",
     "users": "المستخدمون",
@@ -126,7 +127,9 @@
     "settings": "الإعدادات",
     "defaultUser": "مستخدم",
     "defaultRole": "عضو",
-    "logout": "تسجيل الخروج"
+    "logout": "تسجيل الخروج",
+    "voiceAssistant": "تحدث مع وكيلنا",
+    "voiceAssistantDesc": "اطرح سؤالك بصوت عالٍ"
   },
   "dashboard": {
     "title": "لوحة التحكم",
@@ -217,6 +220,20 @@
     "suggestion3": "ما هي العقوبات في حالة عدم الامتثال؟",
     "suggestion4": "اشرح قانون حماية البيانات الشخصية"
   },
+  "voiceAssistant": {
+    "title": "المساعد الصوتي",
+    "subtitle": "تحدث بالفرنسية أو العربية أو الإنجليزية",
+    "back": "رجوع",
+    "pressToTalk": "اضغط للتحدث",
+    "pressToTalkAgain": "اضغط لطرح سؤال آخر",
+    "listening": "أنا أستمع...",
+    "processing": "جاري التحليل...",
+    "speaking": "المساعد يتحدث...",
+    "stopAudio": "إيقاف",
+    "micError": "لا يمكن الوصول إلى الميكروفون.",
+    "genericError": "حدث خطأ. حاول مرة أخرى.",
+    "newSession": "جلسة جديدة"
+  },
   "documents": {
     "title": "الوثائق",
     "totalDocs": "{{count}} وثيقة إجمالاً",
@@ -306,6 +323,7 @@
   },
   "history": {
     "title": "السجل",
+    "companyTitle": "سجلات الأعضاء",
     "conversations": "{{count}} محادثات",
     "noHistory": "لا يوجد سجل",
     "noHistoryDesc": "ستظهر المحادثات هنا.",
@@ -425,6 +443,32 @@
     "noDocuments": "لا توجد مستندات",
     "failedDesc": "فشل التحليل. يرجى المحاولة مرة أخرى.",
     "delete": "حذف التحليل"
+  },
+  "contractChat": {
+    "score": "النتيجة",
+    "excellent": "ممتاز",
+    "bon": "جيد",
+    "attention": "يتطلب انتباهًا",
+    "critique": "حرج",
+    "findings": "المخاطر المحددة",
+    "missingClauses": "البنود المفقودة",
+    "recommendations": "التوصيات",
+    "noFindings": "لم يتم تحديد أي مخاطر في هذا العقد.",
+    "noMissing": "جميع البنود المتوقعة موجودة.",
+    "actionSummary": "ملخص العقد",
+    "actionRisks": "تحليل المخاطر",
+    "actionMissing": "البنود المفقودة",
+    "actionRecommendations": "التوصيات",
+    "actionFull": "تحليل شامل",
+    "severity": {
+      "critical": "حرج",
+      "major": "رئيسي",
+      "minor": "ثانوي"
+    },
+    "importance": {
+      "mandatory": "إلزامي",
+      "recommended": "مستحسن"
+    }
   },
   "invite": {
     "joinTitle": "دعوة للانضمام",

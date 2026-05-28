@@ -38,9 +38,8 @@ export default function Sidebar() {
       items: [
         { id: 'documents', icon: 'fileText', labelKey: 'sidebar.documents', path: '/admin/documents', roles: ['super_admin', 'owner', 'admin'] },
         { id: 'amendments', icon: 'edit', labelKey: 'sidebar.amendments', path: '/admin/amendments', roles: ['super_admin', 'owner', 'admin'] },
-        { id: 'contracts', icon: 'fileSearch', labelKey: 'sidebar.contracts', path: '/admin/contracts', roles: ['super_admin', 'owner', 'admin'] },
         { id: 'cases', icon: 'shieldCheck', labelKey: 'sidebar.cases', path: '/admin/cases', roles: ['owner', 'admin', 'member'] },
-        { id: 'history', icon: 'clock', labelKey: 'sidebar.history', path: '/admin/history', roles: ['owner', 'admin'] },
+        { id: 'history', icon: 'clock', labelKey: 'sidebar.memberHistory', path: '/admin/history', roles: ['owner'] },
       ],
     },
     {
@@ -69,19 +68,28 @@ export default function Sidebar() {
     <div style={sidebarStyles.sidebar}>
       <div style={sidebarStyles.pattern} />
 
-      <div style={{ padding: '24px 20px 8px', position: 'relative', zIndex: 1 }}>
-        <img
-          src="/daleel-logo.svg"
-          alt="Daleel"
-          style={{
-            width: '100%',
-            maxWidth: 168,
-            height: 72,
-            objectFit: 'contain',
-            objectPosition: 'left center',
-            display: 'block',
-          }}
-        />
+      <div style={{ padding: '24px 50px 8px', position: 'relative', zIndex: 1 }}>
+        <button
+          type="button"
+          onClick={() => navigate('/dashboard')}
+          aria-label="Daleel dashboard"
+          style={{ display: 'block', padding: 0, border: 'none', background: 'transparent', cursor: 'pointer' }}
+        >
+          <img
+            src="/daleel-logo-dark.png?v=20260526d"
+            alt="Daleel"
+            style={{
+              width: '100%',
+              maxWidth: 168,
+              height: 72,
+              objectFit: 'contain',
+              objectPosition: 'left center',
+              display: 'block',
+              transform: 'scale(1.25)',
+              transformOrigin: 'left center',
+            }}
+          />
+        </button>
       </div>
 
       <div style={sidebarStyles.nav}>
@@ -115,6 +123,43 @@ export default function Sidebar() {
             </div>
           );
         })}
+      </div>
+
+      {/* Voice Assistant CTA */}
+      <div style={{ padding: '0 12px 8px', position: 'relative', zIndex: 1 }}>
+        <button
+          onClick={() => navigate('/voice-assistant')}
+          onMouseEnter={() => setHovered('voice-cta')}
+          onMouseLeave={() => setHovered(null)}
+          style={{
+            width: '100%', padding: '14px 14px',
+            borderRadius: 'var(--radius-lg)',
+            background: hovered === 'voice-cta'
+              ? 'linear-gradient(135deg, rgba(184,147,90,0.2), rgba(184,147,90,0.1))'
+              : 'linear-gradient(135deg, rgba(184,147,90,0.12), rgba(184,147,90,0.06))',
+            border: '1px solid rgba(184,147,90,0.2)',
+            cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 12,
+            transition: 'all .2s',
+          }}
+        >
+          <div style={{
+            width: 36, height: 36, borderRadius: 10,
+            background: 'rgba(184,147,90,0.2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0,
+          }}>
+            <DIcon name="headphones" size={18} style={{ color: 'var(--gold)' }} />
+          </div>
+          <div style={{ textAlign: 'left' }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--gold-light)', lineHeight: 1.3 }}>
+              {t('sidebar.voiceAssistant')}
+            </div>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 2, lineHeight: 1.3 }}>
+              {t('sidebar.voiceAssistantDesc')}
+            </div>
+          </div>
+        </button>
       </div>
 
       <div style={sidebarStyles.footer}>

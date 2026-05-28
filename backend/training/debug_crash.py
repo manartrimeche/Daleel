@@ -15,7 +15,7 @@ except Exception as e:
     sys.exit(1)
 
 try:
-    from transformers import AutoTokenizer, AutoModel
+    from transformers import AutoTokenizer
     print("[D2] transformers import OK", flush=True)
 except Exception as e:
     print(f"[D2] transformers ERREUR: {e}", flush=True)

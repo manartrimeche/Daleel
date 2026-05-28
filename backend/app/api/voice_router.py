@@ -18,6 +18,13 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/voice", tags=["voice"])
 
 
+def _organization_scope(user: dict | None) -> str | None:
+    """Return the organization_id for tenant scoping (None for super_admin)."""
+    if not user or user.get("role") == "super_admin":
+        return None
+    return user.get("organization_id")
+
+
 @router.post("/transcribe")
 async def voice_transcribe(
     audio: UploadFile = File(...),
@@ -48,7 +55,7 @@ async def voice_tts(
     except Exception:
         logger.exception("TTS failed")
         raise HTTPException(status_code=503, detail="Voice synthesis unavailable")
-    content_type = "audio/mpeg" if language == "ar" else "audio/wav"
+    content_type = "audio/mpeg"
 
     return Response(
         content=audio_bytes,
@@ -81,8 +88,13 @@ async def voice_ask(
     if not user_text.strip():
         raise HTTPException(status_code=400, detail="No speech detected")
 
-    # 2. Ask the agentic LLM
-    result = await llm_service.ask_agentic(db, question=user_text)
+    # 2. Ask the agentic LLM (pass detected language + org scope so the answer matches)
+    result = await llm_service.ask_agentic(
+        db,
+        question=user_text,
+        response_language=detected_lang,
+        organization_id=_organization_scope(user),
+    )
     answer_text = result.get("answer", "")
 
     # 3. Synthesize response audio
@@ -92,7 +104,7 @@ async def voice_ask(
     content_type = None
     try:
         audio_response = await synthesize_speech(answer_text, detected_lang)
-        content_type = "audio/mpeg" if detected_lang == "ar" else "audio/wav"
+        content_type = "audio/mpeg"
         audio_b64 = base64.b64encode(audio_response).decode()
     except Exception:
         logger.exception("TTS failed; returning text-only voice answer")

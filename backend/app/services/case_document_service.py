@@ -853,8 +853,9 @@ async def find_documents_by_entity(
     if entity_type == "party":
         query["analysis.entities.parties"] = {"$exists": True, "$ne": []}
         if entity_value:
+            import re
             query["analysis.entities.parties"] = {
-                "$regex": entity_value, "$options": "i"
+                "$regex": re.escape(entity_value), "$options": "i"
             }
     elif entity_type == "deadline":
         query["analysis.entities.deadlines"] = {"$exists": True, "$ne": []}

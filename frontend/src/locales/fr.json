@@ -117,6 +117,7 @@
     "amendments": "Amendements",
     "cases": "Dossiers",
     "history": "Historique",
+    "memberHistory": "Historiques membres",
     "administration": "Administration",
     "companyProfile": "Profil entreprise",
     "users": "Utilisateurs",
@@ -126,7 +127,9 @@
     "settings": "Paramètres",
     "defaultUser": "Utilisateur",
     "defaultRole": "Membre",
-    "logout": "Déconnexion"
+    "logout": "Déconnexion",
+    "voiceAssistant": "Parler à notre Agent",
+    "voiceAssistantDesc": "Posez votre question "
   },
   "dashboard": {
     "title": "Tableau de bord",
@@ -217,6 +220,20 @@
     "suggestion3": "Quelles sont les sanctions en cas de non-conformité ?",
     "suggestion4": "Expliquez la loi sur la protection des données personnelles"
   },
+  "voiceAssistant": {
+    "title": "Assistant Vocal",
+    "subtitle": "Parlez en français, arabe ou anglais",
+    "back": "Retour",
+    "pressToTalk": "Appuyez pour parler",
+    "pressToTalkAgain": "Appuyez pour poser une autre question",
+    "listening": "Je vous écoute...",
+    "processing": "Analyse en cours...",
+    "speaking": "L'assistant répond...",
+    "stopAudio": "Arrêter",
+    "micError": "Microphone non accessible.",
+    "genericError": "Une erreur est survenue. Réessayez.",
+    "newSession": "Nouvelle session"
+  },
   "documents": {
     "title": "Documents",
     "totalDocs": "{{count}} documents au total",
@@ -306,6 +323,7 @@
   },
   "history": {
     "title": "Historique",
+    "companyTitle": "Historiques des membres",
     "conversations": "{{count}} conversations",
     "noHistory": "Aucun historique",
     "noHistoryDesc": "Les conversations apparaîtront ici.",
@@ -425,6 +443,32 @@
     "noDocuments": "Aucun document uploadé",
     "failedDesc": "L'analyse a échoué. Veuillez réessayer.",
     "delete": "Supprimer l'analyse"
+  },
+  "contractChat": {
+    "score": "Score",
+    "excellent": "Excellent",
+    "bon": "Bon",
+    "attention": "Attention requise",
+    "critique": "Critique",
+    "findings": "Risques identifiés",
+    "missingClauses": "Clauses manquantes",
+    "recommendations": "Recommandations",
+    "noFindings": "Aucun risque identifié dans ce contrat.",
+    "noMissing": "Toutes les clauses attendues sont présentes.",
+    "actionSummary": "Résumé du contrat",
+    "actionRisks": "Analyser les risques",
+    "actionMissing": "Clauses manquantes",
+    "actionRecommendations": "Recommandations",
+    "actionFull": "Analyse complète",
+    "severity": {
+      "critical": "Critique",
+      "major": "Majeur",
+      "minor": "Mineur"
+    },
+    "importance": {
+      "mandatory": "Obligatoire",
+      "recommended": "Recommandé"
+    }
   },
   "invite": {
     "joinTitle": "Invitation à rejoindre",

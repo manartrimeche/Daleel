@@ -230,6 +230,21 @@ async def get_organization_member_count(org_id: str) -> int:
     return await _users.count_documents({"organization_id": org_id})
 
 
+async def get_organization_member_counts(org_ids: list[str]) -> dict[str, int]:
+    """Batch member counts for multiple organizations in a single aggregation."""
+    if not org_ids:
+        return {}
+    pipeline = [
+        {"$match": {"organization_id": {"$in": org_ids}}},
+        {"$group": {"_id": "$organization_id", "count": {"$sum": 1}}},
+    ]
+    result: dict[str, int] = {}
+    async for row in _users.aggregate(pipeline):
+        if row.get("_id"):
+            result[row["_id"]] = row["count"]
+    return result
+
+
 # ── User CRUD ──
 
 async def create_user(

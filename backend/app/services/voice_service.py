@@ -36,12 +36,23 @@ def _get_whisper_model():
         if _whisper_model is not None:
             return _whisper_model
         from faster_whisper import WhisperModel
+        device = "cpu"
+        compute = "int8"
+        try:
+            import torch
+            if torch.cuda.is_available():
+                import ctypes
+                ctypes.CDLL("cublas64_12.dll")
+                device = "cuda"
+                compute = "float16"
+        except (ImportError, OSError):
+            pass
         _whisper_model = WhisperModel(
-            "medium",
-            device="cpu",
-            compute_type="int8",
+            "small",
+            device=device,
+            compute_type=compute,
         )
-        logger.info("faster-whisper model loaded (medium, CPU/int8)")
+        logger.info("faster-whisper model loaded (small, %s/%s)", device, compute)
     return _whisper_model
 
 
@@ -55,23 +66,24 @@ async def transcribe_audio(audio_bytes: bytes) -> dict:
             f.write(audio_bytes)
             tmp_path = f.name
 
-        segments, info = model.transcribe(
-            tmp_path,
-            beam_size=5,
-            language=None,  # auto-detect from audio
-            vad_filter=True,
-        )
-        text_parts = []
-        for segment in segments:
-            text_parts.append(segment.text.strip())
+        try:
+            segments, info = model.transcribe(
+                tmp_path,
+                beam_size=5,
+                language=None,  # auto-detect from audio
+                vad_filter=True,
+            )
+            text_parts = []
+            for segment in segments:
+                text_parts.append(segment.text.strip())
 
-        Path(tmp_path).unlink(missing_ok=True)
-
-        return {
-            "text": " ".join(text_parts),
-            "language": info.language,
-            "language_probability": info.language_probability,
-        }
+            return {
+                "text": " ".join(text_parts),
+                "language": info.language,
+                "language_probability": info.language_probability,
+            }
+        finally:
+            Path(tmp_path).unlink(missing_ok=True)
 
     return await loop.run_in_executor(None, _transcribe)
 
@@ -79,8 +91,9 @@ async def transcribe_audio(audio_bytes: bytes) -> dict:
 # ─── TTS: Piper (FR/EN) + Edge-TTS (AR tunisien) ──────────────────────────────
 
 EDGE_TTS_VOICES = {
-    "ar": "ar-TN-ReemNeural",  # Tunisien femme
-    "ar_male": "ar-TN-HediNeural",  # Tunisien homme
+    "ar": "ar-TN-ReemNeural",
+    "fr": "fr-FR-DeniseNeural",
+    "en": "en-US-JennyNeural",
 }
 
 PIPER_VOICES_DIR = Path.home()
@@ -104,16 +117,49 @@ def _resolve_piper_executable() -> str:
     return "piper"
 
 
-async def synthesize_speech(text: str, language: str = "fr") -> bytes:
-    """Convert text to speech audio (WAV/MP3 bytes)."""
-    lang = language[:2].lower()
+def _clean_for_tts(text: str) -> str:
+    """Strip markdown, emojis and formatting so TTS reads only plain text."""
+    text = re.sub(r'#{1,6}\s*', '', text)
+    text = re.sub(r'\*{1,3}([^*]+)\*{1,3}', r'\1', text)
+    text = re.sub(r'_{1,3}([^_]+)_{1,3}', r'\1', text)
+    text = re.sub(r'~~([^~]+)~~', r'\1', text)
+    text = re.sub(r'`{1,3}[^`]*`{1,3}', '', text)
+    text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', text)
+    text = re.sub(r'^[\s]*[-*+]\s+', '', text, flags=re.MULTILINE)
+    text = re.sub(r'^[\s]*\d+\.\s+', '', text, flags=re.MULTILINE)
+    text = re.sub(r'[>|]', '', text)
+    text = re.sub(
+        r'[\U0001F600-\U0001F64F'
+        r'\U0001F300-\U0001F5FF'
+        r'\U0001F680-\U0001F6FF'
+        r'\U0001F1E0-\U0001F1FF'
+        r'\U00002700-\U000027BF'
+        r'\U0001F900-\U0001F9FF'
+        r'\U0001FA00-\U0001FA6F'
+        r'\U0001FA70-\U0001FAFF'
+        r'\U00002600-\U000026FF'
+        r'\U0000FE00-\U0000FE0F'
+        r'\U0000200D]+', '', text)
+    text = re.sub(r'\n{2,}', '. ', text)
+    text = re.sub(r'\n', ' ', text)
+    text = re.sub(r'\s{2,}', ' ', text)
+    return text.strip()
 
-    if lang == "ar":
-        return await _tts_edge(text, EDGE_TTS_VOICES["ar"])
-    elif lang in PIPER_VOICES:
+
+async def synthesize_speech(text: str, language: str = "fr") -> bytes:
+    """Convert text to speech audio (WAV/MP3 bytes). Uses Edge-TTS with Piper fallback."""
+    text = _clean_for_tts(text)
+    lang = language[:2].lower()
+    edge_voice = EDGE_TTS_VOICES.get(lang, EDGE_TTS_VOICES["fr"])
+
+    try:
+        return await _tts_edge(text, edge_voice)
+    except Exception:
+        logger.warning("Edge-TTS failed for %s, trying Piper fallback", lang)
+
+    if lang in PIPER_VOICES:
         return await _tts_piper(text, PIPER_VOICES[lang])
-    else:
-        return await _tts_piper(text, PIPER_VOICES["fr"])
+    return await _tts_piper(text, PIPER_VOICES["fr"])
 
 
 async def _tts_edge(text: str, voice: str) -> bytes:

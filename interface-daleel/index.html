@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Daleel — دلـيـل | Expert Juridique Tunisien</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%237c5cfc'/><text y='.9em' x='50' text-anchor='middle' font-size='70'>⚖️</text></svg>">
-    <meta name="description" content="Assistant juridique intelligent spécialisé en droit tunisien. Posez vos questions en arabe ou en français.">
+    <title>Daleel â€” Ø¯Ù„Ù€ÙŠÙ€Ù„ | Expert Juridique Tunisien</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%237c5cfc'/><text y='.9em' x='50' text-anchor='middle' font-size='70'>âš–ï¸</text></svg>">
+    <meta name="description" content="Assistant juridique intelligent spÃ©cialisÃ© en droit tunisien. Posez vos questions en arabe ou en franÃ§ais.">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -44,7 +44,7 @@
             overflow: hidden;
         }
 
-        /* ── Sidebar ── */
+        /* â”€â”€ Sidebar â”€â”€ */
         .app-sidebar {
             width: 300px;
             background: #111019;
@@ -69,6 +69,8 @@
             object-fit: contain;
             object-position: left center;
             display: block;
+            transform: scale(1.25);
+            transform-origin: left center;
         }
 
         .sidebar-nav {
@@ -248,7 +250,7 @@
             overflow: hidden;
         }
 
-        /* ── Header ── */
+        /* â”€â”€ Header â”€â”€ */
         .header {
             background: var(--bg-secondary);
             border-bottom: 1px solid var(--border);
@@ -263,15 +265,20 @@
         .header-logo {
             width: 44px;
             height: 44px;
-            background: var(--gradient-1);
+            background: rgba(255, 255, 255, 0.94);
             border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 22px;
-            font-weight: 700;
-            color: white;
+            overflow: hidden;
             box-shadow: var(--shadow-glow);
+        }
+
+        .header-logo img {
+            width: 33px;
+            height: 32px;
+            object-fit: contain;
+            display: block;
         }
 
         .header-info h1 {
@@ -341,7 +348,7 @@
             background: var(--accent-glow);
         }
 
-        /* ── Chat Area ── */
+        /* â”€â”€ Chat Area â”€â”€ */
         .chat-container {
             flex: 1;
             overflow-y: auto;
@@ -357,7 +364,7 @@
         .chat-container::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
         .chat-container::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
-        /* ── Welcome Screen ── */
+        /* â”€â”€ Welcome Screen â”€â”€ */
         .welcome {
             display: flex;
             flex-direction: column;
@@ -377,14 +384,21 @@
         .welcome-icon {
             width: 80px;
             height: 80px;
-            background: var(--gradient-1);
+            background: rgba(255, 255, 255, 0.94);
             border-radius: 24px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 40px;
             margin-bottom: 24px;
             box-shadow: 0 0 60px rgba(124, 92, 252, 0.3);
+            overflow: hidden;
+        }
+
+        .welcome-icon img {
+            width: 60px;
+            height: 58px;
+            object-fit: contain;
+            display: block;
         }
 
         .welcome h2 {
@@ -432,7 +446,7 @@
             transform: translateY(-2px);
         }
 
-        /* ── Messages ── */
+        /* â”€â”€ Messages â”€â”€ */
         .message {
             display: flex;
             gap: 12px;
@@ -550,7 +564,7 @@
 
         .message.user .msg-time { text-align: right; }
 
-        /* ── Feedback Panel ── */
+        /* â”€â”€ Feedback Panel â”€â”€ */
         .feedback-panel {
             margin-top: 10px;
             background: var(--bg-source);
@@ -630,7 +644,7 @@
             color: var(--text-secondary);
         }
 
-        /* ── Sources Panel ── */
+        /* â”€â”€ Sources Panel â”€â”€ */
         .sources-panel {
             margin-top: 4px;
         }
@@ -736,7 +750,7 @@
             flex-shrink: 0;
         }
 
-        /* ── Loading ── */
+        /* â”€â”€ Loading â”€â”€ */
         .typing-indicator {
             display: flex;
             gap: 4px;
@@ -760,7 +774,7 @@
             40% { transform: scale(1); opacity: 1; }
         }
 
-        /* ── Input Area ── */
+        /* â”€â”€ Input Area â”€â”€ */
         .input-area {
             padding: 16px 24px 24px;
             background: var(--bg-secondary);
@@ -1022,7 +1036,7 @@
             box-shadow: none;
         }
 
-        /* ── Upload button ── */
+        /* â”€â”€ Upload button â”€â”€ */
         .upload-btn {
             width: 48px;
             height: 48px;
@@ -1044,7 +1058,7 @@
             background: var(--bg-secondary);
         }
 
-        /* ── File preview bar ── */
+        /* â”€â”€ File preview bar â”€â”€ */
         .file-preview {
             display: none;
             align-items: center;
@@ -1114,7 +1128,7 @@
             margin-top: 8px;
         }
 
-        /* ── Responsive ── */
+        /* â”€â”€ Responsive â”€â”€ */
         @media (max-width: 900px) {
             body { flex-direction: column; }
             .app-sidebar { display: none; }
@@ -1148,22 +1162,22 @@
 <body>
     <nav class="app-sidebar" aria-label="Navigation principale">
         <div class="sidebar-logo">
-            <img class="sidebar-brand-logo" src="/static/daleel-logo.svg?v=20260524" alt="Daleel">
+            <img class="sidebar-brand-logo" src="/static/daleel-logo-dark.png?v=20260526d" alt="Daleel" onerror="this.onerror=null;this.src='./daleel-logo-dark.png?v=20260526d';">
         </div>
         <div class="sidebar-nav">
             <div class="nav-group">
                 <div class="nav-group-title" data-i18n="admin.nav.principal">Principal</div>
                 <a class="nav-item" href="/admin" id="nav-dashboard-link">
-                    <span class="icon">▦</span>
+                    <span class="icon">â–¦</span>
                     <span data-i18n="admin.nav.dashboard">Tableau de bord</span>
                 </a>
                 <button class="nav-item" type="button" onclick="newChat()" style="background:rgba(124,92,252,.1);border-left-color:var(--accent);color:var(--accent-light)">
-                    <span class="icon">✨</span>
+                    <span class="icon">âœ¨</span>
                     <span data-i18n="index.newChat">Nouveau chat</span>
                 </button>
             </div>
             <div class="nav-group">
-                <div class="nav-group-title">🕐 Historique</div>
+                <div class="nav-group-title">ðŸ• Historique</div>
                 <div id="sidebar-history" style="max-height:calc(100vh - 320px);overflow-y:auto;padding:0 8px"></div>
             </div>
         </div>
@@ -1173,9 +1187,9 @@
     <main class="chat-main">
     <!-- Header -->
     <div class="header">
-        <div class="header-logo">م</div>
+        <div class="header-logo"><img src="/static/daleel-mark-light.png?v=20260526" alt="" onerror="this.onerror=null;this.src='./daleel-mark-light.png?v=20260526';"></div>
         <div class="header-info">
-            <h1>Daleel — دلـيـل</h1>
+            <h1>Daleel â€” Ø¯Ù„Ù€ÙŠÙ€Ù„</h1>
             <p data-i18n="index.brand.subtitle">Expert Juridique Tunisien</p>
         </div>
         <div class="header-status">
@@ -1183,9 +1197,9 @@
             <span data-i18n="common.online">En ligne</span>
         </div>
         <div class="header-actions">
-            <button class="new-chat-btn" onclick="newChat()">✨ <span data-i18n="index.newChat">Nouvelle discussion</span></button>
-            <a href="/admin" style="text-decoration:none"><button class="new-chat-btn">⚙️ <span data-i18n="index.admin">Admin</span></button></a>
-            <button class="new-chat-btn" onclick="createCaseFromChat()">📂 <span data-i18n="index.case">Dossier</span></button>
+            <button class="new-chat-btn" onclick="newChat()">âœ¨ <span data-i18n="index.newChat">Nouvelle discussion</span></button>
+            <a href="/admin" style="text-decoration:none"><button class="new-chat-btn">âš™ï¸ <span data-i18n="index.admin">Admin</span></button></a>
+            <button class="new-chat-btn" onclick="createCaseFromChat()">ðŸ“‚ <span data-i18n="index.case">Dossier</span></button>
         </div>
     </div>
 
@@ -1199,16 +1213,16 @@
     <div class="input-area">
         <!-- File preview bar -->
         <div class="file-preview" id="filePreview">
-            <span class="file-preview-icon" id="filePreviewIcon">📄</span>
+            <span class="file-preview-icon" id="filePreviewIcon">ðŸ“„</span>
             <div class="file-preview-info">
                 <div class="file-preview-name" id="filePreviewName"></div>
                 <div class="file-preview-size" id="filePreviewSize"></div>
             </div>
-            <button class="file-preview-remove" onclick="removeAttachedFile()" title="Retirer le fichier">✕</button>
+            <button class="file-preview-remove" onclick="removeAttachedFile()" title="Retirer le fichier">âœ•</button>
         </div>
         <div class="input-wrapper">
             <button class="upload-btn" id="uploadBtn" onclick="document.getElementById('fileInput').click()" title="Joindre un document">
-                📎
+                ðŸ“Ž
             </button>
             <input type="file" id="fileInput" hidden
                    accept=".pdf,.docx,.doc,.txt,.png,.jpg,.jpeg,.webp"
@@ -1224,10 +1238,10 @@
                 ></textarea>
             </div>
             <button class="voice-btn" id="voiceBtn" onclick="toggleVoice()" title="Assistant vocal">
-                🎙️
+                ðŸŽ™ï¸
             </button>
             <button class="send-btn" id="sendBtn" onclick="sendMessage()" data-i18n-aria-label="index.send">
-                ➤
+                âž¤
             </button>
             <div class="voice-message-area" id="voiceMessageArea" hidden>
             <button type="button" class="voice-icon-btn voice-delete-btn" onclick="discardVoiceMessage()" title="Supprimer le vocal" aria-label="Supprimer le vocal">
@@ -1282,7 +1296,7 @@
             </div>
         </div>
         <div class="input-hint" data-i18n="index.input.hint">
-            Appuyez sur Entrée pour envoyer
+            Appuyez sur EntrÃ©e pour envoyer
         </div>
     </div>
     </main>
@@ -1411,7 +1425,7 @@
             `).join('');
 
             return `
-                <div class="welcome-icon">⚖️</div>
+                <div class="welcome-icon"><img src="/static/daleel-mark-light.png?v=20260526" alt="" onerror="this.onerror=null;this.src='./daleel-mark-light.png?v=20260526';"></div>
                 <h2>${escapeHtml(tr('index.welcome.title'))}</h2>
                 <p>${tr('index.welcome.body')}</p>
                 <div class="suggestions">${suggestions}</div>
@@ -1423,10 +1437,10 @@
             if (ws) ws.innerHTML = welcomeMarkup();
         }
 
-        // ── Conversation history ──
+        // â”€â”€ Conversation history â”€â”€
         let conversationHistory = [];
 
-        // ── Arabic detection ──
+        // â”€â”€ Arabic detection â”€â”€
         function isArabic(text) {
             const arabicRe = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/;
             const arabicChars = (text.match(/[\u0600-\u06FF]/g) || []).length;
@@ -1439,14 +1453,14 @@
             const frenchMarkers = [
                 'quelle', 'quelles', 'quel', 'quels', 'comment', 'pourquoi',
                 'dans', 'pour', 'avec', 'selon', 'droit', 'loi', 'article',
-                'société', 'societe', 'contrat', 'obligation', 'obligations'
+                'sociÃ©tÃ©', 'societe', 'contrat', 'obligation', 'obligations'
             ];
-            if (/[àâäéèêëïîôùûüÿçœæ]/i.test(text)) return 'fr';
+            if (/[Ã Ã¢Ã¤Ã©Ã¨ÃªÃ«Ã¯Ã®Ã´Ã¹Ã»Ã¼Ã¿Ã§Å“Ã¦]/i.test(text)) return 'fr';
             if (frenchMarkers.filter((word) => lower.includes(word)).length >= 2) return 'fr';
             return 'en';
         }
 
-        // ── Auto-resize textarea ──
+        // â”€â”€ Auto-resize textarea â”€â”€
         function autoResize(el) {
             el.style.height = 'auto';
             el.style.height = Math.min(el.scrollHeight, 150) + 'px';
@@ -1460,7 +1474,7 @@
             }
         }
 
-        // ── Handle Enter key ──
+        // â”€â”€ Handle Enter key â”€â”€
         function handleKey(e) {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -1468,19 +1482,19 @@
             }
         }
 
-        // ── Suggestion click ──
+        // â”€â”€ Suggestion click â”€â”€
         function askSuggestion(btn) {
             userInput.value = btn.textContent;
             autoResize(userInput);
             sendMessage();
         }
 
-        // ── Adaptive retrieval settings ──
+        // â”€â”€ Adaptive retrieval settings â”€â”€
         function getAdaptiveRetrievalSettings(text) {
             const trimmed = (text || '').trim();
             const words = trimmed.split(/\s+/).filter(Boolean).length;
-            const hasQuestionChain = /[؟?].*[؟?]|\b(et|ou|puis|ensuite|ainsi que|و|ثم|أو)\b/i.test(trimmed);
-            const hasArticleMention = /(article|الفصل|فصل)\s*\d+/i.test(trimmed);
+            const hasQuestionChain = /[ØŸ?].*[ØŸ?]|\b(et|ou|puis|ensuite|ainsi que|Ùˆ|Ø«Ù…|Ø£Ùˆ)\b/i.test(trimmed);
+            const hasArticleMention = /(article|Ø§Ù„ÙØµÙ„|ÙØµÙ„)\s*\d+/i.test(trimmed);
 
             // Default: balanced retrieval.
             let topK = 12;
@@ -1501,7 +1515,7 @@
             return { topK, temperature };
         }
 
-        // ── New chat ──
+        // â”€â”€ New chat â”€â”€
         function newChat() {
             conversationHistory = [];
             chatContainer.innerHTML = '<div class="welcome" id="welcomeScreen"></div>';
@@ -1509,7 +1523,7 @@
             document.querySelectorAll('.history-item').forEach(el => el.classList.remove('active'));
         }
 
-        // ── Sidebar history ──
+        // â”€â”€ Sidebar history â”€â”€
         let sidebarHistoryLoaded = false;
 
         async function loadSidebarHistory() {
@@ -1551,7 +1565,7 @@
                     const time = d.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
                     html += `<div class="history-item" onclick="loadConversation(${i})" data-idx="${i}">
                         <div class="history-item-question">${escapeHtml(question)}</div>
-                        <div class="history-item-meta">${time}${entry.user_name && entry.user_name !== '?' ? ' • ' + escapeHtml(entry.user_name) : ''}</div>
+                        <div class="history-item-meta">${time}${entry.user_name && entry.user_name !== '?' ? ' â€¢ ' + escapeHtml(entry.user_name) : ''}</div>
                     </div>`;
                 });
 
@@ -1599,7 +1613,7 @@
         // Load history on page load
         setTimeout(loadSidebarHistory, 500);
 
-        // ── Time formatter ──
+        // â”€â”€ Time formatter â”€â”€
         function getTime() {
             return new Date().toLocaleTimeString(DaleelI18n?.getLang?.() || [], { hour: '2-digit', minute: '2-digit' });
         }
@@ -1611,7 +1625,7 @@
             return code || '';
         }
 
-        // ── Simple markdown to HTML ──
+        // â”€â”€ Simple markdown to HTML â”€â”€
         function renderMarkdown(text) {
             let html = text
                 // Headers
@@ -1645,7 +1659,7 @@
             return '<p>' + html + '</p>';
         }
 
-        // ── Add user message ──
+        // â”€â”€ Add user message â”€â”€
         function addUserMessage(text) {
             const ws = document.getElementById('welcomeScreen');
             if (ws) ws.remove();
@@ -1653,7 +1667,7 @@
             const dir = isArabic(text) ? 'rtl' : 'ltr';
             const msgHtml = `
                 <div class="message user">
-                    <div class="msg-avatar">👤</div>
+                    <div class="msg-avatar">ðŸ‘¤</div>
                     <div class="msg-content">
                         <div class="msg-bubble" dir="${dir}">${escapeHtml(text)}</div>
                         <div class="msg-time">${getTime()}</div>
@@ -1664,11 +1678,11 @@
             scrollToBottom();
         }
 
-        // ── Add loading indicator ──
+        // â”€â”€ Add loading indicator â”€â”€
         function addLoading() {
             const html = `
                 <div class="message bot" id="loadingMsg">
-                    <div class="msg-avatar">⚖️</div>
+                    <div class="msg-avatar">âš–ï¸</div>
                     <div class="msg-content">
                         <div class="msg-bubble">
                             <div class="typing-indicator">
@@ -1689,7 +1703,7 @@
             if (el) el.remove();
         }
 
-        // ── Add bot response ──
+        // â”€â”€ Add bot response â”€â”€
         function addBotMessage(answer, sources, originalQuestion = '') {
             const dir = isArabic(answer) ? 'rtl' : 'ltr';
             const renderedAnswer = renderMarkdown(answer);
@@ -1702,11 +1716,11 @@
                     const page = s.page_number ? `${tr('common.page')} ${s.page_number}` : '';
                     const section = s.section || '';
                     const score = Math.round(s.relevance_score * 100);
-                    const metaParts = [page, section, lang].filter(Boolean).join(' · ');
+                    const metaParts = [page, section, lang].filter(Boolean).join(' Â· ');
 
                     return `
                         <div class="source-card">
-                            <div class="source-icon">📄</div>
+                            <div class="source-icon">ðŸ“„</div>
                             <div class="source-info">
                                 <div class="source-name">${escapeHtml(s.filename)}</div>
                                 <div class="source-meta">${metaParts}</div>
@@ -1719,11 +1733,11 @@
                 sourcesHtml = `
                     <div class="sources-panel">
                         <button class="sources-toggle" onclick="toggleSources(this)">
-                            📚 ${tr('index.sources.used', {
+                            ðŸ“š ${tr('index.sources.used', {
                                 count: sources.length,
                                 plural: sources.length > 1 ? 's' : ''
                             })}
-                            <span class="arrow">▼</span>
+                            <span class="arrow">â–¼</span>
                         </button>
                         <div class="sources-list hidden" id="sources-${Date.now()}">
                             ${sourceCards}
@@ -1734,7 +1748,7 @@
 
             const msgHtml = `
                 <div class="message bot">
-                    <div class="msg-avatar">⚖️</div>
+                    <div class="msg-avatar">âš–ï¸</div>
                     <div class="msg-content">
                         <div class="msg-bubble" dir="${dir}">${renderedAnswer}</div>
                         ${sourcesHtml}
@@ -1751,12 +1765,12 @@
             const encoded = encodeURIComponent(originalQuestion || '');
             return `
                 <div class="feedback-panel" id="${feedbackId}">
-                    <div class="feedback-title">✏️ ${escapeHtml(tr('index.feedback.title'))}</div>
+                    <div class="feedback-title">âœï¸ ${escapeHtml(tr('index.feedback.title'))}</div>
                     <textarea class="feedback-textarea" id="${feedbackId}-text"
                         placeholder="${escapeHtml(tr('index.feedback.placeholder'))}">${escapeHtml(answer)}</textarea>
                     <div class="feedback-actions">
                         <button class="feedback-save-btn" id="${feedbackId}-save"
-                            onclick="saveFeedback('${feedbackId}','${encoded}')">💾 ${escapeHtml(tr('common.save'))}</button>
+                            onclick="saveFeedback('${feedbackId}','${encoded}')">ðŸ’¾ ${escapeHtml(tr('common.save'))}</button>
                         <button class="feedback-skip-btn"
                             onclick="dismissFeedback('${feedbackId}')">${escapeHtml(tr('common.ignore'))}</button>
                         <span class="feedback-status" id="${feedbackId}-status"></span>
@@ -1802,35 +1816,35 @@
                 });
 
                 if (resp.ok) {
-                    statusEl.textContent = `✅ ${tr('index.feedback.saved')}`;
+                    statusEl.textContent = `âœ… ${tr('index.feedback.saved')}`;
                     textEl.disabled = true;
                 } else {
-                    statusEl.textContent = `❌ ${tr('index.feedback.failed')}`;
+                    statusEl.textContent = `âŒ ${tr('index.feedback.failed')}`;
                     saveBtn.disabled = false;
                 }
             } catch (_) {
-                statusEl.textContent = `❌ ${tr('index.feedback.network')}`;
+                statusEl.textContent = `âŒ ${tr('index.feedback.network')}`;
                 saveBtn.disabled = false;
             }
         }
 
-        // ── Toggle sources ──
+        // â”€â”€ Toggle sources â”€â”€
         function toggleSources(btn) {
             btn.classList.toggle('open');
             const list = btn.nextElementSibling;
             list.classList.toggle('hidden');
         }
 
-        // ── Escape HTML ──
+        // â”€â”€ Escape HTML â”€â”€
 
-        // ── Scroll to bottom ──
+        // â”€â”€ Scroll to bottom â”€â”€
         function scrollToBottom() {
             setTimeout(() => {
                 chatContainer.scrollTop = chatContainer.scrollHeight;
             }, 50);
         }
 
-        // ── File upload handling ──
+        // â”€â”€ File upload handling â”€â”€
         let attachedFile = null;
 
         const ALLOWED_EXTENSIONS = ['pdf', 'docx', 'doc', 'txt', 'png', 'jpg', 'jpeg', 'webp'];
@@ -1841,7 +1855,7 @@
 
             const ext = file.name.split('.').pop().toLowerCase();
             if (!ALLOWED_EXTENSIONS.includes(ext)) {
-                alert('Type de fichier non supporté. Formats acceptés : PDF, DOCX, DOC, TXT, PNG, JPG, WEBP.');
+                alert('Type de fichier non supportÃ©. Formats acceptÃ©s : PDF, DOCX, DOC, TXT, PNG, JPG, WEBP.');
                 event.target.value = '';
                 return;
             }
@@ -1856,8 +1870,8 @@
             attachedFile = file;
 
             // Show preview
-            const icons = { pdf: '📕', docx: '📘', doc: '📘', txt: '📄', png: '🖼️', jpg: '🖼️', jpeg: '🖼️', webp: '🖼️' };
-            document.getElementById('filePreviewIcon').textContent = icons[ext] || '📄';
+            const icons = { pdf: 'ðŸ“•', docx: 'ðŸ“˜', doc: 'ðŸ“˜', txt: 'ðŸ“„', png: 'ðŸ–¼ï¸', jpg: 'ðŸ–¼ï¸', jpeg: 'ðŸ–¼ï¸', webp: 'ðŸ–¼ï¸' };
+            document.getElementById('filePreviewIcon').textContent = icons[ext] || 'ðŸ“„';
             document.getElementById('filePreviewName').textContent = file.name;
             document.getElementById('filePreviewSize').textContent = formatFileSize(file.size);
             document.getElementById('filePreview').classList.add('active');
@@ -1875,7 +1889,7 @@
             return (bytes / (1024 * 1024)).toFixed(1) + ' Mo';
         }
 
-        // ── Send message ──
+        // â”€â”€ Send message â”€â”€
         async function sendMessage() {
             const text = userInput.value.trim();
             if (!text || isLoading) return;
@@ -1893,7 +1907,7 @@
 
             // Show user message with file indicator
             if (hasFile) {
-                addUserMessage(`📎 ${savedFile.name}\n${text}`);
+                addUserMessage(`ðŸ“Ž ${savedFile.name}\n${text}`);
             } else {
                 addUserMessage(text);
             }
@@ -1907,7 +1921,7 @@
                 let response;
 
                 if (hasFile) {
-                    // ── Send with document ──
+                    // â”€â”€ Send with document â”€â”€
                     const formData = new FormData();
                     formData.append('file', savedFile);
                     formData.append('question', text);
@@ -1930,7 +1944,7 @@
                         body: formData
                     });
                 } else {
-                    // ── Normal text-only send ──
+                    // â”€â”€ Normal text-only send â”€â”€
                     const askHeaders = { 'Content-Type': 'application/json' };
                     if (jwt) askHeaders['Authorization'] = 'Bearer ' + jwt;
                     response = await fetchWithApiFallback('/ask-agentic', {
@@ -1981,7 +1995,7 @@
                     ? `\n\n${tr('index.error.detail', { message: err.message })}`
                     : '';
                 addBotMessage(
-                    `❌ ${tr('index.error.api')}` +
+                    `âŒ ${tr('index.error.api')}` +
                     detail,
                     [],
                     ''
@@ -1993,7 +2007,7 @@
             userInput.focus();
         }
 
-        // ── Create case from chat ──
+        // â”€â”€ Create case from chat â”€â”€
         async function createCaseFromChat(){
             const title = prompt(tr('index.case.prompt'));
             if(!title) return;
@@ -2004,13 +2018,13 @@
                     body:JSON.stringify({title, description:null, company_profile_id:null, priority:'medium', assigned_to:null, tags:[], created_by:'chatbot'})
                 });
                 if(response.ok){
-                    addBotMessage(`✅ ${tr('index.case.created', { title })}`, [], '');
+                    addBotMessage(`âœ… ${tr('index.case.created', { title })}`, [], '');
                 }else{
                     const data = await readResponsePayload(response);
-                    addBotMessage(data?.detail || `❌ ${tr('index.case.createError')}`, [], '');
+                    addBotMessage(data?.detail || `âŒ ${tr('index.case.createError')}`, [], '');
                 }
             }catch(err){
-                addBotMessage(`❌ ${tr('index.case.network')} ${err?.message ? `(${err.message})` : ''}`, [], '');
+                addBotMessage(`âŒ ${tr('index.case.network')} ${err?.message ? `(${err.message})` : ''}`, [], '');
             }
         }
 
@@ -2024,10 +2038,10 @@
         updateIndexChrome();
         renderWelcome();
 
-        // ── Focus input on load ──
+        // â”€â”€ Focus input on load â”€â”€
         userInput.focus();
 
-        // ── Voice Assistant ──────────────────────────────────────────────────
+        // â”€â”€ Voice Assistant â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         const inputArea = document.querySelector('.input-area');
         const voiceBtn = document.getElementById('voiceBtn');
         const voiceMessageArea = document.getElementById('voiceMessageArea');
@@ -2087,7 +2101,7 @@
                     if (!audioBlob.size) {
                         hideVoiceMessageArea();
                         sendVoiceAfterRecording = false;
-                        alert('Aucun audio détecté. Réessayez.');
+                        alert('Aucun audio dÃ©tectÃ©. RÃ©essayez.');
                         return;
                     }
 
@@ -2105,14 +2119,14 @@
                 voiceRecordingStartedAt = startedAt;
                 showVoiceRecording(startedAt);
                 voiceBtn.classList.add('recording');
-                voiceBtn.innerHTML = '⏹️';
-                voiceBtn.title = 'Arrêter l\'enregistrement';
+                voiceBtn.innerHTML = 'â¹ï¸';
+                voiceBtn.title = 'ArrÃªter l\'enregistrement';
             } catch (err) {
                 if (stream) {
                     stream.getTracks().forEach(t => t.stop());
                     hideVoiceMessageArea();
                 }
-                alert('Microphone non accessible. Vérifiez les permissions.');
+                alert('Microphone non accessible. VÃ©rifiez les permissions.');
                 console.error('Mic error:', err);
             }
         }
@@ -2133,8 +2147,8 @@
             voiceMessageArea.hidden = false;
             voiceMessageArea.classList.add('is-recording');
             if (voicePreviewPlayBtn) {
-                voicePreviewPlayBtn.title = 'Arrêter l\'enregistrement';
-                voicePreviewPlayBtn.setAttribute('aria-label', 'Arrêter l\'enregistrement');
+                voicePreviewPlayBtn.title = 'ArrÃªter l\'enregistrement';
+                voicePreviewPlayBtn.setAttribute('aria-label', 'ArrÃªter l\'enregistrement');
             }
             startVoiceRecordingTimer(startedAt);
         }
@@ -2180,7 +2194,7 @@
             discardVoiceMessage();
             isSendingVoice = true;
             voiceBtn.classList.add('processing');
-            voiceBtn.innerHTML = '⏳';
+            voiceBtn.innerHTML = 'â³';
             voiceBtn.title = 'Traitement en cours...';
 
             try {
@@ -2281,7 +2295,7 @@
 
         function resetVoiceButton() {
             voiceBtn.classList.remove('recording', 'processing');
-            voiceBtn.innerHTML = '🎙️';
+            voiceBtn.innerHTML = 'ðŸŽ™ï¸';
             voiceBtn.title = 'Assistant vocal';
         }
 
@@ -2294,7 +2308,7 @@
         async function processVoiceInput(audioBlob) {
             try {
                 if (welcomeScreen) welcomeScreen.style.display = 'none';
-                addUserMessage('🎙️ Message vocal...');
+                addUserMessage('ðŸŽ™ï¸ Message vocal...');
 
                 const formData = new FormData();
                 formData.append('audio', audioBlob, 'recording.webm');
@@ -2316,7 +2330,7 @@
                 const lastUserMsg = userMessages[userMessages.length - 1];
                 if (lastUserMsg) {
                     const bubble = lastUserMsg.querySelector('.msg-bubble');
-                    if (bubble) bubble.textContent = '🎙️ ' + data.transcription;
+                    if (bubble) bubble.textContent = 'ðŸŽ™ï¸ ' + data.transcription;
                 }
 
                 // Show bot response
@@ -2327,7 +2341,7 @@
                     playAudioResponse(data.audio_base64, data.audio_content_type);
                 }
             } catch (err) {
-                addBotMessage('❌ Erreur vocale: ' + err.message, [], '');
+                addBotMessage('âŒ Erreur vocale: ' + err.message, [], '');
             } finally {
                 resetVoiceButton();
             }

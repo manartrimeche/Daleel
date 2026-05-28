@@ -27,9 +27,9 @@ export default function Landing() {
     <div style={{ minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)' }}>
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 40px', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
         <img
-          src="/daleel-logo.svg?v=20260524"
+          src="/daleel-logo-light.png?v=20260526"
           alt="Daleel"
-          style={{ width: 230, height: 72, objectFit: 'contain', objectPosition: 'left center', display: 'block' }}
+          style={{ width: 230, height: 72, objectFit: 'contain', objectPosition: 'left center', display: 'block', flexShrink: 0 }}
         />
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <button onClick={() => navigate('/login')} style={{ padding: '8px 20px', borderRadius: 'var(--radius-md)', background: 'transparent', color: 'var(--navy)', fontSize: 13, fontWeight: 600, border: '1px solid var(--border)', cursor: 'pointer', transition: 'all .15s' }}>
@@ -44,8 +44,8 @@ export default function Landing() {
 
       <section style={{ background: 'linear-gradient(135deg, var(--navy) 0%, #2a3f5f 100%)', color: '#fff', padding: '80px 40px', textAlign: 'center' }}>
         <div style={{ maxWidth: 700, margin: '0 auto' }}>
-          <div style={{ width: 64, height: 64, borderRadius: 16, background: 'rgba(184,147,90,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
-            <DIcon name="sparkle" size={32} style={{ color: 'var(--gold)' }} />
+          <div style={{ width: 64, height: 64, borderRadius: 16, background: 'rgba(255,255,255,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', boxShadow: '0 12px 30px rgba(0,0,0,0.12)', overflow: 'hidden' }}>
+            <img src="/daleel-mark-light.png?v=20260526" alt="" aria-hidden="true" style={{ width: 48, height: 46, objectFit: 'contain', display: 'block' }} />
           </div>
           <h1 style={{ fontSize: 36, fontWeight: 700, fontFamily: 'var(--font-heading)', lineHeight: 1.2, marginBottom: 16 }}>
             {t('landing.heroTitle')}

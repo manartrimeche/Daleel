@@ -115,11 +115,18 @@ export default function Login() {
         <div style={styles.pattern} />
         <div style={styles.glow} />
         <div style={{ position: 'relative', zIndex: 1 }}>
-          <img
-            src="/daleel-logo.svg?v=20260524"
-            alt="Daleel"
-            style={{ width: 260, height: 82, objectFit: 'contain', objectPosition: 'left center', display: 'block', marginBottom: 48 }}
-          />
+          <button
+            type="button"
+            onClick={() => navigate('/')}
+            aria-label="Daleel landing page"
+            style={{ display: 'block', padding: 0, border: 'none', background: 'transparent', cursor: 'pointer', marginBottom: 48 }}
+          >
+            <img
+              src="/daleel-logo-dark.png?v=20260526d"
+              alt="Daleel"
+              style={{ width: 260, height: 82, objectFit: 'contain', objectPosition: 'left center', display: 'block', transform: 'scale(1.25)', transformOrigin: 'left center' }}
+            />
+          </button>
 
           <h2 style={{ fontSize: 26, fontWeight: 600, fontFamily: 'var(--font-heading)', marginBottom: 12, lineHeight: 1.3, whiteSpace: 'pre-line' }}>{t('login.heroTitle')}</h2>
           <p style={{ fontSize: 15, opacity: 0.55, lineHeight: 1.7, marginBottom: 40, maxWidth: 440 }}>{t('login.heroDesc')}</p>
@@ -166,10 +173,10 @@ export default function Login() {
             <FormField label={t('login.fullName')} value={name} onChange={setName} placeholder="Mohamed Ben Ali" icon="user" />
           )}
           <FormField label={t('login.email')} type="email" value={email} onChange={setEmail} placeholder="nom@entreprise.tn" icon="mail" />
-          {mode !== 'forgot' && <FormField label={t('login.password')} type="password" value={pass} onChange={setPass} placeholder="••••••••" icon="lock" />}
+          {mode !== 'forgot' && <FormField label={t('login.password')} type="password" value={pass} onChange={setPass} placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" icon="lock" />}
           {mode === 'register' && (
             <>
-              <FormField label={t('login.confirmPassword')} type="password" value={confirmPass} onChange={setConfirmPass} placeholder="••••••••" icon="lock" />
+              <FormField label={t('login.confirmPassword')} type="password" value={confirmPass} onChange={setConfirmPass} placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" icon="lock" />
               <FormField label={t('login.orgName')} value={org} onChange={setOrg} placeholder="Banque de Tunis" icon="database" />
               <FormField label={t('login.sector')} type="select" value={sector} onChange={(value) => { setSector(value); if (value !== 'autre') setCustomSector(''); }} options={[
                 { value: 'banque', label: t('login.sectors.banque') },

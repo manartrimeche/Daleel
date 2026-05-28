@@ -1,6 +1,5 @@
 """Simule une itération du training loop pour isoler le crash."""
 import os
-import sys
 
 os.environ["SENTENCE_TRANSFORMERS_HOME"] = os.path.abspath("training/models/cache")
 
@@ -8,7 +7,6 @@ import torch
 import torch.nn.functional as F
 from sentence_transformers import SentenceTransformer
 from torch.optim import AdamW
-from tqdm import tqdm
 from transformers import get_linear_schedule_with_warmup
 
 MODEL = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"

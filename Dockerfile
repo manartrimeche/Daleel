@@ -56,8 +56,10 @@ ENV PYTHONPATH="/app/backend"
 COPY backend/ ./backend/
 COPY --from=frontend-builder /app/frontend/dist/ ./interface-daleel/
 
-# Create uploads directory
-RUN mkdir -p uploads
+# Create non-root user and uploads directory
+RUN groupadd --gid 1001 daleel && \
+    useradd --uid 1001 --gid daleel --shell /bin/false daleel && \
+    mkdir -p uploads && chown daleel:daleel uploads
 
 # Expose FastAPI port
 EXPOSE 8000
@@ -65,6 +67,9 @@ EXPOSE 8000
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')" || exit 1
+
+# Switch to non-root user
+USER daleel
 
 # Run the application
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

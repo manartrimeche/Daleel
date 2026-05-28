@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Daleel — Connexion</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%237c5cfc'/><text y='.9em' x='50' text-anchor='middle' font-size='70'>⚖️</text></svg>">
+    <title>Daleel â€” Connexion</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%237c5cfc'/><text y='.9em' x='50' text-anchor='middle' font-size='70'>âš–ï¸</text></svg>">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -75,17 +75,14 @@
         }
 
         .auth-logo {
-            width: 80px;
-            height: 80px;
-            background: var(--gradient-1);
-            border-radius: 21px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 34px;
-            color: white;
-            margin-bottom: 28px;
-            box-shadow: var(--shadow-glow), 0 8px 32px rgba(124,92,252,0.3);
+            width: 260px;
+            height: 92px;
+            object-fit: contain;
+            object-position: center;
+            display: block;
+            margin: 0 auto 28px;
+            transform: scale(1.25);
+            transform-origin: center;
         }
 
         .auth-header h1 {
@@ -501,9 +498,9 @@
     <div class="auth-container">
         <div class="auth-toolbar" id="auth-language"></div>
         <div class="auth-header">
-            <div class="auth-logo">D</div>
-            <h1>Daleel — دليل</h1>
-            <p data-i18n="auth.subtitle">Plateforme de conformité juridique tunisienne</p>
+            <img class="auth-logo" src="/static/daleel-logo-dark.png?v=20260526d" alt="Daleel" onerror="this.onerror=null;this.src='./daleel-logo-dark.png?v=20260526d';">
+            <h1>Daleel â€” Ø¯Ù„ÙŠÙ„</h1>
+            <p data-i18n="auth.subtitle">Plateforme de conformitÃ© juridique tunisienne</p>
         </div>
 
         <div class="auth-card">
@@ -515,7 +512,7 @@
             <div id="error-msg" class="error-message"></div>
             <div id="success-msg" class="success-message"></div>
 
-            <!-- ══════ LOGIN FORM ══════ -->
+            <!-- â•â•â•â•â•â• LOGIN FORM â•â•â•â•â•â• -->
             <form id="login-form" class="active" onsubmit="handleLogin(event)">
                 <div class="form-group">
                     <label><span data-i18n="auth.email">Email</span> <span class="required">*</span></label>
@@ -528,7 +525,7 @@
                 <button type="submit" class="btn-primary" id="login-btn" data-i18n="auth.login">Se connecter</button>
             </form>
 
-            <!-- ══════ REGISTER FORM ══════ -->
+            <!-- â•â•â•â•â•â• REGISTER FORM â•â•â•â•â•â• -->
             <form id="register-form" onsubmit="handleRegister(event)">
                 <div class="register-steps">
                     <div class="step-indicator active" id="step-ind-1"></div>
@@ -539,7 +536,7 @@
                 <!-- Step 1: Informations personnelles -->
                 <div class="register-step active" id="reg-step-1">
                     <div class="step-title" data-i18n="auth.personalInfo">Informations personnelles</div>
-                    <div class="step-subtitle" data-i18n="auth.personalInfo.subtitle">Créez votre compte administrateur</div>
+                    <div class="step-subtitle" data-i18n="auth.personalInfo.subtitle">CrÃ©ez votre compte administrateur</div>
 
                     <div class="form-group">
                         <label><span data-i18n="auth.fullName">Nom complet</span> <span class="required">*</span></label>
@@ -551,7 +548,7 @@
                     </div>
                     <div class="form-group">
                         <label><span data-i18n="auth.password">Mot de passe</span> <span class="required">*</span></label>
-                        <input type="password" class="form-input" id="reg-password" placeholder="Minimum 8 caractères" data-i18n-placeholder="auth.password.minPlaceholder" required minlength="8" autocomplete="new-password" oninput="updatePasswordStrength(this.value)">
+                        <input type="password" class="form-input" id="reg-password" placeholder="Minimum 8 caractÃ¨res" data-i18n-placeholder="auth.password.minPlaceholder" required minlength="8" autocomplete="new-password" oninput="updatePasswordStrength(this.value)">
                         <div class="password-strength">
                             <div class="password-strength-bar" id="pwd-strength-bar"></div>
                         </div>
@@ -563,10 +560,10 @@
                     <button type="button" class="btn-primary" onclick="nextStep(2)" data-i18n="common.continue">Continuer</button>
                 </div>
 
-                <!-- Step 2: Secteur d'activité -->
+                <!-- Step 2: Secteur d'activitÃ© -->
                 <div class="register-step" id="reg-step-2">
-                    <div class="step-title" data-i18n="auth.sector.title">Secteur d'activité</div>
-                    <div class="step-subtitle" data-i18n="auth.sector.subtitle">Sélectionnez le secteur de votre entreprise</div>
+                    <div class="step-title" data-i18n="auth.sector.title">Secteur d'activitÃ©</div>
+                    <div class="step-subtitle" data-i18n="auth.sector.subtitle">SÃ©lectionnez le secteur de votre entreprise</div>
 
                     <input type="hidden" id="reg-sector" value="">
 
@@ -581,7 +578,7 @@
                 <!-- Step 3: Profil entreprise -->
                 <div class="register-step" id="reg-step-3">
                     <div class="step-title" data-i18n="auth.company.title">Profil entreprise</div>
-                    <div class="step-subtitle" data-i18n="auth.company.subtitle">Complétez les informations de votre organisation</div>
+                    <div class="step-subtitle" data-i18n="auth.company.subtitle">ComplÃ©tez les informations de votre organisation</div>
 
                     <div class="form-group">
                         <label><span data-i18n="auth.company.name">Nom de l'entreprise</span> <span class="required">*</span></label>
@@ -598,7 +595,7 @@
                         <div class="form-group">
                             <label data-i18n="auth.size">Taille</label>
                             <select class="form-select" id="reg-size">
-                                <option value="">Sélectionner</option>
+                                <option value="">SÃ©lectionner</option>
                                 <option value="micro">Micro (1-9)</option>
                                 <option value="small">Petite (10-49)</option>
                                 <option value="medium">Moyenne (50-249)</option>
@@ -606,7 +603,7 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label data-i18n="auth.employees">Nombre d'employés</label>
+                            <label data-i18n="auth.employees">Nombre d'employÃ©s</label>
                             <input type="number" class="form-input" id="reg-employees" placeholder="Ex: 50" data-i18n-placeholder="auth.employees.placeholder" min="1">
                         </div>
                     </div>
@@ -619,14 +616,14 @@
 
                     <div class="btn-row">
                         <button type="button" class="btn-secondary" onclick="prevStep(2)" data-i18n="common.back">Retour</button>
-                        <button type="submit" class="btn-primary" id="register-btn" data-i18n="auth.createAccount">Créer mon compte</button>
+                        <button type="submit" class="btn-primary" id="register-btn" data-i18n="auth.createAccount">CrÃ©er mon compte</button>
                     </div>
                 </div>
             </form>
         </div>
 
         <div class="auth-footer" data-i18n="auth.footer">
-            Daleel v1.0 — Conformité juridique intelligente
+            Daleel v1.0 â€” ConformitÃ© juridique intelligente
         </div>
     </div>
 
@@ -667,7 +664,7 @@
 
         let currentStep = 1;
 
-        // ── Init ──
+        // â”€â”€ Init â”€â”€
         document.addEventListener('DOMContentLoaded', () => {
             const token = localStorage.getItem('daleel_access_token');
             if (token) {
@@ -719,7 +716,7 @@
             document.getElementById('reg-sector').value = value;
         }
 
-        // ── Tab switching ──
+        // â”€â”€ Tab switching â”€â”€
         function switchTab(tab) {
             document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
             document.getElementById('login-form').classList.remove('active');
@@ -735,7 +732,7 @@
             hideMessages();
         }
 
-        // ── Step navigation ──
+        // â”€â”€ Step navigation â”€â”€
         function nextStep(step) {
             if (step === 2) {
                 const name = document.getElementById('reg-name').value.trim();
@@ -779,7 +776,7 @@
             }
         }
 
-        // ── Password strength ──
+        // â”€â”€ Password strength â”€â”€
         function updatePasswordStrength(pwd) {
             const bar = document.getElementById('pwd-strength-bar');
             let score = 0;
@@ -797,7 +794,7 @@
             else bar.style.background = '#34d399';
         }
 
-        // ── Messages ──
+        // â”€â”€ Messages â”€â”€
         function showError(msg) {
             const el = document.getElementById('error-msg');
             el.textContent = msg;
@@ -817,7 +814,7 @@
             document.getElementById('success-msg').classList.remove('visible');
         }
 
-        // ── Login ──
+        // â”€â”€ Login â”€â”€
         async function handleLogin(e) {
             e.preventDefault();
             hideMessages();
@@ -858,7 +855,7 @@
             }
         }
 
-        // ── Register ──
+        // â”€â”€ Register â”€â”€
         async function handleRegister(e) {
             e.preventDefault();
             hideMessages();

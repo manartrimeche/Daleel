@@ -122,14 +122,11 @@ async def _python_search(
     if extra_filter:
         query.update(extra_filter)
 
-    documents = {
-        doc["id"]: doc.get("filename")
-        async for doc in get_collection("documents").find({})
-    }
-
     scored: list[tuple[float, dict]] = []
     query_dim = len(query_vec)
     skipped_mismatched_dims = 0
+    # Collect document IDs referenced in scored chunks for a single targeted lookup
+    referenced_doc_ids: set[str] = set()
     cursor = get_collection("chunks").find(query)
     async for chunk in cursor:
         embedding = chunk.get("embedding") or []
@@ -139,13 +136,14 @@ async def _python_search(
             skipped_mismatched_dims += 1
             continue
         score = _cosine_similarity(query_vec, embedding)
+        doc_id = chunk.get("document_id")
         scored.append(
             (
                 score,
                 {
                     "chunk_id": chunk.get("id"),
-                    "document_id": chunk.get("document_id"),
-                    "filename": documents.get(chunk.get("document_id")),
+                    "document_id": doc_id,
+                    "filename": None,  # resolved below
                     "text": chunk.get("text"),
                     "page_number": chunk.get("page_number"),
                     "section": chunk.get("section"),
@@ -158,6 +156,8 @@ async def _python_search(
                 },
             )
         )
+        if doc_id:
+            referenced_doc_ids.add(doc_id)
 
     if skipped_mismatched_dims:
         logger.warning(
@@ -167,7 +167,21 @@ async def _python_search(
         )
 
     scored.sort(key=lambda item: item[0], reverse=True)
-    return [row for _, row in scored[:top_k]]
+    top_results = [row for _, row in scored[:top_k]]
+
+    # Resolve filenames only for the top-k results (avoids full documents table scan)
+    needed_doc_ids = {r["document_id"] for r in top_results if r.get("document_id")}
+    if needed_doc_ids:
+        doc_names: dict[str, str | None] = {}
+        async for doc in get_collection("documents").find(
+            {"id": {"$in": list(needed_doc_ids)}},
+            {"_id": 0, "id": 1, "filename": 1},
+        ):
+            doc_names[doc["id"]] = doc.get("filename")
+        for result in top_results:
+            result["filename"] = doc_names.get(result.get("document_id"))
+
+    return top_results
 
 
 def _use_faiss() -> bool:

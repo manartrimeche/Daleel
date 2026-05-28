@@ -31,7 +31,6 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Any
 
 from pymongo import MongoClient
 
@@ -59,7 +58,7 @@ def export_articles(output_path: Path) -> int:
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Précharger lois (loi_id -> loi_code) pour éviter N requêtes
-    lois = {l["id"]: l.get("code") or l.get("loi_code") for l in db["lois"].find({}, {"id": 1, "code": 1, "loi_code": 1})}
+    lois = {row["id"]: row.get("code") or row.get("loi_code") for row in db["lois"].find({}, {"id": 1, "code": 1, "loi_code": 1})}
     # Précharger articles (article_id -> {article_key, loi_id})
     articles_map = {
         a["id"]: {"article_key": a.get("article_key"), "loi_id": a.get("loi_id")}

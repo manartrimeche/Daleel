@@ -114,7 +114,20 @@ async def get_optional_current_user(
         return None
     if payload.get("type") != "access":
         return None
-    user = await auth_service.get_user_by_id(payload["sub"])
+
+    # Check token blacklist (same logic as get_current_user)
+    jti = payload.get("jti")
+    user_id_from_token = payload["sub"]
+    iat_ts = payload.get("iat")
+    from datetime import datetime, timezone
+    iat_dt = datetime.fromtimestamp(iat_ts, tz=timezone.utc) if iat_ts else None
+    if jti and await auth_service.is_token_blacklisted(jti, user_id_from_token, iat_dt):
+        return None
+    if not jti and iat_dt:
+        if await auth_service.is_token_blacklisted("", user_id_from_token, iat_dt):
+            return None
+
+    user = await auth_service.get_user_by_id(user_id_from_token)
     if not user or not user.get("is_active", True):
         return None
     return user
