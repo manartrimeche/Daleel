@@ -177,6 +177,16 @@ _COLLECTION_INDEXES: dict[str, list[dict[str, Any]]] = {
         {"fields": [("read", 1), ("created_at", -1)]},
         {"fields": [("alert_type", 1), ("created_at", -1)]},
         {"fields": [("details.organization_id", 1), ("created_at", -1)]},
+        # TTL : purge automatique des notifications éphémères (account_login,
+        # account_updated, account_deactivated, member_joined, invitation_revoked).
+        # Seules les notifications possédant un champ ``expires_at`` sont concernées.
+        {
+            "fields": [("expires_at", 1)],
+            "kwargs": {
+                "expireAfterSeconds": 0,
+                "partialFilterExpression": {"expires_at": {"$exists": True}},
+            },
+        },
     ],
     "token_blacklist": [
         {"fields": [("jti", 1)], "kwargs": {"unique": True}},

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AuthProvider, useAuth } from './utils/AuthContext';
-import { LangSwitch } from './components/UI';
+import { LangSwitch, UIProvider } from './components/UI';
 import { authFetch } from './utils/auth';
 import DIcon from './components/DIcon';
 import Sidebar from './components/Sidebar';
@@ -58,18 +58,27 @@ function NotificationBell() {
   const bellRef = useRef(null);
 
   useEffect(() => {
-    if (!user || user.role === 'viewer') return;
+    if (!user || user.role === 'viewer') return undefined;
     const fetchCount = () => {
       authFetch('/api/v1/notifications/unread-count')
         .then(r => r.ok ? r.json() : null)
         .then(data => { if (data) setUnread(data.unread || 0); })
-        .catch(() => {
-          // Notification previews are non-blocking.
-        });
+        .catch(() => {});
     };
     fetchCount();
     const interval = setInterval(fetchCount, 60000);
-    return () => clearInterval(interval);
+    const onRefresh = (event) => {
+      const detail = event && event.detail;
+      if (detail && typeof detail.delta === 'number') {
+        setUnread(prev => Math.max(0, prev + detail.delta));
+      }
+      fetchCount();
+    };
+    window.addEventListener('notifications:refresh', onRefresh);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('notifications:refresh', onRefresh);
+    };
   }, [user]);
 
   useEffect(() => {
@@ -115,11 +124,18 @@ function NotificationBell() {
 
   const typeIcon = (type) => ({
     amendment_impact: 'layers',
+    amendment_summary: 'layers',
+    coverage_change: 'barChart',
     approval_organization: 'globe',
     approval_invitation: 'mail',
     approval_document: 'fileText',
     approval_amendment: 'fileText',
     subscription_expiring: 'alertTriangle',
+    account_login: 'logout',
+    account_updated: 'edit',
+    account_deactivated: 'lock',
+    member_joined: 'users',
+    invitation_revoked: 'x',
   }[type] || 'bell');
 
   return (
@@ -129,9 +145,8 @@ function NotificationBell() {
         onClick={toggleMenu}
         aria-label="Notifications"
         aria-expanded={open}
-        style={{ position: 'relative', cursor: 'pointer', padding: 6, borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', background: open ? 'var(--surface-hover)' : 'transparent' }}
-        onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-hover)'}
-        onMouseLeave={e => e.currentTarget.style.background = open ? 'var(--surface-hover)' : 'transparent'}
+        className="hover-lift"
+        style={{ position: 'relative', cursor: 'pointer', padding: 6, width: 36, height: 36, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.9)', border: '1px solid rgba(27,43,66,0.12)', boxShadow: '0 10px 24px rgba(27,43,66,0.14)', backdropFilter: 'blur(10px)' }}
       >
         <DIcon name="bell" size={18} style={{ color: 'var(--text-secondary)' }} />
         {unread > 0 && (
@@ -202,6 +217,7 @@ function NotificationBell() {
 function AppLayout() {
   const location = useLocation();
   const isChat = location.pathname === '/chat';
+  const isVoiceAssistant = location.pathname === '/voice-assistant';
   const [sidebarHover, setSidebarHover] = useState(false);
 
   return (
@@ -236,24 +252,26 @@ function AppLayout() {
         />
       )}
 
-      <style>{`
-        @keyframes sidebarSlideIn { from { transform: translateX(-100%); } to { transform: translateX(0); } }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes spin { to { transform: rotate(360deg); } }
-      `}</style>
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--bg)' }}>
-        {!isChat && (
-          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, padding: '10px 24px', borderBottom: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0 }}>
+        {!isChat && !isVoiceAssistant && (
+          <div style={{ position: 'fixed', top: 14, right: 24, zIndex: 120, display: 'flex', alignItems: 'center', gap: 10 }}>
             <NotificationBell />
-            <LangSwitch />
+            <LangSwitch floating />
           </div>
         )}
         <div style={{ flex: 1, overflow: 'auto' }}>
         <Suspense fallback={
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', fontSize: 13 }}>
-            <DIcon name="loader" size={20} style={{ marginRight: 8, animation: 'spin 1s linear infinite' }} />
-            Chargement...
+          <div style={{ padding: '44px 32px', maxWidth: 1200 }}>
+            <div className="skeleton" style={{ width: 200, height: 24, borderRadius: 8, marginBottom: 8 }} />
+            <div className="skeleton" style={{ width: 300, height: 14, borderRadius: 6, marginBottom: 28 }} />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 28 }}>
+              {[1,2,3,4].map(i => <div key={i} className="skeleton" style={{ height: 90, borderRadius: 12 }} />)}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+              <div className="skeleton" style={{ height: 200, borderRadius: 12 }} />
+              <div className="skeleton" style={{ height: 200, borderRadius: 12 }} />
+            </div>
           </div>
         }>
         <Routes>
@@ -288,19 +306,21 @@ function AppLayout() {
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<HomeRoute />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/invite" element={<Invite />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/*" element={
-            <ProtectedRoute>
-              <AppLayout />
-            </ProtectedRoute>
-          } />
-        </Routes>
-      </BrowserRouter>
+      <UIProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<HomeRoute />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/invite" element={<Invite />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/*" element={
+              <ProtectedRoute>
+                <AppLayout />
+              </ProtectedRoute>
+            } />
+          </Routes>
+        </BrowserRouter>
+      </UIProvider>
     </AuthProvider>
   );
 }

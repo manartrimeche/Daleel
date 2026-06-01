@@ -103,35 +103,168 @@ async def test_list_notifications_with_org_filter():
 @pytest.mark.asyncio
 async def test_mark_read_global():
     db = _make_db()
-    db._notif.update_one = AsyncMock(return_value=MagicMock(modified_count=1))
+    db._notif.update_one = AsyncMock(
+        return_value=MagicMock(matched_count=1, modified_count=1)
+    )
     result = await notification_service.mark_read(db, "n1", allow_global=True)
-    assert result is True
+    assert result == "ok"
 
 
 @pytest.mark.asyncio
-async def test_mark_read_no_org_returns_false():
+async def test_mark_read_no_org_returns_denied():
     db = _make_db()
     result = await notification_service.mark_read(db, "n1")
-    assert result is False
+    assert result == "denied"
 
 
 @pytest.mark.asyncio
-async def test_mark_read_with_org_no_user_returns_false():
+async def test_mark_read_with_org_no_user_returns_denied():
     db = _make_db()
     result = await notification_service.mark_read(
         db, "n1", organization_id="org-1", user_id=None
     )
-    assert result is False
+    assert result == "denied"
 
 
 @pytest.mark.asyncio
 async def test_mark_read_with_org_and_user():
     db = _make_db()
-    db._notif.update_one = AsyncMock(return_value=MagicMock(modified_count=1))
+    db._notif.update_one = AsyncMock(
+        return_value=MagicMock(matched_count=1, modified_count=1)
+    )
     result = await notification_service.mark_read(
         db, "n1", organization_id="org-1", user_id="u1"
     )
-    assert result is True
+    assert result == "ok"
+
+
+@pytest.mark.asyncio
+async def test_create_notification_account_login_has_expiry():
+    db = _make_db()
+    result = await notification_service.create_notification(
+        db,
+        alert_type="account_login",
+        title="Connexion",
+        message="...",
+    )
+    assert "expires_at" in result, "ephemeral types must set a TTL field"
+
+
+@pytest.mark.asyncio
+async def test_create_notification_amendment_impact_has_no_expiry():
+    db = _make_db()
+    result = await notification_service.create_notification(
+        db,
+        alert_type="amendment_impact",
+        title="Impact",
+        message="...",
+    )
+    assert "expires_at" not in result, "business notifications must not expire automatically"
+
+
+@pytest.mark.asyncio
+async def test_notify_amendment_summary_creates_single_record():
+    """notify_amendment_summary must not iterate over company profiles anymore."""
+    db = _make_db()
+    profiles_col = MagicMock()
+    # If the function still queried profiles, this would be invoked.
+    profiles_col.find = MagicMock(side_effect=AssertionError("must not query profiles"))
+
+    def getitem(self, name):
+        if name == "notifications":
+            return db._notif
+        if name == "company_profiles":
+            return profiles_col
+        return MagicMock()
+
+    db.__getitem__ = getitem
+
+    count = await notification_service.notify_amendment_summary(
+        db,
+        loi_id="l1",
+        loi_code="CT",
+        loi_name="Code du travail",
+        diff={"added": 1, "modified": 2, "removed": 0},
+        operations=[{"type": "ADD", "article_key": "Art. 14"}],
+    )
+    assert count == 1
+    db._notif.insert_one.assert_called_once()
+    inserted = db._notif.insert_one.call_args[0][0]
+    assert inserted["alert_type"] == "amendment_summary"
+
+
+@pytest.mark.asyncio
+async def test_mark_processed_sets_decision_and_metadata():
+    db = _make_db()
+    await notification_service.mark_processed(
+        db,
+        "n1",
+        decision="approved",
+        result_payload={"organization_id": "org-1"},
+    )
+    db._notif.update_one.assert_awaited_once()
+    args, _ = db._notif.update_one.call_args
+    filt, update = args
+    assert filt == {"id": "n1"}
+    set_payload = update["$set"]
+    assert set_payload["read"] is True
+    assert set_payload["details.approval_status"] == "approved"
+    assert set_payload["details.approved_result"] == {"organization_id": "org-1"}
+    assert "processed_at" in set_payload
+
+
+@pytest.mark.asyncio
+async def test_mark_all_read_global_sets_read_flag_on_unread():
+    db = _make_db()
+    db._notif.update_many = AsyncMock(return_value=MagicMock(modified_count=7))
+    updated = await notification_service.mark_all_read(db, allow_global=True)
+    assert updated == 7
+    db._notif.update_many.assert_awaited_once_with(
+        {"read": {"$ne": True}},
+        {"$set": {"read": True}},
+    )
+
+
+@pytest.mark.asyncio
+async def test_mark_all_read_org_user_uses_read_by():
+    db = _make_db()
+    db._notif.update_many = AsyncMock(return_value=MagicMock(modified_count=3))
+    updated = await notification_service.mark_all_read(
+        db, organization_id="org-1", user_id="u1"
+    )
+    assert updated == 3
+    db._notif.update_many.assert_awaited_once_with(
+        {
+            "details.organization_id": "org-1",
+            "read": {"$ne": True},
+            "read_by": {"$ne": "u1"},
+        },
+        {"$addToSet": {"read_by": "u1"}},
+    )
+
+
+@pytest.mark.asyncio
+async def test_mark_all_read_returns_zero_without_scope():
+    db = _make_db()
+    db._notif.update_many = AsyncMock()
+    updated = await notification_service.mark_all_read(db)
+    assert updated == 0
+    db._notif.update_many.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_mark_processed_rejected_uses_rejected_result_key():
+    db = _make_db()
+    await notification_service.mark_processed(
+        db,
+        "n1",
+        decision="rejected",
+        result_payload={"organization_id": "org-1"},
+    )
+    args, _ = db._notif.update_one.call_args
+    _, update = args
+    assert "details.rejected_result" in update["$set"]
+    assert update["$set"]["details.approval_status"] == "rejected"
 
 
 @pytest.mark.asyncio

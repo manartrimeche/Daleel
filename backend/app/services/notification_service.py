@@ -10,13 +10,25 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
 
 # ── Persistence ───────────────────────────────────────────────────────────────
+
+# Alert types whose lifetime is naturally short (activity log).
+# A TTL index on `expires_at` purges them automatically.
+_EPHEMERAL_ALERT_TYPES = frozenset({
+    "account_login",
+    "account_updated",
+    "account_deactivated",
+    "member_joined",
+    "invitation_revoked",
+})
+_EPHEMERAL_TTL_DAYS = 90
+
 
 async def create_notification(
     db: Any,
@@ -31,7 +43,7 @@ async def create_notification(
     """Insert a new notification into the database."""
     now = datetime.now(timezone.utc)
     details = details or {}
-    item = {
+    item: dict[str, Any] = {
         "id": str(uuid.uuid4()),
         "alert_type": alert_type,
         "profile_id": profile_id,
@@ -42,6 +54,8 @@ async def create_notification(
         "read": False,
         "created_at": now,
     }
+    if alert_type in _EPHEMERAL_ALERT_TYPES:
+        item["expires_at"] = now + timedelta(days=_EPHEMERAL_TTL_DAYS)
     await db["notifications"].insert_one(item)
     item.pop("_id", None)
     logger.info("Notification created: [%s] %s", alert_type, title)
@@ -79,23 +93,91 @@ async def mark_read(
     organization_id: str | None = None,
     allow_global: bool = False,
     user_id: str | None = None,
-) -> bool:
-    """Mark a single notification as read within the caller's allowed scope."""
+) -> str:
+    """
+    Mark a notification as read within the caller's allowed scope.
+
+    Returns:
+        "ok"       — the notification was updated
+        "noop"     — the notification exists and is in scope but was already read
+        "not_found"— no notification matches the scope (404)
+        "denied"   — the call lacks required scope (no org_id or no user_id)
+    """
+    if not allow_global and (not organization_id or not user_id):
+        return "denied"
+
     filt: dict[str, Any] = {"id": notification_id}
     if not allow_global:
-        if not organization_id:
-            return False
         filt["details.organization_id"] = organization_id
 
     update = {"$set": {"read": True}} if allow_global else {"$addToSet": {"read_by": user_id}}
-    if not allow_global and not user_id:
-        return False
 
-    result = await db["notifications"].update_one(
-        filt,
-        update,
+    result = await db["notifications"].update_one(filt, update)
+    if result.matched_count == 0:
+        return "not_found"
+    return "ok" if result.modified_count > 0 else "noop"
+
+
+async def mark_all_read(
+    db: Any,
+    *,
+    organization_id: str | None = None,
+    allow_global: bool = False,
+    user_id: str | None = None,
+) -> int:
+    """
+    Mark every notification in the caller's scope as read.
+
+    Returns the number of notifications actually updated.
+    """
+    if allow_global:
+        result = await db["notifications"].update_many(
+            {"read": {"$ne": True}},
+            {"$set": {"read": True}},
+        )
+        return result.modified_count
+
+    if not organization_id or not user_id:
+        return 0
+
+    result = await db["notifications"].update_many(
+        {
+            "details.organization_id": organization_id,
+            "read": {"$ne": True},
+            "read_by": {"$ne": user_id},
+        },
+        {"$addToSet": {"read_by": user_id}},
     )
-    return result.modified_count > 0
+    return result.modified_count
+
+
+async def mark_processed(
+    db: Any,
+    notification_id: str,
+    *,
+    decision: str,
+    result_payload: dict,
+) -> None:
+    """
+    Mark a notification as processed by an approval / rejection flow.
+
+    Sets ``read: True`` and records both the decision and the resulting
+    payload under ``details``. Used by the super_admin approve / reject
+    endpoints, which need to attach business metadata atomically with
+    the read flag.
+    """
+    field = "approved_result" if decision == "approved" else "rejected_result"
+    await db["notifications"].update_one(
+        {"id": notification_id},
+        {
+            "$set": {
+                "read": True,
+                "details.approval_status": decision,
+                f"details.{field}": result_payload,
+                "processed_at": datetime.now(timezone.utc),
+            }
+        },
+    )
 
 
 # ── Alert generators (called by other services) ──────────────────────────────
@@ -222,20 +304,13 @@ async def notify_amendment_summary(
     operations: list[dict],
 ) -> int:
     """
-    Send a detailed amendment summary notification to every company profile.
+    Send a single amendment summary notification to the super_admin scope.
 
-    Called once after all article-level operations are applied. Each profile
-    receives one notification describing exactly what changed.
+    Called once after all article-level operations are applied. Targeted
+    per-organization notifications are handled separately by
+    ``notify_amendment_impact`` (which only fires for profiles whose
+    applicable exigences are actually touched).
     """
-    profiles = [
-        p async for p in db["company_profiles"].find(
-            {},
-            {"_id": 0, "id": 1, "name": 1, "organization_id": 1},
-        )
-    ]
-    if not profiles:
-        return 0
-
     added = diff.get("added", 0)
     modified = diff.get("modified", 0)
     removed = diff.get("removed", 0)
@@ -254,13 +329,15 @@ async def notify_amendment_summary(
     message = (
         f"Un amendement a été appliqué à la loi « {loi_name} » ({loi_code}).\n\n"
         f"Résumé : {added} article(s) ajouté(s), {modified} modifié(s), {removed} supprimé(s).\n\n"
-        f"Détail des opérations :\n{detail_text}\n\n"
-        f"Veuillez vérifier l'impact sur vos obligations de conformité."
+        f"Détail des opérations :\n{detail_text}"
     )
 
-    created = 0
-    for p in profiles:
-        details = {
+    await create_notification(
+        db,
+        alert_type="amendment_summary",
+        title=f"Amendement appliqué — {loi_code}",
+        message=message,
+        details={
             "loi_id": loi_id,
             "loi_code": loi_code,
             "loi_name": loi_name,
@@ -268,20 +345,7 @@ async def notify_amendment_summary(
             "modified": modified,
             "removed": removed,
             "operations": operations[:50],
-        }
-        if p.get("organization_id"):
-            details["organization_id"] = p["organization_id"]
-
-        await create_notification(
-            db,
-            alert_type="amendment_impact",
-            profile_id=p["id"],
-            profile_name=p.get("name", ""),
-            title=f"Amendement — {loi_code}",
-            message=message,
-            details=details,
-        )
-        created += 1
-
-    logger.info("Sent amendment summary to %d company profiles", created)
-    return created
+        },
+    )
+    logger.info("Recorded amendment summary for loi %s (%s)", loi_code, loi_id)
+    return 1

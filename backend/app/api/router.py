@@ -6,8 +6,9 @@ import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
+from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import StreamingResponse
+from pymongo import UpdateOne
 from typing import Any
 
 from app.api.auth import get_current_user, get_optional_current_user, require_api_key, require_admin
@@ -58,6 +59,7 @@ from app.schemas import (
     LoiListOut,
     LoiOut,
     LoiUpdate,
+    PlatformStatsOut,
     RawPageListOut,
     RecalculationResponse,
     RoadmapOut,
@@ -103,6 +105,38 @@ def _organization_scope(user: dict | None) -> str | None:
     if not user or user.get("role") == "super_admin":
         return None
     return user.get("organization_id")
+
+
+@router.get("/platform/stats", response_model=PlatformStatsOut)
+async def get_platform_stats(db: Any = Depends(get_db)):
+    """
+    Public landing-page counters derived from persisted platform data.
+
+    Response precision is reported only when user feedback ratings exist.
+    """
+    supported_language_codes = ["fr", "ar", "en"]
+    legal_texts_indexed = int(await db["documents"].count_documents({"status": "ready"}))
+    articles_analyzed = int(await db["articles"].count_documents({}))
+
+    rating_rows = await db["qa_feedback"].aggregate(
+        [
+            {"$match": {"rating": {"$gte": 1, "$lte": 5}}},
+            {"$group": {"_id": None, "avg_rating": {"$avg": "$rating"}, "count": {"$sum": 1}}},
+        ]
+    ).to_list(length=1)
+    precision_sample_size = int(rating_rows[0]["count"]) if rating_rows else 0
+    answer_precision_percent = None
+    if precision_sample_size:
+        answer_precision_percent = round((float(rating_rows[0]["avg_rating"]) / 5) * 100)
+
+    return PlatformStatsOut(
+        legal_texts_indexed=legal_texts_indexed,
+        articles_analyzed=articles_analyzed,
+        answer_precision_percent=answer_precision_percent,
+        precision_sample_size=precision_sample_size,
+        supported_languages=len(supported_language_codes),
+        supported_language_codes=supported_language_codes,
+    )
 
 
 async def _save_chat_history(
@@ -576,6 +610,79 @@ async def extract_exigences_endpoint(
         "exigences_extracted": count,
         "by_type": type_counts,
         "message": f"Successfully extracted {count} exigences from {len(cleaned_orm_pages)} pages.",
+    }
+
+
+@router.get("/documents/{doc_id}/exigences/export")
+async def export_exigences(
+    doc_id: str,
+    format: str = Query("xlsx", pattern=r"^(xlsx|csv)$", description="Format: xlsx | csv"),
+    db: Any = Depends(get_db),
+    _key: str | None = Depends(require_api_key),
+    current_user: dict | None = Depends(get_optional_current_user),
+):
+    """
+    Export exigences as Excel (.xlsx) or CSV.
+
+    The Excel file includes:
+    - A summary sheet with totals by type and criticality level
+    - A detailed sheet with all exigences, actions, and color-coded criticality
+      (red = critique, yellow = importante, green = secondaire)
+    """
+    from app.services.export_service import export_exigences_file
+    from fastapi.responses import Response
+
+    doc = await _require_document_access(db, doc_id, current_user)
+
+    content, media_type, filename = await export_exigences_file(
+        db, doc_id, format=format,
+    )
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+# ── Match exigences ──
+
+
+@router.post("/exigences/match")
+async def match_exigences_endpoint(
+    request: Request,
+    db: Any = Depends(get_db),
+    _user: dict = Depends(get_current_user),
+):
+    """
+    Find exigences most relevant to a user query or situation description.
+
+    Body:
+    - query (str, required): question, situation, or document excerpt
+    - document_id (str, optional): restrict to a specific document
+    - exigence_type (str, optional): obligation | sanction | condition | prohibition
+    - language (str, optional): fr | ar | en — auto-detected if omitted
+    - top_k (int, optional): max results (default 15)
+
+    Returns matching exigences with relevance scores and criticality levels.
+    """
+    from app.services.exigence_match_service import match_exigences
+
+    body = await request.json()
+    query = str(body.get("query", "")).strip()
+    if not query:
+        raise HTTPException(422, "query is required")
+
+    results = await match_exigences(
+        query,
+        document_id=body.get("document_id"),
+        exigence_type=body.get("exigence_type"),
+        language=body.get("language"),
+        top_k=min(int(body.get("top_k", 15)), 50),
+    )
+    return {
+        "query": query,
+        "total": len(results),
+        "exigences": results,
     }
 
 
@@ -2079,6 +2186,15 @@ async def get_admin_stats(db: Any = Depends(get_db)):
     total_chunks = await _count("chunks")
 
     total_lois = await _count("lois")
+    unstructured_loi_docs = await _count(
+        "documents",
+        {
+            "status": "ready",
+            "loi_id": {"$exists": False},
+            "filename": {"$regex": r"^loi\b", "$options": "i"},
+        },
+    )
+    indexed_lois = total_lois + unstructured_loi_docs
 
     total_articles = await _count("articles")
     total_versions = await _count("article_versions")
@@ -2095,6 +2211,8 @@ async def get_admin_stats(db: Any = Depends(get_db)):
     crits_by_level = await _count_by("action_criticalities", "level")
 
     total_profiles = await _count("company_profiles")
+    total_orgs = await _count("organizations")
+    total_users = await _count("users")
 
     total_ops = await _count("amendment_operations")
     ops_by_status = await _count_by("amendment_operations", "status")
@@ -2104,6 +2222,9 @@ async def get_admin_stats(db: Any = Depends(get_db)):
     logs_by_event = await _count_by("audit_logs", "event_type")
 
     total_questions = await _count("chat_history")
+    total_cases = await _count("compliance_cases")
+    cases_by_status = await _count_by("compliance_cases", "status")
+    cases_by_priority = await _count_by("compliance_cases", "priority")
 
     return {
         "documents": {
@@ -2113,7 +2234,11 @@ async def get_admin_stats(db: Any = Depends(get_db)):
             "by_language": docs_by_lang,
         },
         "chunks": {"total": total_chunks},
-        "lois": {"total": total_lois},
+        "lois": {
+            "total": total_lois,
+            "indexed_total": indexed_lois,
+            "unstructured_documents": unstructured_loi_docs,
+        },
         "articles": {
             "total": total_articles,
             "versions": {
@@ -2130,6 +2255,13 @@ async def get_admin_stats(db: Any = Depends(get_db)):
             "criticalities": {"total": total_crits, "by_level": crits_by_level},
         },
         "profiles": {"total": total_profiles},
+        "organizations": {"total": total_orgs},
+        "users": {"total": total_users},
+        "cases": {
+            "total": total_cases,
+            "by_status": cases_by_status,
+            "by_priority": cases_by_priority,
+        },
         "amendments": {
             "total": total_ops,
             "by_status": ops_by_status,
@@ -2281,28 +2413,51 @@ async def get_unread_count(
     return {"unread": count}
 
 
+@router.post("/notifications/read-all")
+async def mark_all_notifications_read(
+    user: Any = Depends(get_current_user),
+    db: Any = Depends(get_db),
+):
+    """Mark every notification in the caller's scope as read."""
+    from app.services.notification_service import mark_all_read
+
+    is_super_admin = user.get("role") == "super_admin"
+    if not is_super_admin and not _can_access_org_notifications(user):
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+
+    updated = await mark_all_read(
+        db,
+        organization_id=user.get("organization_id"),
+        allow_global=is_super_admin,
+        user_id=_current_user_id(user),
+    )
+    return {"status": "ok", "updated": updated}
+
+
 @router.post("/notifications/{notification_id}/read")
 async def mark_notification_read(
     notification_id: str,
     user: Any = Depends(get_current_user),
     db: Any = Depends(get_db),
 ):
-    """Mark a notification as read."""
+    """Mark a notification as read (idempotent)."""
     from app.services.notification_service import mark_read
 
     if user.get("role") != "super_admin" and not _can_access_org_notifications(user):
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
-    ok = await mark_read(
+    status = await mark_read(
         db,
         notification_id,
         organization_id=user.get("organization_id"),
         allow_global=user.get("role") == "super_admin",
         user_id=_current_user_id(user),
     )
-    if not ok:
+    if status == "denied":
+        raise HTTPException(status_code=403, detail="Insufficient scope")
+    if status == "not_found":
         raise HTTPException(status_code=404, detail="Notification not found")
-    return {"status": "ok"}
+    return {"status": status}
 
 
 @router.post("/admin/notifications/{notification_id}/approve", dependencies=[Depends(require_admin)])
@@ -2377,17 +2532,8 @@ async def approve_notification(notification_id: str, db: Any = Depends(get_db)):
     else:
         raise HTTPException(422, "Unsupported approval target")
 
-    await db["notifications"].update_one(
-        {"id": notification_id},
-        {
-            "$set": {
-                "read": True,
-                "details.approval_status": "approved",
-                "details.approved_result": result,
-                "processed_at": datetime.now(timezone.utc),
-            }
-        },
-    )
+    from app.services.notification_service import mark_processed
+    await mark_processed(db, notification_id, decision="approved", result_payload=result)
     return result
 
 
@@ -2430,17 +2576,8 @@ async def reject_notification(notification_id: str, db: Any = Depends(get_db)):
     else:
         raise HTTPException(422, "Unsupported approval target")
 
-    await db["notifications"].update_one(
-        {"id": notification_id},
-        {
-            "$set": {
-                "read": True,
-                "details.approval_status": "rejected",
-                "details.rejected_result": result,
-                "processed_at": datetime.now(timezone.utc),
-            }
-        },
-    )
+    from app.services.notification_service import mark_processed
+    await mark_processed(db, notification_id, decision="rejected", result_payload=result)
     return result
 
 
@@ -2507,6 +2644,7 @@ async def get_chat_history(
     limit: int = Query(50, ge=1, le=200),
     user_id: str | None = Query(None),
     scope: str = Query("personal", pattern="^(personal|organization)$"),
+    archived: bool = Query(False),
     user: dict = Depends(get_current_user),
     db: Any = Depends(get_db),
 ):
@@ -2533,13 +2671,15 @@ async def get_chat_history(
     else:
         base_query = {"user_id": current_user_id}
 
+    archive_filter = {"archived": True} if archived else {"archived": {"$ne": True}}
     conv_filter = {"conversation_id": {"$exists": True, "$ne": None}}
     pipeline = [
-        {"$match": {"$and": [base_query, conv_filter]}},
+        {"$match": {"$and": [base_query, conv_filter, archive_filter]}},
         {"$sort": {"created_at": 1}},
         {"$group": {
             "_id": "$conversation_id",
             "conversation_id": {"$first": "$conversation_id"},
+            "conversation_title": {"$first": "$conversation_title"},
             "question": {"$first": "$question"},
             "answer": {"$first": "$answer"},
             "created_at": {"$first": "$created_at"},
@@ -2547,6 +2687,7 @@ async def get_chat_history(
             "message_count": {"$sum": 1},
             "user_id": {"$first": "$user_id"},
             "organization_id": {"$first": "$organization_id"},
+            "archived": {"$max": "$archived"},
         }},
         {"$sort": {"last_message_at": -1}},
         {"$skip": skip},
@@ -2555,14 +2696,29 @@ async def get_chat_history(
     grouped = await db["chat_history"].aggregate(pipeline).to_list(length=limit)
 
     no_conv_filter = {"$or": [{"conversation_id": {"$exists": False}}, {"conversation_id": None}]}
-    legacy_query = {"$and": [base_query, no_conv_filter]}
-    legacy_cursor = db["chat_history"].find(legacy_query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit)
+    legacy_query = {"$and": [base_query, no_conv_filter, archive_filter]}
+    legacy_cursor = db["chat_history"].find(legacy_query).sort("created_at", -1).skip(skip).limit(limit)
     legacy = await legacy_cursor.to_list(length=limit)
+
+    # Backfill conversation_id on legacy rows so the three-dot menu (rename/archive) works for all entries.
+    if legacy:
+        backfill_ops = []
+        for e in legacy:
+            synthetic_id = str(e.get("_id"))
+            e["conversation_id"] = synthetic_id
+            backfill_ops.append(UpdateOne({"_id": e["_id"]}, {"$set": {"conversation_id": synthetic_id}}))
+        if backfill_ops:
+            try:
+                await db["chat_history"].bulk_write(backfill_ops, ordered=False)
+            except Exception:
+                logging.exception("chat_history conversation_id backfill failed")
 
     entries = []
     for g in grouped:
         entries.append({
             "conversation_id": g["conversation_id"],
+            "conversation_title": g.get("conversation_title"),
+            "title": g.get("conversation_title") or g["question"],
             "question": g["question"],
             "answer": g["answer"],
             "created_at": g["created_at"].isoformat() if g.get("created_at") else None,
@@ -2570,11 +2726,12 @@ async def get_chat_history(
             "message_count": g["message_count"],
             "user_id": g.get("user_id"),
             "organization_id": g.get("organization_id"),
+            "archived": bool(g.get("archived")),
         })
     for e in legacy:
         if e.get("created_at"):
             e["created_at"] = e["created_at"].isoformat()
-        e["conversation_id"] = None
+        e.pop("_id", None)
         e["message_count"] = 1
         entries.append(e)
 
@@ -2631,6 +2788,49 @@ async def get_conversation_messages(
             m["created_at"] = m["created_at"].isoformat()
 
     return {"conversation_id": conversation_id, "messages": messages}
+
+
+@router.patch("/chat-history/conversation/{conversation_id}/archive")
+async def set_conversation_archive(
+    conversation_id: str,
+    payload: dict[str, Any] = Body(default={}),
+    user: dict = Depends(get_current_user),
+    db: Any = Depends(get_db),
+):
+    """Archive or restore a full conversation."""
+    current_user_id = _current_user_id(user)
+    archived = bool(payload.get("archived", True))
+    query = {"conversation_id": conversation_id, "user_id": current_user_id}
+    if archived:
+        update = {"$set": {"archived": True, "archived_at": datetime.now(timezone.utc)}}
+    else:
+        update = {"$set": {"archived": False}, "$unset": {"archived_at": ""}}
+    result = await db["chat_history"].update_many(query, update)
+    if result.matched_count == 0:
+        raise HTTPException(404, "Conversation not found")
+    return {"conversation_id": conversation_id, "archived": archived}
+
+
+@router.patch("/chat-history/conversation/{conversation_id}/rename")
+async def rename_conversation(
+    conversation_id: str,
+    payload: dict[str, Any] = Body(default={}),
+    user: dict = Depends(get_current_user),
+    db: Any = Depends(get_db),
+):
+    """Rename a full conversation in personal history."""
+    current_user_id = _current_user_id(user)
+    title = str(payload.get("title") or "").strip()
+    if not title:
+        raise HTTPException(422, "title is required")
+    title = title[:120]
+    result = await db["chat_history"].update_many(
+        {"conversation_id": conversation_id, "user_id": current_user_id},
+        {"$set": {"conversation_title": title, "renamed_at": datetime.now(timezone.utc)}},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(404, "Conversation not found")
+    return {"conversation_id": conversation_id, "title": title}
 
 
 @router.delete("/chat-history/{entry_id}")

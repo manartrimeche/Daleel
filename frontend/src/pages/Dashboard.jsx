@@ -1,9 +1,32 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import DIcon from '../components/DIcon';
-import { StatCard, DCard, ProgressBar, Badge, ScoreRing } from '../components/UI';
+import { StatCard, DCard, ProgressBar, Badge, ScoreRing, Skeleton, MiniLineChart, AreaLineChart, DonutChart, HorizontalBarChart } from '../components/UI';
 import { authFetch, getUser } from '../utils/auth';
+
+// ─── Count-up hook ───
+function useCountUp(target, duration = 900) {
+  const [value, setValue] = useState(0);
+  const prev = useRef(0);
+  useEffect(() => {
+    const from = prev.current;
+    const to = typeof target === 'number' ? target : 0;
+    if (to === from) return;
+    prev.current = to;
+    const start = performance.now();
+    let raf;
+    const step = (now) => {
+      const t = Math.min(1, (now - start) / duration);
+      const ease = 1 - Math.pow(1 - t, 3); // easeOutCubic
+      setValue(Math.round(from + (to - from) * ease));
+      if (t < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [target, duration]);
+  return value;
+}
 
 // ─── Helper: safe fetch with fallback ───
 async function safeFetch(url) {
@@ -14,9 +37,56 @@ async function safeFetch(url) {
   } catch { return null; }
 }
 
-// ─── Super Admin Dashboard ───
+// ─── BI KPI Card (gradient bg + count-up + fade-in cascade) ───
+function BICard({ icon, label, value, sub, subColor, sparkData, sparkColor, loading, onClick, accent = '#b8860b', delay = 0 }) {
+  const displayValue = useCountUp(loading ? 0 : (typeof value === 'number' ? value : parseInt(value, 10) || 0), 1000);
+
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        background: `linear-gradient(135deg, var(--surface) 55%, ${accent}0C 100%)`,
+        borderRadius: 'var(--radius-lg)', padding: '18px 20px',
+        border: '1px solid var(--border)',
+        borderLeft: `3px solid ${accent}`,
+        display: 'flex', flexDirection: 'column', gap: 6,
+        boxShadow: 'var(--shadow-sm)', cursor: onClick ? 'pointer' : 'default',
+        transition: 'box-shadow .2s, transform .2s',
+        animation: `biCardIn 0.45s ease ${delay}ms both`,
+      }}
+      className={onClick ? 'hover-lift' : undefined}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ width: 34, height: 34, borderRadius: 'var(--radius-md)', background: `${accent}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: accent }}>
+          <DIcon name={icon} size={17} />
+        </div>
+        {sparkData && sparkData.length > 1 && <MiniLineChart data={sparkData} color={sparkColor || accent} />}
+      </div>
+      <div>
+        <div style={{ fontSize: 26, fontWeight: 700, fontFamily: 'var(--font-heading)', color: 'var(--text)', lineHeight: 1.1 }}>
+          {loading ? '...' : displayValue}
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 3, display: 'flex', alignItems: 'center', gap: 6 }}>
+          {label}
+          {sub && <span style={{ fontSize: 11, fontWeight: 600, color: subColor || 'var(--text-muted)' }}>{sub}</span>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Colors ───
+const COLORS = {
+  gold: 'var(--gold)', navy: 'var(--navy)', info: 'var(--info)',
+  success: 'var(--success)', warning: 'var(--warning)', error: 'var(--error)',
+  muted: 'var(--text-muted)',
+  donut: ['#b8860b', '#1b2b42', '#2d6a4f', '#e74c3c', '#3498db', '#9b59b6', '#e67e22', '#1abc9c'],
+};
+
+// ─── Super Admin Dashboard (BI) ───
 function SuperAdminDashboard({ t, locale, navigate }) {
   const [stats, setStats] = useState(null);
+  const [analytics, setAnalytics] = useState(null);
   const [orgs, setOrgs] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [cases, setCases] = useState(null);
@@ -25,11 +95,13 @@ function SuperAdminDashboard({ t, locale, navigate }) {
   useEffect(() => {
     Promise.all([
       safeFetch('/api/v1/admin/stats'),
+      safeFetch('/api/v1/admin/analytics?days=30'),
       safeFetch('/api/v1/auth/organizations?limit=5'),
       safeFetch('/api/v1/admin/notifications?limit=5'),
       safeFetch('/api/v1/cases/summary'),
-    ]).then(([s, o, n, c]) => {
+    ]).then(([s, a, o, n, c]) => {
       setStats(s);
+      setAnalytics(a);
       const orgData = Array.isArray(o) ? o : o?.organizations || o?.items || [];
       setOrgs(orgData);
       setNotifications(n?.notifications || []);
@@ -39,88 +111,201 @@ function SuperAdminDashboard({ t, locale, navigate }) {
   }, []);
 
   const num = (v) => (typeof v === 'object' && v !== null) ? (v.total ?? 0) : (v ?? 0);
-  const docCount = num(stats?.documents);
-  const lawCount = num(stats?.lois);
-  const orgCount = orgs.length || num(stats?.organizations);
-  const userCount = orgs.reduce((sum, o) => sum + (o.member_count || 0), 0) || num(stats?.users);
+  const docCount = stats?.documents?.by_status?.ready ?? num(stats?.documents);
+  const lawCount = stats?.lois?.indexed_total ?? num(stats?.lois);
+  const orgCount = num(stats?.organizations) || orgs.length;
+  const userCount = num(stats?.users) || orgs.reduce((sum, o) => sum + (o.member_count || 0), 0);
+  const exigCount = num(stats?.exigences);
+  const questionCount = num(stats?.questions);
+  const caseStatus = cases?.by_status || stats?.cases?.by_status || {};
+  const openCaseCount = (caseStatus.open || 0) + (caseStatus.in_progress || 0);
+
+  // ── Donut: documents by status
+  const docsByStatus = stats?.documents?.by_status || {};
+  const docSegments = Object.entries(docsByStatus).map(([k, v], i) => ({
+    label: k === 'ready' ? t('dashboard.statusProcessed') : k === 'error' ? t('dashboard.statusError') : k,
+    value: v,
+    color: k === 'ready' ? COLORS.success : k === 'error' ? COLORS.error : k === 'pending' ? COLORS.warning : COLORS.donut[i % COLORS.donut.length],
+  }));
+
+  // ── Donut: cases by priority
+  const casesByPriority = stats?.cases?.by_priority || cases?.by_priority || {};
+  const caseSegments = [
+    { label: t('dashboard.priorityHigh'), value: casesByPriority.high || 0, color: COLORS.error },
+    { label: t('dashboard.priorityMedium'), value: casesByPriority.medium || 0, color: COLORS.warning },
+    { label: t('dashboard.priorityLow'), value: casesByPriority.low || 0, color: COLORS.info },
+  ];
+
+  // ── Donut: exigences by type
+  const exigByType = stats?.exigences?.by_type || {};
+  const exigSegments = Object.entries(exigByType).map(([k, v], i) => ({
+    label: k, value: v, color: COLORS.donut[i % COLORS.donut.length],
+  }));
+
+  // ── Coverage bars
+  const coverageItems = (analytics?.coverage || []).map(c => ({
+    label: c.profile_name,
+    value: c.coverage_pct,
+    maxValue: 100,
+    color: c.coverage_pct >= 80 ? COLORS.success : c.coverage_pct >= 50 ? COLORS.warning : COLORS.error,
+  }));
+
+  // ── Time-series chart data
+  const qaChartData = (analytics?.qa_daily || []).map(d => ({
+    label: new Date(d.date).toLocaleDateString(locale, { day: '2-digit', month: 'short' }),
+    value: d.count,
+  }));
 
   return (
     <>
-      {/* KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 28 }}>
-        <StatCard icon="fileText" label={t('dashboard.docsIndexed')} value={loading ? '...' : docCount} />
-        <StatCard icon="layers" label={t('dashboard.activeLaws')} value={loading ? '...' : lawCount} />
-        <StatCard icon="globe" label={t('dashboard.organizations')} value={loading ? '...' : orgCount} />
-        <StatCard icon="users" label={t('dashboard.totalUsers')} value={loading ? '...' : userCount} />
+      {/* ── Row 1: KPIs (compact) ───────────────────────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12, marginBottom: 16 }}>
+        <BICard icon="fileText" label={t('dashboard.docsIndexed')} value={docCount} loading={loading} onClick={() => navigate('/admin/documents')} accent="#b8860b" delay={0} />
+        <BICard icon="layers" label={t('dashboard.activeLaws')} value={lawCount} loading={loading} accent="#1b2b42" delay={60} />
+        <BICard icon="globe" label={t('dashboard.organizations')} value={orgCount} loading={loading} onClick={() => navigate('/admin/organizations')} accent="#2d6a4f" delay={120} />
+        <BICard icon="users" label={t('dashboard.totalUsers')} value={userCount} loading={loading} accent="#7c3aed" delay={180} />
+        <BICard icon="shieldCheck" label={t('dashboard.exigences')} value={exigCount} loading={loading} accent="#3498db" delay={240} />
+        <BICard icon="messageCircle" label={t('dashboard.questionsAsked')} value={questionCount} loading={loading} accent="#e67e22" delay={300} />
       </div>
 
-      {/* Stats plateforme + Orgs récentes */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 24 }}>
+      {/* ── Row 2: Chart + 3 donuts side-by-side ──────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '5fr 2fr 2fr 2fr', gap: 14, marginBottom: 16 }}>
+        <div style={{ animation: 'biCardIn 0.45s ease 380ms both' }}>
+        <DCard title={t('dashboard.qaActivity')}>
+          {loading ? <LoadingPlaceholder /> : (
+            <AreaLineChart data={qaChartData} height={170} color={COLORS.info} />
+          )}
+        </DCard>
+        </div>
+
+        <div style={{ animation: 'biCardIn 0.45s ease 440ms both' }}>
+        <DCard title={t('dashboard.docsByStatus')}>
+          {loading ? <LoadingPlaceholder /> : docSegments.length > 0 ? (
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <DonutChart segments={docSegments} centerValue={num(stats?.documents)} centerLabel={t('dashboard.total')} size={100} thickness={16} />
+            </div>
+          ) : <EmptyText text={t('dashboard.noDocs')} />}
+        </DCard>
+        </div>
+
+        <div style={{ animation: 'biCardIn 0.45s ease 500ms both' }}>
+        <DCard title={t('dashboard.casesByPriority')}>
+          {loading ? <LoadingPlaceholder /> : (
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <DonutChart segments={caseSegments} centerValue={num(stats?.cases)} centerLabel={t('dashboard.total')} size={100} thickness={16} />
+            </div>
+          )}
+        </DCard>
+        </div>
+
+        <div style={{ animation: 'biCardIn 0.45s ease 560ms both' }}>
+        <DCard title={t('dashboard.exigencesByType')}>
+          {loading ? <LoadingPlaceholder /> : exigSegments.length > 0 ? (
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <DonutChart segments={exigSegments} centerValue={exigCount} centerLabel={t('dashboard.total')} size={100} thickness={16} />
+            </div>
+          ) : <EmptyText text={t('dashboard.noData')} />}
+        </DCard>
+        </div>
+      </div>
+
+      {/* ── Row 3: Coverage + Stats + Orgs + Notifs — dense 4-col ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 14, marginBottom: 16 }}>
+        {/* Coverage */}
+        <div style={{ animation: 'biCardIn 0.45s ease 640ms both' }}>
+        <DCard title={t('dashboard.complianceCoverage')}>
+          {loading ? <LoadingPlaceholder /> : coverageItems.length > 0 ? (
+            <HorizontalBarChart items={coverageItems} barHeight={14} />
+          ) : <EmptyText text={t('dashboard.noComplianceData')} />}
+        </DCard>
+        </div>
+
+        {/* Platform mini-stats */}
+        <div style={{ animation: 'biCardIn 0.45s ease 700ms both' }}>
         <DCard title={t('dashboard.platformStats')}>
           {loading ? <LoadingPlaceholder /> : (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
               {[
-                { label: t('dashboard.exigences'), value: num(stats?.exigences), icon: 'shieldCheck' },
-                { label: t('dashboard.questionsAsked'), value: num(stats?.questions), icon: 'messageCircle' },
-                { label: t('dashboard.openCases'), value: cases?.total_cases ?? num(stats?.cases), icon: 'target' },
-                { label: t('dashboard.amendments'), value: num(stats?.amendments), icon: 'edit' },
+                { label: t('dashboard.openCases'), value: openCaseCount, icon: 'target', color: openCaseCount > 0 ? COLORS.warning : COLORS.success },
+                { label: t('dashboard.amendments'), value: num(stats?.amendments), icon: 'edit', color: COLORS.navy },
+                { label: t('dashboard.totalArticles'), value: num(stats?.articles), icon: 'hash', color: COLORS.info },
+                { label: t('dashboard.auditLogs'), value: num(stats?.audit_logs), icon: 'eye', color: COLORS.muted },
               ].map((s, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 'var(--radius-md)', background: 'var(--surface-hover)', border: '1px solid var(--border-subtle)' }}>
-                  <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--gold-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gold)' }}>
-                    <DIcon name={s.icon} size={16} />
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 8px', borderRadius: 6, background: 'var(--surface-hover)', border: '1px solid var(--border-subtle)' }}>
+                  <div style={{ width: 26, height: 26, borderRadius: 6, background: `${s.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: s.color, flexShrink: 0 }}>
+                    <DIcon name={s.icon} size={13} />
                   </div>
                   <div>
-                    <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'var(--font-heading)' }}>{s.value}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{s.label}</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, fontFamily: 'var(--font-heading)', lineHeight: 1 }}>{s.value}</div>
+                    <div style={{ fontSize: 9, color: 'var(--text-secondary)' }}>{s.label}</div>
                   </div>
                 </div>
               ))}
             </div>
           )}
         </DCard>
+        </div>
 
+        {/* Orgs */}
+        <div style={{ animation: 'biCardIn 0.45s ease 760ms both' }}>
         <DCard title={t('dashboard.recentOrgs')} action={
-          <button onClick={() => navigate('/admin/organizations')} style={{ fontSize: 12, color: 'var(--gold)', fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer' }}>{t('common.seeAll')}</button>
+          <button onClick={() => navigate('/admin/organizations')} style={{ fontSize: 11, color: 'var(--gold)', fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer' }}>{t('common.seeAll')}</button>
         }>
           {loading ? <LoadingPlaceholder /> : orgs.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {orgs.slice(0, 5).map((org, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 'var(--radius-md)', background: 'var(--surface-hover)', border: '1px solid var(--border-subtle)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--navy)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, fontWeight: 600 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {orgs.slice(0, 4).map((org, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 8px', borderRadius: 6, background: 'var(--surface-hover)', border: '1px solid var(--border-subtle)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ width: 22, height: 22, borderRadius: 5, background: 'var(--navy)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 9, fontWeight: 600 }}>
                       {(org.name || '?')[0].toUpperCase()}
                     </div>
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 500 }}>{org.name}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{org.member_count || 0} {t('dashboard.orgMembers').toLowerCase()}</div>
-                    </div>
+                    <div style={{ fontSize: 11, fontWeight: 500 }}>{org.name}</div>
                   </div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                    {org.created_at ? new Date(org.created_at).toLocaleDateString(locale) : ''}
+                  <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>
+                    {org.member_count || 0} {t('dashboard.orgMembers').toLowerCase()}
                   </div>
                 </div>
               ))}
             </div>
           ) : <EmptyText text={t('dashboard.noActivity')} />}
         </DCard>
+        </div>
+
+        {/* Notifications */}
+        <div style={{ animation: 'biCardIn 0.45s ease 820ms both' }}>
+        <DCard title={t('dashboard.notifications')} action={
+          <button onClick={() => navigate('/admin/notifications')} style={{ fontSize: 11, color: 'var(--gold)', fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer' }}>{t('common.seeAll')}</button>
+        }>
+          {loading ? <LoadingPlaceholder /> : notifications.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {notifications.slice(0, 4).map((n, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', borderRadius: 6, background: n.read ? 'transparent' : 'var(--gold-bg)', border: '1px solid var(--border-subtle)' }}>
+                  <DIcon name="bell" size={12} style={{ color: 'var(--gold)', flexShrink: 0 }} />
+                  <div style={{ flex: 1, fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.title || n.type}</div>
+                </div>
+              ))}
+            </div>
+          ) : <EmptyText text={t('dashboard.noNotifications')} />}
+        </DCard>
+        </div>
       </div>
 
-      {/* Notifications */}
-      <DCard title={t('dashboard.notifications')} action={
-        <button onClick={() => navigate('/admin/notifications')} style={{ fontSize: 12, color: 'var(--gold)', fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer' }}>{t('common.seeAll')}</button>
-      }>
-        {loading ? <LoadingPlaceholder /> : notifications.length > 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {notifications.slice(0, 5).map((n, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 'var(--radius-md)', background: n.read ? 'transparent' : 'var(--gold-bg)', border: '1px solid var(--border-subtle)' }}>
-                <DIcon name="bell" size={15} style={{ color: 'var(--gold)' }} />
-                <div style={{ flex: 1, fontSize: 13 }}>{n.message || n.title || n.type}</div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{n.created_at ? new Date(n.created_at).toLocaleDateString(locale) : ''}</div>
-              </div>
-            ))}
-          </div>
-        ) : <EmptyText text={t('dashboard.noNotifications')} />}
-      </DCard>
+      {/* ── Row 4: Quick actions — inline bar ──────────────── */}
+      <div style={{ display: 'flex', gap: 10, animation: 'biCardIn 0.45s ease 900ms both' }}>
+        {[
+          { icon: 'messageCircle', label: t('dashboard.askQuestion'), color: COLORS.gold, path: '/chat' },
+          { icon: 'upload', label: t('dashboard.importDoc'), color: COLORS.info, path: '/admin/documents' },
+          { icon: 'edit', label: t('dashboard.importAmendment'), color: COLORS.success, path: '/admin/amendments' },
+          { icon: 'target', label: t('dashboard.newCase'), color: COLORS.warning, path: '/admin/cases' },
+        ].map((action, i) => (
+          <button key={i} onClick={() => navigate(action.path)} className="hover-border-accent" style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--surface)', border: '1px solid var(--border)', cursor: 'pointer', transition: 'all .15s', boxShadow: 'var(--shadow-sm)' }}>
+            <div style={{ width: 26, height: 26, borderRadius: 6, background: `${action.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: action.color }}>
+              <DIcon name={action.icon} size={13} />
+            </div>
+            <span style={{ fontSize: 12, fontWeight: 500 }}>{action.label}</span>
+          </button>
+        ))}
+      </div>
     </>
   );
 }
@@ -326,9 +511,8 @@ function AdminDashboard({ t, locale, navigate, user }) {
               { icon: 'upload', label: t('dashboard.importDoc'), color: 'var(--info)', path: '/admin/documents' },
               { icon: 'edit', label: t('dashboard.importAmendment'), color: 'var(--success)', path: '/admin/amendments' },
             ].map((action, i) => (
-              <button key={i} onClick={() => navigate(action.path)} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderRadius: 'var(--radius-md)', background: 'var(--surface-hover)', border: '1px solid var(--border)', cursor: 'pointer', transition: 'all .15s' }}
-                onMouseEnter={e => e.currentTarget.style.borderColor = action.color}
-                onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
+              <button key={i} onClick={() => navigate(action.path)} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderRadius: 'var(--radius-md)', background: 'var(--surface-hover)', border: '1px solid var(--border)', cursor: 'pointer', transition: 'all .15s', '--action-color': action.color }}
+                className="hover-border-accent"
               >
                 <div style={{ width: 32, height: 32, borderRadius: 'var(--radius-md)', background: `${action.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: action.color }}>
                   <DIcon name={action.icon} size={16} />
@@ -437,9 +621,8 @@ function MemberDashboard({ t, locale, navigate }) {
               { icon: 'target', label: t('dashboard.newCase'), color: 'var(--info)', path: '/admin/cases' },
               { icon: 'bell', label: t('dashboard.notifications'), color: 'var(--success)', path: '/admin/notifications' },
             ].map((action, i) => (
-              <button key={i} onClick={() => navigate(action.path)} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderRadius: 'var(--radius-md)', background: 'var(--surface-hover)', border: '1px solid var(--border)', cursor: 'pointer', transition: 'all .15s' }}
-                onMouseEnter={e => e.currentTarget.style.borderColor = action.color}
-                onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
+              <button key={i} onClick={() => navigate(action.path)} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderRadius: 'var(--radius-md)', background: 'var(--surface-hover)', border: '1px solid var(--border)', cursor: 'pointer', transition: 'all .15s', '--action-color': action.color }}
+                className="hover-border-accent"
               >
                 <div style={{ width: 32, height: 32, borderRadius: 'var(--radius-md)', background: `${action.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: action.color }}>
                   <DIcon name={action.icon} size={16} />
@@ -495,9 +678,7 @@ function ViewerDashboard({ t, locale, navigate }) {
         </DCard>
 
         <DCard title={t('dashboard.quickActions')}>
-          <button onClick={() => navigate('/chat')} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderRadius: 'var(--radius-md)', background: 'var(--surface-hover)', border: '1px solid var(--border)', cursor: 'pointer', transition: 'all .15s' }}
-            onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--gold)'}
-            onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
+          <button onClick={() => navigate('/chat')} className="hover-border-accent" style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderRadius: 'var(--radius-md)', background: 'var(--surface-hover)', border: '1px solid var(--border)', cursor: 'pointer', transition: 'all .15s' }}
           >
             <div style={{ width: 32, height: 32, borderRadius: 'var(--radius-md)', background: 'var(--gold-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gold)' }}>
               <DIcon name="messageCircle" size={16} />
@@ -512,14 +693,7 @@ function ViewerDashboard({ t, locale, navigate }) {
 
 // ─── Shared components ───
 function LoadingPlaceholder() {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {[1, 2, 3].map(i => (
-        <div key={i} style={{ height: 40, borderRadius: 8, background: 'var(--surface-active)', animation: 'pulse 1.5s ease-in-out infinite' }} />
-      ))}
-      <style>{`@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }`}</style>
-    </div>
-  );
+  return <Skeleton height={40} count={3} />;
 }
 
 function EmptyText({ text }) {
@@ -539,7 +713,7 @@ export default function Dashboard() {
     : t('dashboard.subtitleMember');
 
   return (
-    <div style={{ padding: '28px 32px', maxWidth: 1200 }}>
+    <div style={{ padding: '44px 32px 28px', maxWidth: 1200 }}>
       {/* Header */}
       <div style={{ marginBottom: 28 }}>
         <h1 style={{ fontSize: 24, fontWeight: 700, fontFamily: 'var(--font-heading)', marginBottom: 4 }}>

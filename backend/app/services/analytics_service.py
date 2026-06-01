@@ -17,7 +17,12 @@ logger = logging.getLogger(__name__)
 
 
 async def get_qa_daily_counts(db: Any, days: int = 30) -> list[dict]:
-    """Return number of questions asked per day (from qa_feedback + ask logs)."""
+    """Return number of questions asked per day.
+
+    Queries ``chat_history`` (every question asked) and merges with
+    ``qa_feedback`` (explicit ratings) so the chart reflects actual usage
+    even when users don't leave feedback.
+    """
     since = datetime.now(timezone.utc) - timedelta(days=days)
     pipeline = [
         {"$match": {"created_at": {"$gte": since}}},
@@ -31,8 +36,17 @@ async def get_qa_daily_counts(db: Any, days: int = 30) -> list[dict]:
         },
         {"$sort": {"_id": 1}},
     ]
-    rows = await db["qa_feedback"].aggregate(pipeline).to_list(length=400)
-    return [{"date": r["_id"], "count": r["count"]} for r in rows]
+
+    # Primary source: chat_history (every question)
+    rows = await db["chat_history"].aggregate(pipeline).to_list(length=400)
+    counts: dict[str, int] = {r["_id"]: r["count"] for r in rows}
+
+    # Fallback: if chat_history is empty, try qa_feedback
+    if not counts:
+        rows = await db["qa_feedback"].aggregate(pipeline).to_list(length=400)
+        counts = {r["_id"]: r["count"] for r in rows}
+
+    return [{"date": d, "count": c} for d, c in sorted(counts.items())]
 
 
 async def get_satisfaction_over_time(db: Any, days: int = 30) -> list[dict]:

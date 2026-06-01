@@ -24,10 +24,11 @@ DELETE /auth/invitations/{id}            — Revoke invitation (admin+)
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 
 from app.limiter import limiter
 
@@ -72,7 +73,7 @@ def _as_utc(value: datetime) -> datetime:
 
 @router.post("/register", response_model=TokenResponse, status_code=201)
 @limiter.limit("3/minute")
-async def register(request: Request, body: RegisterRequest):
+async def register(request: Request, body: RegisterRequest, background_tasks: BackgroundTasks):
     existing = await auth_service.get_user_by_email(body.email)
     if existing:
         raise HTTPException(status_code=409, detail="Un compte avec cet email existe déjà ou l'inscription a échoué.")
@@ -97,7 +98,7 @@ async def register(request: Request, body: RegisterRequest):
     )
     user_id = str(user["_id"])
 
-    await auth_service.update_last_login(user_id)
+    background_tasks.add_task(auth_service.update_last_login, user_id)
     await create_notification(
         mongo_db,
         alert_type="approval_organization",
@@ -136,16 +137,32 @@ async def register(request: Request, body: RegisterRequest):
 
 @router.post("/login", response_model=TokenResponse)
 @limiter.limit("5/minute")
-async def login(request: Request, body: LoginRequest):
+async def login(request: Request, body: LoginRequest, background_tasks: BackgroundTasks):
     user = await auth_service.get_user_by_email(body.email)
-    if not user or not auth_service.verify_password(body.password, user["password_hash"]):
+    if not user:
+        # Run verify_password against a dummy hash to preserve constant-time
+        # behaviour even on unknown emails (prevents user enumeration).
+        await asyncio.to_thread(
+            auth_service.verify_password, body.password,
+            "$2b$12$eImiTXuWVxfM37uY4JANjQ" + "x" * 31,
+        )
         raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    # bcrypt.verify is CPU-bound — run in a thread pool to avoid blocking
+    # the async event loop and delaying every other concurrent request.
+    password_ok = await asyncio.to_thread(
+        auth_service.verify_password, body.password, user["password_hash"]
+    )
+    if not password_ok:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
     if not user.get("is_active", True):
         raise HTTPException(status_code=403, detail="Account deactivated")
 
     user_id = str(user["_id"])
     org_id = user.get("organization_id")
-    await auth_service.update_last_login(user_id)
+    # Fire-and-forget: updating last_login does not need to block the response.
+    background_tasks.add_task(auth_service.update_last_login, user_id)
 
     org_name = None
     org_status = None
@@ -210,8 +227,10 @@ async def login(request: Request, body: LoginRequest):
                         },
                     )
 
-    # Notify super_admin of login activity
-    await create_notification(
+    # Notify super_admin of login activity — fire-and-forget, no need to
+    # block the response waiting for a DB write the user doesn't care about.
+    background_tasks.add_task(
+        create_notification,
         mongo_db,
         alert_type="account_login",
         title="Connexion utilisateur",
@@ -639,7 +658,7 @@ async def list_invitations(user: dict = Depends(get_current_user)):
 
 
 @router.post("/invitations/accept", response_model=TokenResponse, status_code=201)
-async def accept_invitation(body: AcceptInvitationRequest):
+async def accept_invitation(body: AcceptInvitationRequest, background_tasks: BackgroundTasks):
     inv = await auth_service.get_invitation_by_token(body.token)
     if not inv:
         raise HTTPException(status_code=404, detail="Invalid or expired invitation")
@@ -664,12 +683,13 @@ async def accept_invitation(body: AcceptInvitationRequest):
     await auth_service.mark_invitation_accepted(str(inv["_id"]))
 
     user_id = str(user["_id"])
-    await auth_service.update_last_login(user_id)
+    background_tasks.add_task(auth_service.update_last_login, user_id)
 
     org = await auth_service.get_organization(org_id)
     org_name = org["name"] if org else None
 
-    await create_notification(
+    background_tasks.add_task(
+        create_notification,
         mongo_db,
         alert_type="member_joined",
         title="Nouveau membre",
