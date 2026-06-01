@@ -116,6 +116,15 @@ class ExigenceListOut(BaseModel):
 
 # ── Search ──
 
+class PlatformStatsOut(BaseModel):
+    legal_texts_indexed: int
+    articles_analyzed: int
+    answer_precision_percent: Optional[int] = None
+    precision_sample_size: int = 0
+    supported_languages: int
+    supported_language_codes: List[str]
+
+
 class SearchRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=2000)
     top_k: int = Field(default=10, ge=1, le=100)
