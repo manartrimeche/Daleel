@@ -632,7 +632,7 @@ async def export_exigences(
     from app.services.export_service import export_exigences_file
     from fastapi.responses import Response
 
-    doc = await _require_document_access(db, doc_id, current_user)
+    await _require_document_access(db, doc_id, current_user)
 
     content, media_type, filename = await export_exigences_file(
         db, doc_id, format=format,
