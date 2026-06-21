@@ -1,0 +1,183 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Daleel — Dockerfile Production (All-in-One)
+#
+# Image complete : Backend + Frontend + Ollama + Modeles pre-charges
+# Une seule image, zero telechargement au demarrage.
+#
+# Build :  docker build -f Dockerfile.production -t daleel:latest .
+# Run   :  docker compose -f docker-compose.production.yml up
+#
+# Taille estimee : ~9-10 Go (dont ~4.7 Go pour qwen2.5:7b)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Stage 1 : Frontend (React/Vite) → dist statique
+# ═══════════════════════════════════════════════════════════════════════════════
+FROM node:20-slim AS frontend-builder
+
+WORKDIR /build/frontend
+COPY frontend/package*.json ./
+RUN npm install -g npm@11.6.2 --no-audit --no-fund && \
+    npm ci --no-audit --no-fund
+COPY frontend/ ./
+RUN npm run build
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Stage 2 : Dependances Python (venv isole)
+# ═══════════════════════════════════════════════════════════════════════════════
+FROM python:3.12-slim AS python-builder
+
+WORKDIR /build
+
+# Outils de compilation pour faiss-cpu, sentence-transformers, etc.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential g++ libopenblas-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Copier uniquement requirements pour exploiter le cache Docker
+COPY requirements.txt .
+
+# Installer les deps Python (sans deps de test/dev)
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt && \
+    # Supprimer les fichiers inutiles pour reduire la taille
+    find /opt/venv -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null; \
+    find /opt/venv -type d -name "tests" -exec rm -rf {} + 2>/dev/null; \
+    find /opt/venv -name "*.pyc" -delete 2>/dev/null; \
+    # Supprimer les fichiers de test de torch (gros)
+    rm -rf /opt/venv/lib/python3.12/site-packages/torch/test 2>/dev/null; \
+    true
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Stage 3 : Pre-cache des modeles sentence-transformers
+# ═══════════════════════════════════════════════════════════════════════════════
+FROM python:3.12-slim AS model-cacher
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    libgomp1 \
+    libgl1 \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copier le venv pour avoir sentence-transformers disponible
+COPY --from=python-builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+ENV HF_HOME="/app/.cache/huggingface"
+ENV SENTENCE_TRANSFORMERS_HOME="/app/.cache/sentence-transformers"
+ENV EASYOCR_MODULE_PATH="/app/.cache/easyocr"
+ENV PIPER_VOICES_DIR="/app/.cache/piper"
+
+# Script de pre-telechargement
+COPY scripts/precache_models.py /tmp/precache_models.py
+RUN python /tmp/precache_models.py
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Stage 4 : Image runtime finale
+# ═══════════════════════════════════════════════════════════════════════════════
+FROM python:3.12-slim AS runtime
+
+LABEL maintainer="manar.trimeche@polytechnicien.tn"
+LABEL description="Daleel — Assistant juridique IA tunisien (all-in-one)"
+LABEL version="1.0.0"
+
+WORKDIR /app
+
+# ── Deps systeme : Tesseract OCR + poppler + curl (health checks) ──
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    tesseract-ocr \
+    tesseract-ocr-ara \
+    tesseract-ocr-fra \
+    libtesseract-dev \
+    libgomp1 \
+    libgl1 \
+    libglib2.0-0 \
+    poppler-utils \
+    curl \
+    zstd \
+    && rm -rf /var/lib/apt/lists/*
+
+# ── Installer Ollama ──
+RUN curl -fsSL https://ollama.com/install.sh | bash
+
+# ── Copier le venv Python ──
+COPY --from=python-builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+ENV PYTHONPATH="/app/backend"
+
+# ── Copier les modeles sentence-transformers pre-caches ──
+COPY --from=model-cacher /app/.cache /app/.cache
+ENV HF_HOME="/app/.cache/huggingface"
+ENV SENTENCE_TRANSFORMERS_HOME="/app/.cache/sentence-transformers"
+ENV EASYOCR_MODULE_PATH="/app/.cache/easyocr"
+ENV PIPER_VOICES_DIR="/app/.cache/piper"
+# Desactiver les tentatives de telechargement en runtime
+ENV HF_HUB_OFFLINE="1"
+ENV TRANSFORMERS_OFFLINE="1"
+
+# ── Pre-telecharger le modele Ollama (qwen2.5:7b ≈ 4.7 Go) ──
+# On lance ollama serve temporairement pour pull le modele
+RUN set -eux; \
+    export OLLAMA_HOST=127.0.0.1:11434; \
+    ollama serve >/tmp/ollama-build.log 2>&1 & \
+    pid="$!"; \
+    trap 'kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true' EXIT; \
+    i=0; \
+    until curl -sf http://127.0.0.1:11434/api/tags >/dev/null; do \
+        i=$((i + 1)); \
+        if [ "$i" -ge 60 ]; then \
+            cat /tmp/ollama-build.log; \
+            exit 1; \
+        fi; \
+        sleep 1; \
+    done; \
+    ollama pull qwen2.5:7b; \
+    ollama list
+
+# ── Copier le code applicatif ──
+COPY backend/ ./backend/
+COPY --from=frontend-builder /build/frontend/dist/ ./interface-daleel/
+
+# ── Copier l'entrypoint ──
+COPY scripts/entrypoint-production.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# ── Creer les repertoires necessaires ──
+RUN mkdir -p uploads /app/logs
+
+# ── Variables d'environnement par defaut ──
+ENV DALEEL_LLM_BASE_URL="http://localhost:11434" \
+    DALEEL_LLM_MODEL="qwen2.5:7b" \
+    DALEEL_EMBEDDING_MODEL="sentence-transformers/paraphrase-multilingual-mpnet-base-v2" \
+    DALEEL_EMBEDDING_DIMENSION="768" \
+    DALEEL_VECTOR_SEARCH_BACKEND="faiss" \
+    DALEEL_CHUNK_SIZE="1500" \
+    DALEEL_CHUNK_OVERLAP="200" \
+    DALEEL_MAX_UPLOAD_MB="100" \
+    DALEEL_DOMAIN_ROUTER_ENABLED="true" \
+    DALEEL_QUALITY_GUARD_ENABLED="true" \
+    DALEEL_KG_LIGHT_ENABLED="true" \
+    DALEEL_AUTO_MODE_ENABLED="true" \
+    DALEEL_ALLOW_RUNTIME_MODEL_PULL="false" \
+    DALEEL_WHISPER_MODEL="small" \
+    DALEEL_TTS_ONLINE_ENABLED="false" \
+    DALEEL_CORS_ORIGINS="*" \
+    OLLAMA_HOST="0.0.0.0:11434"
+
+# ── Ports ──
+EXPOSE 8000 11434
+
+# ── Health check ──
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
+    CMD sh -ec 'model="${DALEEL_LLM_MODEL:-qwen2.5:7b}"; curl -sf http://localhost:8000/api/v1/health >/dev/null; curl -sf http://localhost:11434/api/tags | grep -q "\"name\":\"${model}\""'
+
+# ── Demarrage ──
+ENTRYPOINT ["/entrypoint.sh"]

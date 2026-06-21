@@ -776,6 +776,62 @@ class AutonomousAgent:
             graph = await graph_resolver.resolve_company_graph(db, args["profile_id"])
             return graph.__dict__ if hasattr(graph, "__dict__") else graph
 
+        # ── Tier 2b: Document exigences ──
+
+        async def handle_list_exigences(args: dict) -> Any:
+            """List exigences (obligations, sanctions, conditions) for a document."""
+            doc_id = args["document_id"]
+            doc = await db["documents"].find_one(
+                {"id": doc_id}, {"_id": 0, "id": 1, "filename": 1}
+            )
+            if not doc:
+                return {"error": f"Document '{doc_id}' not found"}
+
+            exigence_type = args.get("exigence_type")
+            query: dict = {"document_id": doc_id}
+            if exigence_type:
+                query["exigence_type"] = exigence_type
+
+            exigences = await db["exigences"].find(query).sort(
+                [("page_number", 1), ("exigence_type", 1)]
+            ).to_list(length=200)
+
+            results = []
+            for e in exigences:
+                results.append({
+                    "article": e.get("article_reference", ""),
+                    "type": e.get("exigence_type", ""),
+                    "text": (e.get("text") or "")[:300],
+                    "confidence": e.get("confidence_score"),
+                    "page": e.get("page_number"),
+                })
+
+            type_counts: dict[str, int] = {}
+            for e in exigences:
+                t = e.get("exigence_type", "other")
+                type_counts[t] = type_counts.get(t, 0) + 1
+
+            return {
+                "document": doc.get("filename", doc_id),
+                "total": len(exigences),
+                "by_type": type_counts,
+                "exigences": results[:50],  # cap for LLM context
+            }
+
+        async def handle_match_exigences(args: dict) -> Any:
+            """Find exigences relevant to a query/situation."""
+            from app.services.exigence_match_service import match_exigences
+            results = await match_exigences(
+                args["query"],
+                document_id=args.get("document_id"),
+                exigence_type=args.get("exigence_type"),
+                top_k=min(args.get("top_k", 10), 20),
+            )
+            return {
+                "total": len(results),
+                "exigences": results,
+            }
+
         # ── Tier 3: Compliance analysis ──
 
         async def handle_get_applicability(args: dict) -> Any:
@@ -907,6 +963,54 @@ class AutonomousAgent:
                     "required": ["article_id"],
                 },
                 handler=handle_get_article_graph,
+            ),
+            ToolDefinition(
+                name="list_document_exigences",
+                description="Lister toutes les exigences réglementaires (obligations, sanctions, conditions, interdictions) extraites d'un document juridique. Utilise cet outil quand l'utilisateur demande les obligations, les exigences, les sanctions ou les risques d'une loi ou d'un document spécifique.",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "document_id": {
+                            "type": "string",
+                            "description": "The document UUID",
+                        },
+                        "exigence_type": {
+                            "type": "string",
+                            "enum": ["obligation", "sanction", "condition", "prohibition"],
+                            "description": "Optional: filter by exigence type",
+                        },
+                    },
+                    "required": ["document_id"],
+                },
+                handler=handle_list_exigences,
+            ),
+            ToolDefinition(
+                name="match_exigences",
+                description="Trouver les exigences réglementaires pertinentes pour une situation, une question ou un document donné. Recherche sémantique dans toutes les exigences extraites. Utilise cet outil quand l'utilisateur décrit sa situation (ex: 'je suis une entreprise de 10 salariés qui traite des données personnelles') ou demande quelles obligations s'appliquent à son cas.",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "La question, la situation décrite ou le texte du document à analyser",
+                        },
+                        "document_id": {
+                            "type": "string",
+                            "description": "Optional: restrict to exigences from a specific document UUID",
+                        },
+                        "exigence_type": {
+                            "type": "string",
+                            "enum": ["obligation", "sanction", "condition", "prohibition"],
+                            "description": "Optional: filter by type",
+                        },
+                        "top_k": {
+                            "type": "integer",
+                            "description": "Number of results (default 10, max 20)",
+                        },
+                    },
+                    "required": ["query"],
+                },
+                handler=handle_match_exigences,
             ),
             ToolDefinition(
                 name="get_company_graph",

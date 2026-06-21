@@ -15,6 +15,11 @@ Scoring model:
   3. Boost for monetary penalty amounts
   4. Domain boosts (données perso, santé/sécurité, fiscal)
   5. Penalty for purely conditional language
+  6. Inherited boost when the parent article carries a separate sanction
+     exigence (e.g. "non-compliance is punishable by a fine of 300 DT"):
+     the obligation/condition becomes more critical because failure exposes
+     to a concrete penalty. Smaller magnitude than direct boosts to reflect
+     the indirect nature.
 """
 
 import logging
@@ -48,8 +53,9 @@ _SANCTION_KW = re.compile(
 )
 
 _AMOUNT_RE = re.compile(
-    r"\b\d[\d\s]*(?:dinar|DT|TND|millime|euro|EUR|USD)\b|"
-    r"\b(?:\d+(?:\s*000)*)\s*(?:dinar|DT|TND)\b",
+    # Currency tokens accept the optional French plural 's' (dinars, euros, millimes…).
+    r"\b\d[\d\s]*(?:dinars?|DT|TND|millimes?|euros?|EUR|USD)\b|"
+    r"\b(?:\d+(?:\s*000)*)\s*(?:dinars?|DT|TND)\b",
     re.IGNORECASE,
 )
 
@@ -108,9 +114,22 @@ _CONDITIONAL_RE = re.compile(
 # Rule engine
 # ─────────────────────────────────────────────────────────────
 
-def compute_criticality_score(action: dict) -> tuple[float, list[str]]:
+def compute_criticality_score(
+    action: dict,
+    sanctions_context: str = "",
+) -> tuple[float, list[str]]:
     """
     Compute a 0–1 criticality score and human-readable factors for an Action.
+
+    Parameters
+    ----------
+    action : dict
+        The Action being scored (modalite, action_precise, preuve, conditions).
+    sanctions_context : str, optional
+        Concatenated text of *other* exigences of type ``sanction`` belonging to
+        the same parent article. When provided, sanction keywords or monetary
+        amounts found there trigger an *inherited* boost on the current action.
+        Pass an empty string (default) to preserve the legacy behaviour.
 
     Returns: (score, factors_list)
     """
@@ -125,17 +144,34 @@ def compute_criticality_score(action: dict) -> tuple[float, list[str]]:
         " ".join(action.get("conditions") or []),
     ]))
 
-    # ── Sanction keyword boost ──
+    # ── Sanction keyword boost (direct) ──
     if _SANCTION_KW.search(combined_text):
         boost = 0.18
         score = min(1.0, score + boost)
         factors.append(f"Sanction/pénalité détectée dans le texte (+{boost:.2f})")
 
-    # ── Monetary amount boost ──
+    # ── Monetary amount boost (direct) ──
     if _AMOUNT_RE.search(combined_text):
         boost = 0.10
         score = min(1.0, score + boost)
         factors.append(f"Montant de pénalité explicite (+{boost:.2f})")
+
+    # ── Inherited sanction boost (indirect, from sibling sanction exigence) ──
+    # Only applied to non-sanction actions: a sanction action already scores
+    # high enough on its own (base 0.85) and does not need to inherit from itself.
+    if sanctions_context and str(action.get("modalite")) != "sanction":
+        if _SANCTION_KW.search(sanctions_context):
+            boost = 0.10
+            score = min(1.0, score + boost)
+            factors.append(
+                f"Sanction associée dans le même article (+{boost:.2f})"
+            )
+        if _AMOUNT_RE.search(sanctions_context):
+            boost = 0.07
+            score = min(1.0, score + boost)
+            factors.append(
+                f"Montant de pénalité dans l'article (+{boost:.2f})"
+            )
 
     # ── Domain boosts ──
     for pattern, boost, label in _DOMAIN_BOOSTS:
@@ -185,18 +221,22 @@ async def compute_and_store(
     db,
     action: dict,
     recompute: bool = False,
+    sanctions_context: str = "",
 ) -> dict | None:
     """
     Compute criticality for one Action and persist it.
 
     Returns the ActionCriticality dict, or None if skipped.
+
+    ``sanctions_context`` is the concatenated text of sibling sanction exigences
+    from the same article — see ``compute_criticality_score`` for details.
     """
     existing = await get_collection("action_criticalities").find_one({"action_id": action.get("id")})
 
     if existing and not recompute:
         return None  # Already computed, skip
 
-    score, factors = compute_criticality_score(action)
+    score, factors = compute_criticality_score(action, sanctions_context=sanctions_context)
     level = score_to_level(score)
     now = datetime.now(timezone.utc)
 
@@ -237,12 +277,25 @@ async def compute_for_article_version(
         query["id"] = {"$in": action_ids}
     actions = await get_collection("actions").find(query).to_list(length=5000)
 
+    # Build the sanctions context once for the whole article version so each
+    # sibling action can inherit criticality from a separate sanction exigence.
+    sanction_exigences = await (
+        get_collection("exigences")
+        .find({"article_version_id": article_version_id, "exigence_type": "sanction"})
+        .to_list(length=500)
+    )
+    sanctions_context = " ".join(
+        str(e.get("text") or "") for e in sanction_exigences
+    ).strip()
+
     computed = 0
     skipped = 0
     by_level: dict[str, int] = {"critique": 0, "importante": 0, "secondaire": 0}
 
     for action in actions:
-        result = await compute_and_store(db, action, recompute=recompute)
+        result = await compute_and_store(
+            db, action, recompute=recompute, sanctions_context=sanctions_context,
+        )
         if result:
             computed += 1
             by_level[result["level"]] = by_level.get(result["level"], 0) + 1

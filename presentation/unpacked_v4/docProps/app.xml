@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">
+  <TotalTime>82</TotalTime>
+  <Words>2826</Words>
+  <Application>Microsoft Office PowerPoint</Application>
+  <PresentationFormat>Widescreen</PresentationFormat>
+  <Paragraphs>449</Paragraphs>
+  <Slides>27</Slides>
+  <Notes>25</Notes>
+  <HiddenSlides>6</HiddenSlides>
+  <MMClips>0</MMClips>
+  <ScaleCrop>false</ScaleCrop>
+  <HeadingPairs>
+    <vt:vector size="6" baseType="variant">
+      <vt:variant>
+        <vt:lpstr>Fonts Used</vt:lpstr>
+      </vt:variant>
+      <vt:variant>
+        <vt:i4>4</vt:i4>
+      </vt:variant>
+      <vt:variant>
+        <vt:lpstr>Theme</vt:lpstr>
+      </vt:variant>
+      <vt:variant>
+        <vt:i4>1</vt:i4>
+      </vt:variant>
+      <vt:variant>
+        <vt:lpstr>Slide Titles</vt:lpstr>
+      </vt:variant>
+      <vt:variant>
+        <vt:i4>27</vt:i4>
+      </vt:variant>
+    </vt:vector>
+  </HeadingPairs>
+  <TitlesOfParts>
+    <vt:vector size="32" baseType="lpstr">
+      <vt:lpstr>Arial</vt:lpstr>
+      <vt:lpstr>Calibri</vt:lpstr>
+      <vt:lpstr>Calibri Light</vt:lpstr>
+      <vt:lpstr>Cambria</vt:lpstr>
+      <vt:lpstr>Office Theme</vt:lpstr>
+      <vt:lpstr>PowerPoint Presentation</vt:lpstr>
+      <vt:lpstr>PowerPoint Presentation</vt:lpstr>
+      <vt:lpstr>PowerPoint Presentation</vt:lpstr>
+      <vt:lpstr>PowerPoint Presentation</vt:lpstr>
+      <vt:lpstr>PowerPoint Presentation</vt:lpstr>
+      <vt:lpstr>PowerPoint Presentation</vt:lpstr>
+      <vt:lpstr>PowerPoint Presentation</vt:lpstr>
+      <vt:lpstr>PowerPoint Presentation</vt:lpstr>
+      <vt:lpstr>PowerPoint Presentation</vt:lpstr>
+      <vt:lpstr>PowerPoint Presentation</vt:lpstr>
+      <vt:lpstr>PowerPoint Presentation</vt:lpstr>
+      <vt:lpstr>PowerPoint Presentation</vt:lpstr>
+      <vt:lpstr>PowerPoint Presentation</vt:lpstr>
+      <vt:lpstr>PowerPoint Presentation</vt:lpstr>
+      <vt:lpstr>PowerPoint Presentation</vt:lpstr>
+      <vt:lpstr>PowerPoint Presentation</vt:lpstr>
+      <vt:lpstr>PowerPoint Presentation</vt:lpstr>
+      <vt:lpstr>PowerPoint Presentation</vt:lpstr>
+      <vt:lpstr>PowerPoint Presentation</vt:lpstr>
+      <vt:lpstr>PowerPoint Presentation</vt:lpstr>
+      <vt:lpstr>PowerPoint Presentation</vt:lpstr>
+      <vt:lpstr>PowerPoint Presentation</vt:lpstr>
+      <vt:lpstr>PowerPoint Presentation</vt:lpstr>
+      <vt:lpstr>PowerPoint Presentation</vt:lpstr>
+      <vt:lpstr>PowerPoint Presentation</vt:lpstr>
+      <vt:lpstr>PowerPoint Presentation</vt:lpstr>
+      <vt:lpstr>PowerPoint Presentation</vt:lpstr>
+    </vt:vector>
+  </TitlesOfParts>
+  <Company>DIDAX IT</Company>
+  <LinksUpToDate>false</LinksUpToDate>
+  <SharedDoc>false</SharedDoc>
+  <HyperlinksChanged>false</HyperlinksChanged>
+  <AppVersion>16.0000</AppVersion>
+</Properties>

@@ -57,6 +57,8 @@ _DOMAIN_KEYWORDS: dict[str, dict[str, list[str]]] = {
             "inspection du travail", "accident du travail",
             "congé", "droit du travail",
             "travailleur", "employé", "préavis",
+            "cdi", "cdd", "période d'essai", "periode d'essai",
+            "période d’essai", "periode d’essai", "confirmation",
             "indemnité de licenciement", "durée du travail",
             "repos hebdomadaire", "CNSS", "SMIG",
             "convention collective", "contrat à durée déterminée",

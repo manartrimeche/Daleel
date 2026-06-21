@@ -17,6 +17,8 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/voice", tags=["voice"])
 
+SUPPORTED_VOICE_LANGUAGES = {"fr", "en", "ar"}
+
 
 def _organization_scope(user: dict | None) -> str | None:
     """Return the organization_id for tenant scoping (None for super_admin)."""
@@ -88,12 +90,34 @@ async def voice_ask(
     if not user_text.strip():
         raise HTTPException(status_code=400, detail="No speech detected")
 
+    if detected_lang not in SUPPORTED_VOICE_LANGUAGES:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": "Voice language unsupported or unclear",
+                "language": detected_lang,
+                "language_probability": transcription.get("language_probability"),
+            },
+        )
+
+    if not transcription.get("is_confident", True):
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": "Speech was too unclear to answer reliably",
+                "reasons": transcription.get("confidence_reasons", []),
+                "language": detected_lang,
+                "language_probability": transcription.get("language_probability"),
+            },
+        )
+
     # 2. Ask the agentic LLM (pass detected language + org scope so the answer matches)
     result = await llm_service.ask_agentic(
         db,
         question=user_text,
         response_language=detected_lang,
         organization_id=_organization_scope(user),
+        use_quality_guard=True,
     )
     answer_text = result.get("answer", "")
 
@@ -112,6 +136,13 @@ async def voice_ask(
     return {
         "transcription": user_text,
         "language": detected_lang,
+        "transcription_confidence": {
+            "is_confident": transcription.get("is_confident", True),
+            "language_probability": transcription.get("language_probability"),
+            "avg_logprob": transcription.get("avg_logprob"),
+            "no_speech_probability": transcription.get("no_speech_probability"),
+            "compression_ratio": transcription.get("compression_ratio"),
+        },
         "answer": answer_text,
         "audio_base64": audio_b64,
         "audio_content_type": content_type,

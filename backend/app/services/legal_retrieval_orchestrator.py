@@ -31,6 +31,7 @@ peuvent invalider des dispositions antérieures.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Protocol, runtime_checkable
@@ -294,9 +295,7 @@ async def retrieve_partitioned(
     list[dict] : merged and deduplicated chunks, preserving relevance order.
     """
     mix = await intent_to_mix(intent, domain_config)
-    collected: list[dict] = []
-
-    for m in mix:
+    async def _fetch_partition(m: RetrievalMix) -> list[dict]:
         top_k = m.top_k
         if domain_config and hasattr(domain_config, "top_k"):
             top_k = domain_config.top_k
@@ -322,12 +321,23 @@ async def retrieve_partitioned(
             chunks = await search_fn(question, top_k=top_k, extra_filter=merged_filter or None)
         except Exception as e:
             logger.warning("Partition '%s' search failed: %s", m.source, e)
-            chunks = []
+            return []
 
         for c in chunks:
             c["_partition_source"] = m.source
             c["_partition_weight"] = m.weight
-            collected.append(c)
+        return chunks
+
+    partition_results = await asyncio.gather(
+        *(_fetch_partition(m) for m in mix),
+        return_exceptions=True,
+    )
+    collected: list[dict] = []
+    for result in partition_results:
+        if isinstance(result, Exception):
+            logger.warning("Partitioned retrieval task failed: %s", result)
+            continue
+        collected.extend(result)
 
     # Deduplicate by _id or text hash
     seen: set[str] = set()

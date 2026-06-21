@@ -218,10 +218,60 @@ _COMPANY_SCOPE_QUERY_HINTS = {
     "السجل التجاري",
 }
 
+_LABOR_SCOPE_QUERY_HINTS = {
+    "salarie",
+    "employe",
+    "employeur",
+    "travailleur",
+    "contrat de travail",
+    "code du travail",
+    "droit du travail",
+    "licenciement",
+    "preavis",
+    "periode d'essai",
+    "periode d’essai",
+    "duree du travail",
+    "cdi",
+    "cdd",
+    "cnss",
+    "smig",
+    "indemnite de licenciement",
+    "مجلة الشغل",
+    "عقد شغل",
+    "عقد العمل",
+    "عامل",
+    "أجير",
+}
+
+
+def _normalized_scope_text(text: str) -> str:
+    normalized = unicodedata.normalize("NFKD", str(text or ""))
+    normalized = "".join(ch for ch in normalized if not unicodedata.combining(ch))
+    return normalized.lower().replace("’", "'")
+
+
+def _scope_hint_in_text(hint: str, normalized_text: str) -> bool:
+    normalized_hint = _normalized_scope_text(hint)
+    if len(normalized_hint) <= 3:
+        return bool(re.search(rf"(?<!\w){re.escape(normalized_hint)}(?!\w)", normalized_text))
+    return normalized_hint in normalized_text
+
 
 def _should_auto_scope_company_document(question: str) -> bool:
-    q = (question or "").lower()
-    return any(hint in q for hint in _COMPANY_SCOPE_QUERY_HINTS)
+    q = _normalized_scope_text(question)
+    return any(_scope_hint_in_text(hint, q) for hint in _COMPANY_SCOPE_QUERY_HINTS)
+
+
+def _should_auto_scope_labor_document(question: str) -> bool:
+    q = _normalized_scope_text(question)
+    return any(_scope_hint_in_text(hint, q) for hint in _LABOR_SCOPE_QUERY_HINTS)
+
+
+def _is_labor_trial_period_query(question: str) -> bool:
+    q = _normalized_scope_text(question)
+    has_trial = "periode d'essai" in q or "periode d essai" in q
+    has_contract = any(token in q for token in ("cdi", "contrat", "duree indeterminee", "travail"))
+    return has_trial and has_contract
 
 
 def _is_manager_obligations_query(question: str) -> bool:
@@ -247,41 +297,24 @@ def _augment_query_for_specific_legal_scope(question: str, lang: str = "fr") -> 
         return (
             f"{question} {augmentations.get(lang, augmentations['fr'])}"
         )
+    if _is_labor_trial_period_query(question):
+        augmentations = {
+            "ar": "مجلة الشغل عقد شغل غير محدد المدة فترة التجربة الفصل 3-6 الفصل 6-3 الفصل 18",
+            "fr": "Code du travail tunisien CDI periode d'essai contrat de travail duree maximale article 3-6 article 6-3 article 18",
+            "en": "Tunisian labor code indefinite employment contract trial period maximum duration article 3-6 article 6-3 article 18",
+        }
+        return f"{question} {augmentations.get(lang, augmentations['fr'])}"
     return question
 
 
-async def _resolve_effective_document_id(
-    db: Any,
-    question: str,
-    detected_lang: str,
-    document_id: Optional[str],
-) -> tuple[Optional[str], Optional[str]]:
-    """
-    Auto-select a relevant legal corpus when the question targets company law.
+def _score_scoped_document(doc: dict, detected_lang: str, scope: str) -> int:
+    filename = _normalized_scope_text(str(doc.get("filename") or ""))
+    doc_lang = str(doc.get("language") or "").lower()
+    if not filename:
+        return 0
 
-    This keeps backwards compatibility (explicit document_id always wins) while
-    reducing cross-corpus noise for broad legal questions.
-    """
-    if document_id:
-        return document_id, "explicit_document_id"
-
-    if not _should_auto_scope_company_document(question):
-        return None, None
-
-    best_id: Optional[str] = None
-    best_score = 0
-
-    cursor = db["documents"].find(
-        {"status": "ready"},
-        {"_id": 0, "id": 1, "filename": 1, "language": 1},
-    )
-    async for doc in cursor:
-        filename = str(doc.get("filename") or "").lower()
-        doc_lang = str(doc.get("language") or "").lower()
-        if not filename:
-            continue
-
-        score = 0
+    score = 0
+    if scope == "company":
         if "code_societes_fr" in filename:
             score += 100
         if "societ" in filename:
@@ -292,32 +325,87 @@ async def _resolve_effective_document_id(
             score += 15
         if "مجلة الشركات" in filename:
             score += 30
-        if filename.endswith(".jsonl"):
-            score += 2
-
-        # Prefer documents in the same language as the question when possible.
-        if detected_lang in {"ar", "fr", "en"}:
-            if doc_lang == detected_lang:
-                score += 40
-            elif doc_lang:
-                score -= 10
-
-        # Prefer known high-quality French company corpus for Arabic company queries,
-        # then let generation translate to Arabic.
         if detected_lang == "ar" and "code_societes_fr" in filename:
             score += 120
-
-        # Keep French corpus preference only when question is French.
         if detected_lang == "fr" and "code_societes_fr" in filename:
             score += 30
+    elif scope == "labor":
+        if "code de travail" in filename or "code du travail" in filename:
+            score += 100
+        if "code_travail" in filename or "code-du-travail" in filename:
+            score += 90
+        if "travail" in filename:
+            score += 35
+        if "الشغل" in filename or "مجلة الشغل" in filename:
+            score += 70
+        if "societ" in filename or "renseignement" in filename or "credit" in filename:
+            score -= 80
 
+    if score <= 0:
+        return 0
+    if filename.endswith(".jsonl"):
+        score += 2
+    if detected_lang in {"ar", "fr", "en"}:
+        if doc_lang == detected_lang:
+            score += 40
+        elif doc_lang:
+            score -= 10
+    return score
+
+
+async def _find_best_scoped_document_id(db: Any, detected_lang: str, scope: str) -> Optional[str]:
+    best_id: Optional[str] = None
+    best_score = 0
+    cursor = db["documents"].find(
+        {"status": "ready"},
+        {"_id": 0, "id": 1, "filename": 1, "language": 1},
+    )
+    async for doc in cursor:
+        score = _score_scoped_document(doc, detected_lang, scope)
         if score > best_score:
             best_score = score
             best_id = str(doc.get("id") or "") or None
+    return best_id
 
+
+async def _resolve_effective_document_id(
+    db: Any,
+    question: str,
+    detected_lang: str,
+    document_id: Optional[str],
+    domain_name: Optional[str] = None,
+) -> tuple[Optional[str], Optional[str]]:
+    """
+    Auto-select a relevant legal corpus for single-domain questions.
+
+    Explicit document_id always wins. When the domain router is confident
+    about labor or company law, retrieval is scoped to the matching corpus to
+    reduce cross-corpus noise. If no trusted domain is available, lexical
+    hints keep the old best-effort behavior.
+    """
+    if document_id:
+        return document_id, "explicit_document_id"
+
+    domain = (domain_name or "").lower()
+    scope: Optional[str] = None
+    if domain == "corporate":
+        scope = "company"
+    elif domain == "labor":
+        scope = "labor"
+    elif domain in {"data_protection", "investment", "credit_info", "cross_domain"}:
+        return None, None
+    elif _should_auto_scope_company_document(question):
+        scope = "company"
+    elif _should_auto_scope_labor_document(question):
+        scope = "labor"
+
+    if scope is None:
+        return None, None
+
+    best_id = await _find_best_scoped_document_id(db, detected_lang, scope)
     if best_id is None:
         return None, None
-    return best_id, "auto_company_corpus"
+    return best_id, f"auto_{scope}_corpus"
 
 
 def _tokenize_for_rerank(text: str, lang: str) -> list[str]:
@@ -457,6 +545,13 @@ def _detect_intent(question: str, lang: str) -> str:
 def _is_relevant_enough(question: str, chunks: list[dict], lang: str) -> bool:
     """Vérifie si les chunks récupérés sont assez pertinents pour répondre."""
     if not chunks:
+        return False
+
+    if _is_labor_trial_period_query(question):
+        for chunk in chunks[: min(5, len(chunks))]:
+            text = _normalized_scope_text(f"{chunk.get('section') or ''} {chunk.get('text') or ''}")
+            if "essai" in text and any(token in text for token in ("contrat", "travail", "cdi", "duree indeterminee")):
+                return True
         return False
 
     q_tokens = set(_tokenize_for_rerank(question, lang))
@@ -633,6 +728,7 @@ def _build_source_metadata(chunks: list[dict]) -> list[dict]:
         seen.add(key)
         sources.append({
             "document_id": c.get("document_id", ""),
+            "document_title": c.get("document_title") or c.get("title") or c.get("filename", ""),
             "filename": c.get("filename", ""),
             "page_number": c.get("page_number"),
             "section": c.get("section"),
@@ -2010,6 +2106,8 @@ async def ask(
     intent: Optional[str] = None,
     case_id: Optional[str] = None,
     organization_id: Optional[str] = None,
+    user_id: Optional[str] = None,
+    conversation_id: Optional[str] = None,
 ) -> dict:
     """
     Pipeline RAG classique:
@@ -2069,6 +2167,7 @@ async def ask(
         question,
         detected_lang,
         document_id,
+        domain_name=domain_name,
     )
     if scope_reason:
         logger.info("Auto document scope applied: %s (%s)", scope_reason, effective_document_id)
@@ -2158,6 +2257,23 @@ async def ask(
     reranking_service = _get_reranking_service()
     if await reranking_service.is_available():
         chunks = await reranking_service.rerank(question, chunks)
+
+    if not _is_relevant_enough(question, chunks, detected_lang):
+        no_result_messages = {
+            "ar": "لم أجد مقتطفات قانونية مرتبطة مباشرة بسؤالك. تم رفض النتائج لأنها خارج الموضوع.",
+            "fr": "Je n'ai pas trouvé d'extraits juridiques directement liés à votre question. Les résultats récupérés ont été rejetés car ils étaient hors sujet.",
+            "en": "I could not find legal excerpts directly related to your question. The retrieved results were rejected as off-topic.",
+        }
+        return {
+            "answer": no_result_messages.get(detected_lang, no_result_messages["en"]),
+            "sources": [],
+            "model": model_name,
+            "chunks_used": 0,
+            "domain": domain_name,
+            "quality_guard_status": "retrieval_rejected",
+            "quality_guard_issues": ["low_retrieval_relevance"],
+            "kg_enriched": False,
+        }
 
     cached = llm_cache.get(question, chunks)
     if cached:
@@ -2260,13 +2376,46 @@ async def ask(
         except Exception as e:
             logger.warning("Failed to inject case conversation context: %s", e)
 
+    # ── Mémoire long terme : faits utilisateur + résumé roulant ──
+    effective_history = history
+    try:
+        from app.services import memory_service
+
+        user_memory_doc = await memory_service.get_user_memory(db, user_id) if user_id else None
+        summary_doc = await memory_service.get_conversation_summary(db, conversation_id)
+
+        # Condensation déclenchée à la volée si l'historique est devenu long.
+        if conversation_id and history and len(history) >= memory_service.SUMMARY_TRIGGER_MESSAGES:
+            updated = await memory_service.maybe_update_summary(
+                db,
+                conversation_id=conversation_id,
+                history=history,
+                detected_lang=detected_lang,
+                user_id=user_id,
+            )
+            if updated:
+                summary_doc = updated
+
+        memory_block = memory_service.build_memory_block(
+            user_memory=user_memory_doc,
+            summary=summary_doc,
+            detected_lang=detected_lang,
+        )
+        if memory_block:
+            system_message = f"{system_message}\n\n{memory_block}"
+        # Si un résumé couvre les anciens messages, on ne transmet plus
+        # que les messages récents (le résumé tient lieu de contexte).
+        effective_history = memory_service.trim_history_after_summary(history, summary_doc)
+    except Exception:
+        logger.debug("Memory injection skipped", exc_info=True)
+
     # Étape 5: construire la conversation envoyée au modèle
     messages = [{"role": "system", "content": system_message + "\n\n" + GROUNDING_REMINDER.get(detected_lang, GROUNDING_REMINDER["en"])}]
 
     # On conserve seulement les derniers échanges pour éviter de dépasser la limite de contexte
-    if history:
+    if effective_history:
         # Trim to last 10 exchanges (20 messages) to stay within token limits
-        trimmed_history = history[-20:]
+        trimmed_history = effective_history[-20:]
         for msg in trimmed_history:
             if msg.get("role") in ("user", "assistant") and msg.get("content"):
                 messages.append({
@@ -2519,6 +2668,7 @@ async def ask_agentic(
         question,
         detected_lang,
         document_id,
+        domain_name=domain_name,
     )
     if scope_reason:
         reasoning_steps.append(f"document_scope:{scope_reason}")
@@ -3104,8 +3254,99 @@ def _backoff_delay(attempt: int, base: float, maximum: float) -> float:
     """Exponential backoff with jitter: base * 2^attempt + random jitter."""
     import random
     delay = min(base * (2 ** attempt), maximum)
-    jitter = random.uniform(0, delay * 0.25)
+    jitter = random.uniform(0, delay * 0.25)  # noqa: S311  retry jitter, not cryptographic
     return delay + jitter
+
+
+def _build_chat_request(
+    settings: Any,
+    model: str,
+    messages: list[dict],
+    temperature: float,
+    base_url: str,
+    *,
+    stream: bool,
+) -> tuple[str, str, dict, dict]:
+    """
+    Construit (provider, url, headers, payload) selon le fournisseur LLM configuré.
+
+    Deux dialectes supportés :
+      - "ollama" : API native Ollama        → POST {base_url}/api/chat
+      - "openai" : API compatible OpenAI     → POST {base_url}/chat/completions
+                   (OpenRouter, Groq, Together, vLLM…), auth par Bearer token.
+    Le contenu des messages et le pipeline RAG sont identiques dans les deux cas.
+    """
+    provider = (getattr(settings, "llm_provider", "ollama") or "ollama").strip().lower()
+    base = base_url.rstrip("/")
+
+    if provider == "openai":
+        url = f"{base}/chat/completions"
+        headers = {"Authorization": f"Bearer {settings.llm_api_key}"}
+        payload = {
+            "model": model,
+            "messages": messages,
+            "temperature": temperature,
+            "top_p": 0.9,
+            "stream": stream,
+        }
+        return provider, url, headers, payload
+
+    # défaut : Ollama natif
+    url = f"{base}/api/chat"
+    payload = {
+        "model": model,
+        "messages": messages,
+        "temperature": temperature,
+        "stream": stream,
+        "keep_alive": settings.llm_keep_alive,
+        "options": {
+            "num_ctx": 8192,
+            "top_p": 0.9,
+        },
+    }
+    return provider, url, {}, payload
+
+
+def _parse_chat_content(provider: str, data: dict) -> str:
+    """Extrait le texte de réponse complet selon le dialecte du fournisseur."""
+    if provider == "openai":
+        choices = data.get("choices")
+        if not isinstance(choices, list) or not choices:
+            raise RuntimeError(f"Malformed OpenAI response: missing choices: {data!r}")
+        message = choices[0].get("message")
+        if not isinstance(message, dict):
+            raise RuntimeError(f"Malformed OpenAI response: missing message object: {data!r}")
+        content = message.get("content")
+        if not isinstance(content, str):
+            raise RuntimeError(f"Malformed OpenAI response: missing message content: {data!r}")
+        return content
+
+    message = data.get("message")
+    if not isinstance(message, dict):
+        raise RuntimeError(f"Malformed Ollama response: missing message object: {data!r}")
+    content = message.get("content")
+    if not isinstance(content, str):
+        raise RuntimeError(f"Malformed Ollama response: missing message content: {data!r}")
+    return content
+
+
+def _parse_chat_stream_token(provider: str, data: dict) -> tuple[str, bool]:
+    """
+    Extrait (token, done) d'un fragment de stream selon le dialecte.
+    Pour OpenAI, la fin est signalée par le sentinel "[DONE]" géré en amont.
+    """
+    if provider == "openai":
+        choices = data.get("choices")
+        if isinstance(choices, list) and choices:
+            delta = choices[0].get("delta") or {}
+            token = delta.get("content", "") or ""
+            done = choices[0].get("finish_reason") is not None
+            return token, done
+        return "", False
+
+    msg = data.get("message")
+    token = msg.get("content", "") if isinstance(msg, dict) else ""
+    return (token or ""), bool(data.get("done"))
 
 
 async def _call_ollama(
@@ -3114,20 +3355,15 @@ async def _call_ollama(
     temperature: float,
     base_url: str = "http://localhost:11434",
 ) -> str:
-    """Appelle l'API native Ollama avec retry exponentiel et timeouts configurables."""
-    settings = get_settings()
-    url = f"{base_url}/api/chat"
+    """Appelle le LLM (Ollama natif ou API OpenAI-compatible) avec retry exponentiel.
 
-    payload = {
-        "model": model,
-        "messages": messages,
-        "temperature": temperature,
-        "stream": False,
-        "options": {
-            "num_ctx": 8192,
-            "top_p": 0.9,
-        },
-    }
+    Le nom historique est conservé pour ne pas casser les appelants ; le fournisseur
+    réel est déterminé par ``settings.llm_provider``.
+    """
+    settings = get_settings()
+    provider, url, headers, payload = _build_chat_request(
+        settings, model, messages, temperature, base_url, stream=False,
+    )
 
     max_retries = settings.llm_max_retries
     timeout = httpx.Timeout(
@@ -3141,16 +3377,10 @@ async def _call_ollama(
     async with httpx.AsyncClient(timeout=timeout) as client:
         for attempt in range(1, max_retries + 1):
             try:
-                response = await client.post(url, json=payload)
+                response = await client.post(url, json=payload, headers=headers)
                 response.raise_for_status()
                 data = response.json()
-                message = data.get("message")
-                if not isinstance(message, dict):
-                    raise RuntimeError(f"Malformed Ollama response: missing message object: {data!r}")
-                content = message.get("content")
-                if not isinstance(content, str):
-                    raise RuntimeError(f"Malformed Ollama response: missing message content: {data!r}")
-                return content
+                return _parse_chat_content(provider, data)
             except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.ConnectError,
                     httpx.RemoteProtocolError, httpx.PoolTimeout) as e:
                 last_error = e
@@ -3212,20 +3442,11 @@ async def _call_ollama_stream(
     temperature: float,
     base_url: str = "http://localhost:11434",
 ):
-    """Streaming variant — yields content tokens as they arrive from Ollama."""
+    """Streaming variant — yields content tokens as they arrive (Ollama or OpenAI)."""
     settings = get_settings()
-    url = f"{base_url}/api/chat"
-
-    payload = {
-        "model": model,
-        "messages": messages,
-        "temperature": temperature,
-        "stream": True,
-        "options": {
-            "num_ctx": 8192,
-            "top_p": 0.9,
-        },
-    }
+    provider, url, headers, payload = _build_chat_request(
+        settings, model, messages, temperature, base_url, stream=True,
+    )
 
     timeout = httpx.Timeout(
         connect=settings.llm_timeout_connect,
@@ -3235,21 +3456,27 @@ async def _call_ollama_stream(
     )
 
     async with httpx.AsyncClient(timeout=timeout) as client:
-        async with client.stream("POST", url, json=payload) as response:
+        async with client.stream("POST", url, json=payload, headers=headers) as response:
             response.raise_for_status()
             async for line in response.aiter_lines():
-                if not line.strip():
+                line = line.strip()
+                if not line:
                     continue
+                # L'API OpenAI émet du SSE : lignes "data: {json}" terminées par "[DONE]".
+                if provider == "openai":
+                    if not line.startswith("data:"):
+                        continue
+                    line = line[len("data:"):].strip()
+                    if line == "[DONE]":
+                        break
                 try:
                     data = json.loads(line)
                 except json.JSONDecodeError:
                     continue
-                msg = data.get("message")
-                if isinstance(msg, dict):
-                    token = msg.get("content", "")
-                    if token:
-                        yield token
-                if data.get("done"):
+                token, done = _parse_chat_stream_token(provider, data)
+                if token:
+                    yield token
+                if done:
                     break
 
 
@@ -3292,7 +3519,7 @@ async def ask_stream(
             logger.warning("Domain routing failed (stream): %s", e)
 
     effective_document_id, scope_reason = await _resolve_effective_document_id(
-        db, question, detected_lang, document_id,
+        db, question, detected_lang, document_id, domain_name=domain_name,
     )
 
     effective_language_filter = language_filter
@@ -3351,6 +3578,17 @@ async def ask_stream(
     reranking_service = _get_reranking_service()
     if await reranking_service.is_available():
         chunks = await reranking_service.rerank(question, chunks)
+
+    if not _is_relevant_enough(question, chunks, detected_lang):
+        no_result_messages = {
+            "ar": "لم أجد مقتطفات قانونية مرتبطة مباشرة بسؤالك.",
+            "fr": "Je n'ai pas trouvé d'extraits juridiques directement liés à votre question.",
+            "en": "No legal excerpts directly related to your question were found.",
+        }
+        yield {"event": "sources", "data": json.dumps([])}
+        yield {"event": "token", "data": json.dumps(no_result_messages.get(detected_lang, no_result_messages["en"]))}
+        yield {"event": "done", "data": json.dumps({"model": model_name, "chunks_used": 0, "quality_guard_status": "retrieval_rejected"})}
+        return
 
     # Send sources immediately so the UI can show them while generating
     yield {"event": "sources", "data": json.dumps(_build_source_metadata(chunks))}
@@ -3568,4 +3806,3 @@ async def extract_exigences_from_text(
     except Exception as e:
         logger.error("Error extracting exigences from %s: %s", article_reference, e)
         return []
-

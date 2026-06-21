@@ -1,0 +1,20 @@
+# Normalise les fins de ligne pour éviter les diffs CRLF/LF entre Windows et CI Linux.
+* text=auto eol=lf
+
+# Scripts Windows : conserver CRLF.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# Binaires : laisser tel quel.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.docx binary
+*.xlsx binary
+*.pptx binary
+*.faiss binary
+*.npy binary

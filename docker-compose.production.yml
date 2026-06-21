@@ -1,0 +1,113 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Daleel — Docker Compose Production (All-in-One)
+#
+# Tout le stack en 2 services : Daleel (API + Frontend + Ollama) + MongoDB
+#
+# Usage :
+#   docker compose -f docker-compose.production.yml up --build
+#
+# Premier build : ~15-20 min (telechargement des modeles)
+# Builds suivants : ~2 min (cache Docker)
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  # ── MongoDB ──────────────────────────────────────────────────────────────────
+  mongodb:
+    image: mongo:7.0
+    container_name: daleel-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-daleel}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-daleel2024}
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: >
+        mongosh
+        -u "${MONGO_ROOT_USER:-daleel}"
+        -p "${MONGO_ROOT_PASSWORD:-daleel2024}"
+        --eval "db.runCommand({ping:1}).ok"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - daleel-net
+
+  # ── Daleel All-in-One (API + Frontend + Ollama + Modeles) ────────────────────
+  daleel:
+    build:
+      context: .
+      dockerfile: Dockerfile.production
+    container_name: daleel-app
+    restart: unless-stopped
+    ports:
+      - "${DALEEL_HTTP_BIND:-8000}:8000"                # API + Frontend
+    environment:
+      # ── MongoDB ──
+      DALEEL_MONGODB_URL: mongodb://${MONGO_ROOT_USER:-daleel}:${MONGO_ROOT_PASSWORD:-daleel2024}@mongodb:27017
+      DALEEL_MONGODB_DB_NAME: ${DALEEL_DB_NAME:-manar}
+
+      # ── LLM (Ollama interne au conteneur) ──
+      DALEEL_LLM_BASE_URL: http://localhost:11434
+      DALEEL_LLM_MODEL: qwen2.5:7b
+      DALEEL_ALLOW_RUNTIME_MODEL_PULL: "false"
+      DALEEL_LLM_MAX_RETRIES: 3
+      DALEEL_LLM_TIMEOUT_CONNECT: 15.0
+      DALEEL_LLM_TIMEOUT_READ: 300.0
+
+      # ── Embeddings ──
+      DALEEL_EMBEDDING_MODEL: sentence-transformers/paraphrase-multilingual-mpnet-base-v2
+      DALEEL_EMBEDDING_DIMENSION: 768
+      DALEEL_VECTOR_SEARCH_BACKEND: faiss
+
+      # ── Chunking ──
+      DALEEL_CHUNK_SIZE: 1500
+      DALEEL_CHUNK_OVERLAP: 200
+      DALEEL_MAX_UPLOAD_MB: 100
+
+      # ── Features ──
+      DALEEL_DOMAIN_ROUTER_ENABLED: "true"
+      DALEEL_QUALITY_GUARD_ENABLED: "true"
+      DALEEL_KG_LIGHT_ENABLED: "true"
+      DALEEL_AUTO_MODE_ENABLED: "true"
+      DALEEL_WHISPER_MODEL: small
+      DALEEL_TTS_ONLINE_ENABLED: "false"
+
+      # ── Auth (overrider dans .env) ──
+      DALEEL_JWT_SECRET_KEY: ${DALEEL_JWT_SECRET_KEY:-}
+      DALEEL_SUPER_ADMIN_EMAIL: ${DALEEL_SUPER_ADMIN_EMAIL:-}
+      DALEEL_SUPER_ADMIN_PASSWORD: ${DALEEL_SUPER_ADMIN_PASSWORD:-}
+
+      # ── CORS ──
+      DALEEL_CORS_ORIGINS: ${DALEEL_CORS_ORIGINS:-http://localhost:8000,http://127.0.0.1:8000}
+
+      # ── Offline mode (modeles deja en cache) ──
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+      EASYOCR_MODULE_PATH: /app/.cache/easyocr
+      PIPER_VOICES_DIR: /app/.cache/piper
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    volumes:
+      - daleel_uploads:/app/uploads
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: 12G
+        reservations:
+          cpus: "2"
+          memory: 8G
+    networks:
+      - daleel-net
+
+volumes:
+  mongodb_data:
+    driver: local
+  daleel_uploads:
+    driver: local
+
+networks:
+  daleel-net:
+    driver: bridge

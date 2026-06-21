@@ -1,0 +1,1669 @@
+{
+  "model": "training/models/daleel-embedding-finetuned",
+  "dimension": 768,
+  "device": "cuda",
+  "n_articles": 2565,
+  "n_queries": 50,
+  "timings": {
+    "encode_corpus_s": 84.3,
+    "encode_queries_s": 0.75
+  },
+  "summary": {
+    "recall@1": 0.6,
+    "recall@5": 0.84,
+    "recall@10": 0.9,
+    "recall@20": 0.94,
+    "hit@1": 0.6,
+    "hit@5": 0.84,
+    "hit@10": 0.9,
+    "hit@20": 0.94,
+    "mrr@1": 0.6,
+    "mrr@5": 0.6933,
+    "mrr@10": 0.7017,
+    "mrr@20": 0.7046,
+    "ndcg@1": 0.6,
+    "ndcg@5": 0.7303,
+    "ndcg@10": 0.7501,
+    "ndcg@20": 0.7603
+  },
+  "summary_by_language": {
+    "fr": {
+      "recall@1": 0.7,
+      "hit@1": 0.7,
+      "mrr@1": 0.7,
+      "ndcg@1": 0.7,
+      "recall@5": 0.9,
+      "hit@5": 0.9,
+      "mrr@5": 0.7889,
+      "ndcg@5": 0.8175,
+      "recall@10": 1.0,
+      "hit@10": 1.0,
+      "mrr@10": 0.8028,
+      "ndcg@10": 0.8504,
+      "recall@20": 1.0,
+      "hit@20": 1.0,
+      "mrr@20": 0.8028,
+      "ndcg@20": 0.8504
+    },
+    "ar": {
+      "recall@1": 0.45,
+      "hit@1": 0.45,
+      "mrr@1": 0.45,
+      "ndcg@1": 0.45,
+      "recall@5": 0.75,
+      "hit@5": 0.75,
+      "mrr@5": 0.55,
+      "ndcg@5": 0.5996,
+      "recall@10": 0.75,
+      "hit@10": 0.75,
+      "mrr@10": 0.55,
+      "ndcg@10": 0.5996,
+      "recall@20": 0.85,
+      "hit@20": 0.85,
+      "mrr@20": 0.5573,
+      "ndcg@20": 0.6253
+    }
+  },
+  "per_query": [
+    {
+      "query": "Quelles conditions doivent être remplies pour que la fille bénéficie de la pension sans limitation d'âge selon l'article mentionné ?",
+      "language": "fr",
+      "gold": [
+        "a529f6b4-f83b-4adb-be01-5a591fc562b1"
+      ],
+      "top5": [
+        "f56cd790-6cfd-4452-9dcf-a38b6ad32891",
+        "a529f6b4-f83b-4adb-be01-5a591fc562b1",
+        "b9d7ee0b-c902-44c3-83fa-640865977b5e",
+        "57443fb0-6899-4160-a82a-48c3dc48165c",
+        "781233b0-6f61-4230-b4df-868ec2da7e0c"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 0.5,
+        "ndcg@5": 0.6309297535714575,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 0.5,
+        "ndcg@10": 0.6309297535714575,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 0.5,
+        "ndcg@20": 0.6309297535714575
+      }
+    },
+    {
+      "query": "Quelle est la condition relative à l'actionnariat de la personne nommée président-directeur général ?",
+      "language": "fr",
+      "gold": [
+        "9b6c0dc1-a602-46a6-a60e-5b8fc3670086"
+      ],
+      "top5": [
+        "9b6c0dc1-a602-46a6-a60e-5b8fc3670086",
+        "de945553-59b2-4989-a7a0-1d8980f6d0a9",
+        "e529823b-1b37-44dc-9f7e-b83fb2ef9feb",
+        "9bd1f13f-ccfb-4f34-b2dc-710805f63d31",
+        "0afd0464-b682-456a-a96c-90fdd77afe60"
+      ],
+      "metrics": {
+        "recall@1": 1.0,
+        "hit@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 1.0,
+        "ndcg@20": 1.0
+      }
+    },
+    {
+      "query": "Quelles conditions permettent la collecte des données à caractère personnel auprès de tiers sans le consentement de la personne concernée ?",
+      "language": "fr",
+      "gold": [
+        "2165ab2c-d511-4fd4-ac60-4dfbe29fded6"
+      ],
+      "top5": [
+        "2165ab2c-d511-4fd4-ac60-4dfbe29fded6",
+        "c8f1870e-543e-4cf5-b94e-1307ef0cc26b",
+        "02b688b2-3de2-4abc-a239-c69a114414af",
+        "31feae55-8b27-477a-9343-2f9c391da0fb",
+        "fc7ff889-0576-41ab-ac97-8463cb081d22"
+      ],
+      "metrics": {
+        "recall@1": 1.0,
+        "hit@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 1.0,
+        "ndcg@20": 1.0
+      }
+    },
+    {
+      "query": "Quelles actions peuvent effectuer les médecins inspecteurs du travail dans le but de prévenir les maladies professionnelles selon l'article 292 modifié ?",
+      "language": "fr",
+      "gold": [
+        "551680a3-af06-4ce0-b06d-dfb5a137da5c"
+      ],
+      "top5": [
+        "43f29d57-e66d-4e1a-84fc-5e3788f1ef08",
+        "551680a3-af06-4ce0-b06d-dfb5a137da5c",
+        "f241c1c8-d840-438c-95e2-d3db7cd2ca09",
+        "d998318e-4f06-40bf-9745-c78b85300a7c",
+        "bcd50858-5d31-447d-b293-daf869eaa8cc"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 0.5,
+        "ndcg@5": 0.6309297535714575,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 0.5,
+        "ndcg@10": 0.6309297535714575,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 0.5,
+        "ndcg@20": 0.6309297535714575
+      }
+    },
+    {
+      "query": "Quelle est la majoration maximum que peut recevoir un assuré pour sa pension d'invalidité en fonction des trimestres supplémentaires cotisés ?",
+      "language": "fr",
+      "gold": [
+        "0c9a3d58-6fc1-4d9d-abd5-04e8b059bcba"
+      ],
+      "top5": [
+        "0c9a3d58-6fc1-4d9d-abd5-04e8b059bcba",
+        "57443fb0-6899-4160-a82a-48c3dc48165c",
+        "0fb5d478-0814-4460-819d-65700fc2ba60",
+        "276724a3-7d89-41e1-942c-53190357ac0a",
+        "98abcae3-3d94-4367-934a-95342f40f262"
+      ],
+      "metrics": {
+        "recall@1": 1.0,
+        "hit@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 1.0,
+        "ndcg@20": 1.0
+      }
+    },
+    {
+      "query": "Comment sont fixées les modalités d'application et les attributions de l'organisme chargé de la constitution des sociétés en ligne ?",
+      "language": "fr",
+      "gold": [
+        "84eb108a-387f-4c28-b36a-a985fcf75b04"
+      ],
+      "top5": [
+        "84eb108a-387f-4c28-b36a-a985fcf75b04",
+        "2bc54909-f3e1-4cf3-9711-9d8999bf9055",
+        "079ee41d-9ced-4a0d-94ac-10356121cada",
+        "020e0b33-4965-4efb-9352-fb688ed5e37d",
+        "2b588ec5-65e7-4c60-9c31-dae7625b15fa"
+      ],
+      "metrics": {
+        "recall@1": 1.0,
+        "hit@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 1.0,
+        "ndcg@20": 1.0
+      }
+    },
+    {
+      "query": "Quels éléments doivent être mentionnés dans les procès-verbaux dressés par les agents selon le passage ?",
+      "language": "fr",
+      "gold": [
+        "bb4a4900-032b-4d8f-a5a8-68fab44fd613"
+      ],
+      "top5": [
+        "54827381-04e3-489c-9142-b3fb5ef39694",
+        "6681cce4-1f09-410a-8997-bab4db722379",
+        "4a978aa5-05a1-4310-b558-e5097e7aa23e",
+        "59fc3445-723e-43a5-abdf-222aaac8f54c",
+        "c51cb515-9c6f-4d8f-b063-8a14e73f4a66"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 0.0,
+        "hit@5": 0.0,
+        "mrr@5": 0.0,
+        "ndcg@5": 0.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 0.125,
+        "ndcg@10": 0.31546487678572877,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 0.125,
+        "ndcg@20": 0.31546487678572877
+      }
+    },
+    {
+      "query": "Quel est le délai maximum pour présenter des demandes d'affiliation au régime prévu par la présente loi ?",
+      "language": "fr",
+      "gold": [
+        "a3afb862-d607-4449-8398-d8ac7f2ed2fd"
+      ],
+      "top5": [
+        "a3afb862-d607-4449-8398-d8ac7f2ed2fd",
+        "b0cac394-3271-49b3-9181-ab844499cb2d",
+        "65bd001c-c9e1-4792-b592-73bf795ff654",
+        "19153e99-e89f-4354-bb52-4225ec2bc2f3",
+        "479bc89b-f8e2-4084-ad7e-3b56e9628c05"
+      ],
+      "metrics": {
+        "recall@1": 1.0,
+        "hit@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 1.0,
+        "ndcg@20": 1.0
+      }
+    },
+    {
+      "query": "Quels sont les sanctions encourus par les membres du directoire et du conseil d'administration qui présentent ou approuvent des mentions inexactes dans les rapports selon l'article 313 ?",
+      "language": "fr",
+      "gold": [
+        "12c3e90c-1b24-40db-a890-7d0584c2f696"
+      ],
+      "top5": [
+        "12c3e90c-1b24-40db-a890-7d0584c2f696",
+        "242e69ab-4cd3-44b2-9e71-28393717a91d",
+        "0f494b4b-cb18-4f66-95c5-894bfa359758",
+        "b4f13f22-3cb7-4e00-817e-5034f02daffa",
+        "c9b89e30-b094-43fe-901e-cd88225622ba"
+      ],
+      "metrics": {
+        "recall@1": 1.0,
+        "hit@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 1.0,
+        "ndcg@20": 1.0
+      }
+    },
+    {
+      "query": "Quel organisme est chargé de fixer l'indemnité en cas de rupture du contrat d'apprentissage ?",
+      "language": "fr",
+      "gold": [
+        "6db7d48f-1b43-48b7-bcb4-14ced5fe3fda"
+      ],
+      "top5": [
+        "6db7d48f-1b43-48b7-bcb4-14ced5fe3fda",
+        "4970b117-d245-4d6d-abb8-db5e19b001b1",
+        "b2ceef5d-f406-4e3e-a228-13d47c57834c",
+        "e8ad1ac9-7a4c-4608-9902-5ceb48e1c9dd",
+        "d205b3ea-37d0-4a9c-bcf7-a9b16dfd0940"
+      ],
+      "metrics": {
+        "recall@1": 1.0,
+        "hit@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 1.0,
+        "ndcg@20": 1.0
+      }
+    },
+    {
+      "query": "Quelles catégories de personnes sont exclues du champ d'application de l'article 36 relatif à la sécurité sociale ?",
+      "language": "fr",
+      "gold": [
+        "142fb8a1-73da-4ecd-94d2-15883db66c80"
+      ],
+      "top5": [
+        "78eaf116-8a8b-4cf8-9f25-49df957ccdf1",
+        "4da4592f-053c-475e-8aed-8e37ec58801c",
+        "d5ca8ebd-5615-4dec-8110-3e9972614cf9",
+        "bccbc07c-98a3-4e80-833e-c35033d014e3",
+        "57443fb0-6899-4160-a82a-48c3dc48165c"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 0.0,
+        "hit@5": 0.0,
+        "mrr@5": 0.0,
+        "ndcg@5": 0.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 0.125,
+        "ndcg@10": 0.31546487678572877,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 0.125,
+        "ndcg@20": 0.31546487678572877
+      }
+    },
+    {
+      "query": "Quel est le délai donné au président-directeur général pour aviser le conseil d’administration de sa désignation dans une autre société ?",
+      "language": "fr",
+      "gold": [
+        "9bd1f13f-ccfb-4f34-b2dc-710805f63d31"
+      ],
+      "top5": [
+        "9bd1f13f-ccfb-4f34-b2dc-710805f63d31",
+        "715f8acb-e3aa-4932-a399-933ffd9e9515",
+        "0f964205-ad21-4c64-a111-e27e41f109d8",
+        "0afd0464-b682-456a-a96c-90fdd77afe60",
+        "2a0e36c6-0fd8-495b-872a-c6f830468fed"
+      ],
+      "metrics": {
+        "recall@1": 1.0,
+        "hit@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 1.0,
+        "ndcg@20": 1.0
+      }
+    },
+    {
+      "query": "Quelle loi a abrogé certaines dispositions du code de travail relatives à la formation professionnelle ?",
+      "language": "fr",
+      "gold": [
+        "74ce049d-58b0-47af-ab7f-92eb6ae5bacc"
+      ],
+      "top5": [
+        "74ce049d-58b0-47af-ab7f-92eb6ae5bacc",
+        "8cf006c4-7db6-4d68-9c31-2f19ccd43286",
+        "6f45b252-a35b-4489-aaaf-1f7d5efb5079",
+        "3cb4d24c-9e49-47f3-bc3b-d75cf7c19fc0",
+        "bbdd0d56-a4d3-40ef-a398-7c89b52df37e"
+      ],
+      "metrics": {
+        "recall@1": 1.0,
+        "hit@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 1.0,
+        "ndcg@20": 1.0
+      }
+    },
+    {
+      "query": "Quelles ressources financières peuvent être attribuées au titre du régime prévu par la présente loi ?",
+      "language": "fr",
+      "gold": [
+        "830299a5-294d-4aed-88bd-38f15b53a882"
+      ],
+      "top5": [
+        "7e8b6507-918d-455c-bf6e-d21ba663c864",
+        "830299a5-294d-4aed-88bd-38f15b53a882",
+        "bf9d6077-4909-4b4f-80e9-8a8933a92162",
+        "aa005935-1fdc-47e2-8e16-d8da44fb8aee",
+        "1ba0cd92-d037-4a81-971c-c29ddf18580e"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 0.5,
+        "ndcg@5": 0.6309297535714575,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 0.5,
+        "ndcg@10": 0.6309297535714575,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 0.5,
+        "ndcg@20": 0.6309297535714575
+      }
+    },
+    {
+      "query": "Quelle est la conséquence pour les employeurs d'origine s'ils ne notifient pas les agents ou les salariés concernés dans le délai imparti ?",
+      "language": "fr",
+      "gold": [
+        "ea41fa03-9bea-4aef-bdec-6d3bf0d0a9c7"
+      ],
+      "top5": [
+        "ea41fa03-9bea-4aef-bdec-6d3bf0d0a9c7",
+        "2f2bae72-0558-430a-8d37-451996e7e1e0",
+        "88cc8510-4dc3-494f-9ca3-05ebc5a86746",
+        "e05865c3-bb96-4fab-881e-a9bf21f08e37",
+        "f3b73709-965e-4c99-965e-772fde898e53"
+      ],
+      "metrics": {
+        "recall@1": 1.0,
+        "hit@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 1.0,
+        "ndcg@20": 1.0
+      }
+    },
+    {
+      "query": "Quels sont les frais supportés par l'employeur et le salarié pour les fournitures mentionnées dans l'article 333 ?",
+      "language": "fr",
+      "gold": [
+        "b8c4cd9e-4d2f-4898-8e40-070e0bf4901f"
+      ],
+      "top5": [
+        "b8c4cd9e-4d2f-4898-8e40-070e0bf4901f",
+        "1618879a-2eb1-49e0-9824-18882a1ffe5b",
+        "4c935296-1947-4dfd-b22c-904beff60036",
+        "fb6e230b-ba15-4d45-ac3c-0da087bffeaf",
+        "276724a3-7d89-41e1-942c-53190357ac0a"
+      ],
+      "metrics": {
+        "recall@1": 1.0,
+        "hit@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 1.0,
+        "ndcg@20": 1.0
+      }
+    },
+    {
+      "query": "Quelles conditions doivent être remplies pour bénéficier d'une pension d'invalidité selon les articles 15 et 16 ?",
+      "language": "fr",
+      "gold": [
+        "57443fb0-6899-4160-a82a-48c3dc48165c"
+      ],
+      "top5": [
+        "57443fb0-6899-4160-a82a-48c3dc48165c",
+        "f56cd790-6cfd-4452-9dcf-a38b6ad32891",
+        "b9d7ee0b-c902-44c3-83fa-640865977b5e",
+        "a529f6b4-f83b-4adb-be01-5a591fc562b1",
+        "0c9a3d58-6fc1-4d9d-abd5-04e8b059bcba"
+      ],
+      "metrics": {
+        "recall@1": 1.0,
+        "hit@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 1.0,
+        "ndcg@20": 1.0
+      }
+    },
+    {
+      "query": "Quelles sont les limites pour l'augmentation du capital initial par des délibérations de l'assemblée générale ?",
+      "language": "fr",
+      "gold": [
+        "df89218a-6b7e-4f8f-a14c-fe00e182dcb0"
+      ],
+      "top5": [
+        "df89218a-6b7e-4f8f-a14c-fe00e182dcb0",
+        "a3f06d70-9584-4e04-8380-dce7c0f3a808",
+        "a1f7c916-de78-42aa-8dfc-43a0ea9861d7",
+        "013a28cc-d9d1-4b34-9759-2b46a5cc7fa3",
+        "e6df8191-b541-49c8-b60b-c22323264d65"
+      ],
+      "metrics": {
+        "recall@1": 1.0,
+        "hit@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 1.0,
+        "ndcg@20": 1.0
+      }
+    },
+    {
+      "query": "Quels sont les organismes et personnes habilités pour exercer la surveillance des établissements dangereux, insalubres ou incommodes selon l'article 303 modifié ?",
+      "language": "fr",
+      "gold": [
+        "36756a31-4a48-4664-8559-97429976dd35"
+      ],
+      "top5": [
+        "36756a31-4a48-4664-8559-97429976dd35",
+        "c8c5990f-a322-4caa-bd65-136e462ba5cd",
+        "c35bd592-aa69-4132-8424-5403a9bda487",
+        "b8b022f1-e001-4c4f-9413-c6016b118eaf",
+        "c7c717ce-2b20-4973-b7df-5674e3fde1db"
+      ],
+      "metrics": {
+        "recall@1": 1.0,
+        "hit@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 1.0,
+        "ndcg@20": 1.0
+      }
+    },
+    {
+      "query": "Quelles catégories de travailleurs peuvent opter pour l'affiliation au régime prévu par la présente loi ?",
+      "language": "fr",
+      "gold": [
+        "aa005935-1fdc-47e2-8e16-d8da44fb8aee"
+      ],
+      "top5": [
+        "aa005935-1fdc-47e2-8e16-d8da44fb8aee",
+        "16ec1132-c46f-44de-b624-45e36b20b845",
+        "8c214d9e-0027-4d0d-80c1-82ed31ee0a63",
+        "4da4592f-053c-475e-8aed-8e37ec58801c",
+        "aff0cf28-7dbd-4250-9b0e-c03fe07f451b"
+      ],
+      "metrics": {
+        "recall@1": 1.0,
+        "hit@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 1.0,
+        "ndcg@20": 1.0
+      }
+    },
+    {
+      "query": "Quel type de situation est considérée comme un manquement au principe de rotation selon l'article 3 lorsque le commissaire aux comptes a atteint le nombre maximum de mandats successifs ?",
+      "language": "fr",
+      "gold": [
+        "39469cbe-ba48-4b54-94e1-38ca7b8c80bf"
+      ],
+      "top5": [
+        "39469cbe-ba48-4b54-94e1-38ca7b8c80bf",
+        "bd3fe659-bf23-46cc-a5f8-28f196dc28dd",
+        "390247eb-4aa0-457e-83ad-8e87e479b343",
+        "ae5009b0-96bb-4026-9772-b2118216c5aa",
+        "14f38d98-628d-4792-9b7b-bbb10e92c950"
+      ],
+      "metrics": {
+        "recall@1": 1.0,
+        "hit@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 1.0,
+        "ndcg@20": 1.0
+      }
+    },
+    {
+      "query": "Quelle est la peine maximale pour les infractions mentionnées dans cet article ?",
+      "language": "fr",
+      "gold": [
+        "f6842b53-9abe-4de9-8b6e-98dce4c7af56"
+      ],
+      "top5": [
+        "12c3e90c-1b24-40db-a890-7d0584c2f696",
+        "f6842b53-9abe-4de9-8b6e-98dce4c7af56",
+        "6a2022a1-d328-4928-a9bf-fc3263d0f4ba",
+        "ea720861-5c2a-4cfe-84c5-a3c9e9c4a9d5",
+        "58271359-3f53-48b8-9e72-ea34e7c33d9f"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 0.5,
+        "ndcg@5": 0.6309297535714575,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 0.5,
+        "ndcg@10": 0.6309297535714575,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 0.5,
+        "ndcg@20": 0.6309297535714575
+      }
+    },
+    {
+      "query": "Quelle condition doit être respectée pour que l'orphelin perçoive sa pension ?",
+      "language": "fr",
+      "gold": [
+        "0b8a15ea-0659-47ed-874e-7f4237e233cd"
+      ],
+      "top5": [
+        "f56cd790-6cfd-4452-9dcf-a38b6ad32891",
+        "781233b0-6f61-4230-b4df-868ec2da7e0c",
+        "0b8a15ea-0659-47ed-874e-7f4237e233cd",
+        "57443fb0-6899-4160-a82a-48c3dc48165c",
+        "a529f6b4-f83b-4adb-be01-5a591fc562b1"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 0.3333333333333333,
+        "ndcg@5": 0.5,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 0.3333333333333333,
+        "ndcg@10": 0.5,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 0.3333333333333333,
+        "ndcg@20": 0.5
+      }
+    },
+    {
+      "query": "Quel type de société commerciale est la société unipersonnelle à responsabilité limitée selon l'article 150 ?",
+      "language": "fr",
+      "gold": [
+        "1e79168f-b7ba-4470-86c9-124b29d24cc9"
+      ],
+      "top5": [
+        "1e79168f-b7ba-4470-86c9-124b29d24cc9",
+        "e6549964-f27f-4429-86d2-6b1ecc865a6d",
+        "dbf85170-a81f-4e38-a7ac-4fc155312045",
+        "754ff210-9e59-404f-85c0-66cb2d850a41",
+        "8e57e2af-bdf5-409b-a923-a2c0a91f21cb"
+      ],
+      "metrics": {
+        "recall@1": 1.0,
+        "hit@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 1.0,
+        "ndcg@20": 1.0
+      }
+    },
+    {
+      "query": "Quels sont les différents échelons de la Médaille du Travail et quels sont les critères d'attribution pour chacun d'eux ?",
+      "language": "fr",
+      "gold": [
+        "4fff9b6e-932f-4f12-922a-8172565b7742"
+      ],
+      "top5": [
+        "4fff9b6e-932f-4f12-922a-8172565b7742",
+        "98327915-9d77-4488-9f7d-bbdf15b08396",
+        "4f3e0650-c86d-4129-a0f5-bbe4a9b92d12",
+        "0b589d40-f025-4ef6-aeb6-fafba20dc0c8",
+        "272d2660-7637-4b56-8fd8-d88cf1a8d35d"
+      ],
+      "metrics": {
+        "recall@1": 1.0,
+        "hit@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 1.0,
+        "ndcg@20": 1.0
+      }
+    },
+    {
+      "query": "Quelles sont les conditions pour que le conjoint survivant bénéficie de la pension de survie?",
+      "language": "fr",
+      "gold": [
+        "5ed9eff8-0d15-456c-8c65-7ad415422202"
+      ],
+      "top5": [
+        "5ed9eff8-0d15-456c-8c65-7ad415422202",
+        "f9cbdc1c-7d4e-4d2a-aca4-055575280369",
+        "88aa7005-3bc9-4c20-9524-3c9e0ddaef31",
+        "0b8a15ea-0659-47ed-874e-7f4237e233cd",
+        "57443fb0-6899-4160-a82a-48c3dc48165c"
+      ],
+      "metrics": {
+        "recall@1": 1.0,
+        "hit@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 1.0,
+        "ndcg@20": 1.0
+      }
+    },
+    {
+      "query": "Quel délai doit respecter la notification concernant la désignation des commissaires aux comptes selon le mode de nomination ?",
+      "language": "fr",
+      "gold": [
+        "bebb3cae-7fd9-4f43-b77f-ad390e5fa739"
+      ],
+      "top5": [
+        "bebb3cae-7fd9-4f43-b77f-ad390e5fa739",
+        "c11911e4-1cb2-4728-97c3-0e8df3095f66",
+        "e8258a03-4254-46f2-af5b-b16cf28fab86",
+        "095516fe-a63d-4c0d-b39a-b42d7c3c6307",
+        "2ea70bf9-dd5a-4a0e-bbd8-306cb64b1911"
+      ],
+      "metrics": {
+        "recall@1": 1.0,
+        "hit@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 1.0,
+        "ndcg@20": 1.0
+      }
+    },
+    {
+      "query": "Quelle est la condition minimale que doit remplir la gratification due en cas de congédiement par l'employeur ?",
+      "language": "fr",
+      "gold": [
+        "bb1afb6d-1ad6-42cb-bf2b-ee629d76ea68"
+      ],
+      "top5": [
+        "bb1afb6d-1ad6-42cb-bf2b-ee629d76ea68",
+        "b08389dd-e87a-44ef-b382-4b50470a8ecf",
+        "8317a366-6353-4bfa-bf96-8ccc5fe5e0e1",
+        "5022d107-a10d-4c23-8d1a-3e2b1101a745",
+        "7ae238db-0391-406f-8630-99d145e6c30e"
+      ],
+      "metrics": {
+        "recall@1": 1.0,
+        "hit@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 1.0,
+        "ndcg@20": 1.0
+      }
+    },
+    {
+      "query": "Quelles conditions doivent être remplies pour que la pension temporaire d'orphelin ne soit pas reprise selon l'article transitoire?",
+      "language": "fr",
+      "gold": [
+        "781233b0-6f61-4230-b4df-868ec2da7e0c"
+      ],
+      "top5": [
+        "f56cd790-6cfd-4452-9dcf-a38b6ad32891",
+        "0b8a15ea-0659-47ed-874e-7f4237e233cd",
+        "781233b0-6f61-4230-b4df-868ec2da7e0c",
+        "57443fb0-6899-4160-a82a-48c3dc48165c",
+        "1ba0cd92-d037-4a81-971c-c29ddf18580e"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 0.3333333333333333,
+        "ndcg@5": 0.5,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 0.3333333333333333,
+        "ndcg@10": 0.5,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 0.3333333333333333,
+        "ndcg@20": 0.5
+      }
+    },
+    {
+      "query": "ما هي المدة التي تبقى سارية المفعول خلالها أحكام الفصل السابق وفقا للنص؟",
+      "language": "ar",
+      "gold": [
+        "9fe8adea-4562-435d-b31c-760aca4f6461"
+      ],
+      "top5": [
+        "948da9cd-6e66-4451-b8f0-d351a3836373",
+        "33ee602c-9a01-453d-8387-d82b0d8d834b",
+        "9fe8adea-4562-435d-b31c-760aca4f6461",
+        "19ba0c00-a176-4196-a75b-2580e33b5ef7",
+        "9b14aa0d-5015-4e02-b387-9e58c816146e"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 0.3333333333333333,
+        "ndcg@5": 0.5,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 0.3333333333333333,
+        "ndcg@10": 0.5,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 0.3333333333333333,
+        "ndcg@20": 0.5
+      }
+    },
+    {
+      "query": "هل يحظر القانون استخدام خدمات الإيواء السحابي من قبل شركات الاستعلام الائتماني؟",
+      "language": "ar",
+      "gold": [
+        "dc116c23-dc09-422e-b3e0-d7db3c53fc59"
+      ],
+      "top5": [
+        "dc116c23-dc09-422e-b3e0-d7db3c53fc59",
+        "5655c650-614b-46e3-8cb7-66c2701a067a",
+        "ddf7aa10-3f40-462e-9df6-de716303f38c",
+        "b5807e3e-de13-4a7d-bcb5-e415901fdf48",
+        "1baf1c24-3255-4532-98d5-f3c089ce3835"
+      ],
+      "metrics": {
+        "recall@1": 1.0,
+        "hit@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 1.0,
+        "ndcg@20": 1.0
+      }
+    },
+    {
+      "query": "ما هو الأجل القصري لتبلغ نسخ من القرار التحكيمي إلى طرفي النزاع؟",
+      "language": "ar",
+      "gold": [
+        "0560dc64-dd95-4a10-9899-9c667c27cc56"
+      ],
+      "top5": [
+        "0560dc64-dd95-4a10-9899-9c667c27cc56",
+        "d25fea5f-6669-411a-8459-c37dafccd224",
+        "3ca64a6d-e720-4980-9e56-992db8210766",
+        "e85c3ff2-8fed-4a89-b1bd-8e4b58ef5f9a",
+        "9ffe702b-f4af-4d07-a97c-4705c12b0590"
+      ],
+      "metrics": {
+        "recall@1": 1.0,
+        "hit@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 1.0,
+        "ndcg@20": 1.0
+      }
+    },
+    {
+      "query": "كيف يمكن تقدير الحصة العينية وما هي الإجراءات المتبعة حسب النص؟",
+      "language": "ar",
+      "gold": [
+        "d31ac0c9-1c38-4171-890b-065960202465"
+      ],
+      "top5": [
+        "52f67b34-4c29-4c59-8831-8430580594eb",
+        "ab62f661-75df-4932-a758-3e844a4eccc8",
+        "f96b7dae-84dd-4612-b6cf-2f7913233a7e",
+        "6f1e1d05-496c-4b88-b0e4-6312745ece72",
+        "079b86d3-56a2-4030-a197-7f3b2d567647"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 0.0,
+        "hit@5": 0.0,
+        "mrr@5": 0.0,
+        "ndcg@5": 0.0,
+        "recall@10": 0.0,
+        "hit@10": 0.0,
+        "mrr@10": 0.0,
+        "ndcg@10": 0.0,
+        "recall@20": 0.0,
+        "hit@20": 0.0,
+        "mrr@20": 0.0,
+        "ndcg@20": 0.0
+      }
+    },
+    {
+      "query": "ما المعلومات التي يجب أن يتضمنها التنبيه المسبق وفقاً للنص؟",
+      "language": "ar",
+      "gold": [
+        "9c570aa6-bb48-4ead-aaeb-0b47eb2f5e32"
+      ],
+      "top5": [
+        "9c570aa6-bb48-4ead-aaeb-0b47eb2f5e32",
+        "70a40e94-d71b-49be-9d1e-bbf63b9c6599",
+        "af97d2b6-aeb4-4c0c-8795-be25a1a6a8d2",
+        "7aab7065-eea6-4583-9055-f470db8f4fae",
+        "063999ef-d38b-4add-a569-11c7bdfd244c"
+      ],
+      "metrics": {
+        "recall@1": 1.0,
+        "hit@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 1.0,
+        "ndcg@20": 1.0
+      }
+    },
+    {
+      "query": "ما هي الشركات التي يجب أن تضمن تقارير الحسابات إلى البنك المركزي التونسي وفقاً للفصل 13 ثالثا؟",
+      "language": "ar",
+      "gold": [
+        "30bc07d4-d783-4ed2-85ba-228dc0bbef2c"
+      ],
+      "top5": [
+        "9a6efe2e-b6e2-4b2d-9700-50a1c5d53d71",
+        "6c2a27ff-fc74-4794-b40b-b77ec3432319",
+        "30bc07d4-d783-4ed2-85ba-228dc0bbef2c",
+        "20afae74-cb6a-46b9-8dd8-bcf0b21303a7",
+        "b6bdb97b-c379-4386-bd04-7fa62d591816"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 0.3333333333333333,
+        "ndcg@5": 0.5,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 0.3333333333333333,
+        "ndcg@10": 0.5,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 0.3333333333333333,
+        "ndcg@20": 0.5
+      }
+    },
+    {
+      "query": "ما هي الإجراءات المحددة التي يجب تحديدها بأمر للجنة الجهوية للشغل التي أحدثت في ما يتعلق بالنشاط الفلاحي؟",
+      "language": "ar",
+      "gold": [
+        "45146d6d-edad-465d-bce8-769f7be62989"
+      ],
+      "top5": [
+        "2c9db932-8b49-4da9-a270-b21364419c3d",
+        "63717aaa-4e9f-46aa-8be2-6cc8eae38d68",
+        "62821f4f-8478-420a-8944-b333179da6e0",
+        "8b520f4b-a55e-4b9f-b3fa-d736797424e8",
+        "34f43313-501b-4995-a176-083aeae6df12"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 0.0,
+        "hit@5": 0.0,
+        "mrr@5": 0.0,
+        "ndcg@5": 0.0,
+        "recall@10": 0.0,
+        "hit@10": 0.0,
+        "mrr@10": 0.0,
+        "ndcg@10": 0.0,
+        "recall@20": 0.0,
+        "hit@20": 0.0,
+        "mrr@20": 0.0,
+        "ndcg@20": 0.0
+      }
+    },
+    {
+      "query": "هل المراقبون الحسابات مسؤولين مدنيا عن الجرائم التي يرتكبها أعضاء مجلس الإدارة؟",
+      "language": "ar",
+      "gold": [
+        "d497c6b0-dae6-42b6-aca0-3bc98877b473"
+      ],
+      "top5": [
+        "6bfb1ee4-81fd-4a13-8dbe-8b66ff5a87cb",
+        "868f3490-d58d-4fa9-962d-11d88a989aa0",
+        "950d01cc-08cf-4f21-8c0b-67644a7fb1df",
+        "a73c1ff7-ce18-4084-915d-690dc5a23767",
+        "625f6efa-5a57-4a97-99a8-dd0b627342d7"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 0.0,
+        "hit@5": 0.0,
+        "mrr@5": 0.0,
+        "ndcg@5": 0.0,
+        "recall@10": 0.0,
+        "hit@10": 0.0,
+        "mrr@10": 0.0,
+        "ndcg@10": 0.0,
+        "recall@20": 0.0,
+        "hit@20": 0.0,
+        "mrr@20": 0.0,
+        "ndcg@20": 0.0
+      }
+    },
+    {
+      "query": "ما العمل في حالة عدم كفاية الأدلة بعد الانتهاء من المرافعات؟",
+      "language": "ar",
+      "gold": [
+        "c8350620-f9e2-4f5b-b810-920933c905c8"
+      ],
+      "top5": [
+        "93d1dd65-7d9e-4b44-9820-2fc525c61698",
+        "061c4235-1c8e-40ad-bbfe-adb4e473fb56",
+        "fbd74bf2-5abb-42fa-b871-b82f9432bc2c",
+        "e6ddb460-dc6a-4fb1-8247-c09e53672da9",
+        "5741810a-1cc6-4a7d-bfe9-7a3fbbdae43b"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 0.0,
+        "hit@5": 0.0,
+        "mrr@5": 0.0,
+        "ndcg@5": 0.0,
+        "recall@10": 0.0,
+        "hit@10": 0.0,
+        "mrr@10": 0.0,
+        "ndcg@10": 0.0,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 0.05555555555555555,
+        "ndcg@20": 0.23540891336663824
+      }
+    },
+    {
+      "query": "هل يمكن لمجلس المراقبة إسناد مكافآت أو منح لأعضائه مقابل المهام أو الوكالات التي يكلفون بها؟",
+      "language": "ar",
+      "gold": [
+        "406b369c-d6bc-4bec-ac10-eb7b485c3da8"
+      ],
+      "top5": [
+        "406b369c-d6bc-4bec-ac10-eb7b485c3da8",
+        "c65b26e3-444d-40f1-b2c7-d430abeaefb3",
+        "6b04124f-7dbd-406c-b3f8-3e8084d1aa43",
+        "c626f094-dfe1-4cca-b3b0-1239bbf4da1c",
+        "5388b44d-1e1f-4829-ac9a-96de827b9a1e"
+      ],
+      "metrics": {
+        "recall@1": 1.0,
+        "hit@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 1.0,
+        "ndcg@20": 1.0
+      }
+    },
+    {
+      "query": "ما هو الإجراء القانوني المحدد لتحديد بداية سقوط الحق في الدعاوى بين المستأجر والمستأجر حسب النص؟",
+      "language": "ar",
+      "gold": [
+        "66e2fca7-d597-4560-81a2-2c43da411349"
+      ],
+      "top5": [
+        "66e2fca7-d597-4560-81a2-2c43da411349",
+        "3d5f3629-f85e-4aa0-a61d-0cc49db964a4",
+        "ff73ce2f-8aa3-4469-91e6-a408d5718f73",
+        "7aab7065-eea6-4583-9055-f470db8f4fae",
+        "3ca64a6d-e720-4980-9e56-992db8210766"
+      ],
+      "metrics": {
+        "recall@1": 1.0,
+        "hit@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 1.0,
+        "ndcg@20": 1.0
+      }
+    },
+    {
+      "query": "هل يمكن لرئيس مجلس الإدارة أن يفوض مهامه لأحد أعضاء المجلس؟",
+      "language": "ar",
+      "gold": [
+        "eca5fc8a-0dcd-4302-b710-cfe13190c522"
+      ],
+      "top5": [
+        "eca5fc8a-0dcd-4302-b710-cfe13190c522",
+        "7d83bcab-dfe7-4dc5-bba7-ad0f6b478c14",
+        "94abbdbc-7a4b-4b16-8032-5312c993cde0",
+        "3d5f3629-f85e-4aa0-a61d-0cc49db964a4",
+        "489ef8e7-d57c-414f-ab44-21d38fcc7d40"
+      ],
+      "metrics": {
+        "recall@1": 1.0,
+        "hit@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 1.0,
+        "ndcg@20": 1.0
+      }
+    },
+    {
+      "query": "إذا تجاوزت مكافأة نهاية الخدمة أجر ثلاثة أشهر، هل يمكن للأحكام الأفضل في القانون أو الاتفاقيات المعاقدة أن تنطبق؟",
+      "language": "ar",
+      "gold": [
+        "3bc1941c-ad56-41b1-82a4-e1e29b05bd87"
+      ],
+      "top5": [
+        "3bc1941c-ad56-41b1-82a4-e1e29b05bd87",
+        "8eee921b-1e0b-4f2d-b66a-a0009b5cd1ef",
+        "33ee602c-9a01-453d-8387-d82b0d8d834b",
+        "a2ce6680-a25e-45b1-883c-d8b285145186",
+        "487aad6d-ddfa-46cf-a495-869c0aa5874b"
+      ],
+      "metrics": {
+        "recall@1": 1.0,
+        "hit@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 1.0,
+        "ndcg@20": 1.0
+      }
+    },
+    {
+      "query": "ما هي المسؤوليات القانونية للشركاء والأطراف المكتتبين في حالة تغير قيمة الحصة العينية خلال الترفيع؟",
+      "language": "ar",
+      "gold": [
+        "1fddb269-1b47-4fc1-8a0e-bfbbf341be64"
+      ],
+      "top5": [
+        "c1a85028-32a6-4fca-829b-722ab7a8bd10",
+        "f362cf19-1d54-499e-9bc3-90e57f48b241",
+        "1fddb269-1b47-4fc1-8a0e-bfbbf341be64",
+        "d951c2ed-2de0-4890-8204-d62c41f6fef0",
+        "a738bd12-7a3f-49dc-99d1-39fe9b9e8bff"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 0.3333333333333333,
+        "ndcg@5": 0.5,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 0.3333333333333333,
+        "ndcg@10": 0.5,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 0.3333333333333333,
+        "ndcg@20": 0.5
+      }
+    },
+    {
+      "query": "هل يمكن أن يتضمن عقد الشغل لمدة محددة؟",
+      "language": "ar",
+      "gold": [
+        "9b8e2fc7-f863-4bea-beef-066f0b845752"
+      ],
+      "top5": [
+        "9c38a88a-586f-49fa-8ac9-2c913a362ca6",
+        "074c9840-0450-444a-b431-99c77450a75a",
+        "c3915451-b631-4b71-9e4d-444721c2c774",
+        "9b8e2fc7-f863-4bea-beef-066f0b845752",
+        "ce1e6d48-9e68-4293-afb0-56f2b1b9b142"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 0.25,
+        "ndcg@5": 0.43067655807339306,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 0.25,
+        "ndcg@10": 0.43067655807339306,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 0.25,
+        "ndcg@20": 0.43067655807339306
+      }
+    },
+    {
+      "query": "هل تتكون الشركة ذات المسؤولية المحدودة من شخص واحد فقط ويتم تسميتها \"شركة الشخص الواحد ذات المسؤولية المحدودة\"?",
+      "language": "ar",
+      "gold": [
+        "5630dad0-a56a-4c47-9dae-c20dae161ec8"
+      ],
+      "top5": [
+        "8e57e2af-bdf5-409b-a923-a2c0a91f21cb",
+        "5630dad0-a56a-4c47-9dae-c20dae161ec8",
+        "17b58f9c-62c8-474f-9443-4ed097f5321c",
+        "e6549964-f27f-4429-86d2-6b1ecc865a6d",
+        "754ff210-9e59-404f-85c0-66cb2d850a41"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 0.5,
+        "ndcg@5": 0.6309297535714575,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 0.5,
+        "ndcg@10": 0.6309297535714575,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 0.5,
+        "ndcg@20": 0.6309297535714575
+      }
+    },
+    {
+      "query": "هل يمكن منح وسام شغل لعملة أجنبية تابعة لدولة تعامل العملة التونسية بالمثل؟",
+      "language": "ar",
+      "gold": [
+        "d3075793-4ea2-4ad7-8a3c-21c85ec936b2"
+      ],
+      "top5": [
+        "d3075793-4ea2-4ad7-8a3c-21c85ec936b2",
+        "f2516408-cc9e-4955-b0ae-7fca97349249",
+        "ec256757-748f-48b4-9bbb-1bedd0a4e3e5",
+        "c02c9d37-b21a-43be-8923-a6aa04f88e25",
+        "d4f90400-f95e-4236-a707-d7656f1c5936"
+      ],
+      "metrics": {
+        "recall@1": 1.0,
+        "hit@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 1.0,
+        "ndcg@20": 1.0
+      }
+    },
+    {
+      "query": "هل يحتاج الأشخاص المعنويون غير التونسيين الجنسية إلى إذن من كاتب الدولة للتصميم والمالية لاجراء أنواع النشاط المذكورة في الفصل الثامن؟",
+      "language": "ar",
+      "gold": [
+        "d4f90400-f95e-4236-a707-d7656f1c5936"
+      ],
+      "top5": [
+        "d4f90400-f95e-4236-a707-d7656f1c5936",
+        "1c57c5ab-1b0e-47e0-8407-b302ea41a4f6",
+        "83dee76e-4725-4727-888c-7d4c8d65b0d2",
+        "62183ab6-9fda-49c4-bad2-25f714a0bb2d",
+        "b748c5ba-d9b4-4d0f-b6a4-c60a92f2c685"
+      ],
+      "metrics": {
+        "recall@1": 1.0,
+        "hit@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 1.0,
+        "ndcg@20": 1.0
+      }
+    },
+    {
+      "query": "ما هي القوانين المتبعة بدلاً من الأمر المؤرخ في 30 ديسمبر 1923 وفقًا للنص؟",
+      "language": "ar",
+      "gold": [
+        "32466511-9022-47d7-ac2f-adc66805fb59"
+      ],
+      "top5": [
+        "9e2f0c4b-35ac-4885-92b3-fd12b4bd3044",
+        "31772ba1-24bc-43c6-bc19-b7009692f2c5",
+        "36fc1c0f-91b9-4715-b0c6-ec5562cccf19",
+        "32466511-9022-47d7-ac2f-adc66805fb59",
+        "2b21b10f-f267-4986-8376-a12869e6ddb1"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "mrr@5": 0.25,
+        "ndcg@5": 0.43067655807339306,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 0.25,
+        "ndcg@10": 0.43067655807339306,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 0.25,
+        "ndcg@20": 0.43067655807339306
+      }
+    },
+    {
+      "query": "هل يمكن للمقارضين طلب معلومات تتعلق بتصرف وكيل الشركة؟",
+      "language": "ar",
+      "gold": [
+        "78d05b9c-9b9f-4980-8e1e-1aa651413687"
+      ],
+      "top5": [
+        "8a81cf64-abc4-497d-9bf6-a05c3312cb7b",
+        "d654f946-8a92-404d-8071-6ea575a3666d",
+        "d22e06c7-02b7-4c1c-b499-50ff00b15ced",
+        "690ca553-01a3-4b3e-88cf-f4a202496d46",
+        "d4f90400-f95e-4236-a707-d7656f1c5936"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 0.0,
+        "hit@5": 0.0,
+        "mrr@5": 0.0,
+        "ndcg@5": 0.0,
+        "recall@10": 0.0,
+        "hit@10": 0.0,
+        "mrr@10": 0.0,
+        "ndcg@10": 0.0,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 0.09090909090909091,
+        "ndcg@20": 0.27894294565112987
+      }
+    },
+    {
+      "query": "Quelles personnes peuvent être tenues pour responsables des dommages subis par la société selon les dispositions de cet article ?",
+      "language": "fr",
+      "gold": [
+        "a86e7e74-e3f5-4d39-b9eb-08b82eddbcd9"
+      ],
+      "top5": [
+        "de7abfa2-019d-45e4-a234-9d3295596ec5",
+        "240222e7-b56e-4442-90b9-7edf44f64ff6",
+        "0ad7355d-8011-495e-a472-3a41cbdc8331",
+        "d1d031d7-7574-4a44-906b-4d6c3c548b4e",
+        "ab4f817d-a671-4064-b38e-5ef6ee065973"
+      ],
+      "metrics": {
+        "recall@1": 0.0,
+        "hit@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@5": 0.0,
+        "hit@5": 0.0,
+        "mrr@5": 0.0,
+        "ndcg@5": 0.0,
+        "recall@10": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 0.16666666666666666,
+        "ndcg@10": 0.3562071871080222,
+        "recall@20": 1.0,
+        "hit@20": 1.0,
+        "mrr@20": 0.16666666666666666,
+        "ndcg@20": 0.3562071871080222
+      }
+    }
+  ]
+}

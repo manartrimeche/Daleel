@@ -140,7 +140,7 @@ export default function ContractAnalysis() {
   const a = analysis;
 
   return (
-    <div style={{ padding: '28px 32px', maxWidth: 1200 }}>
+    <div style={{ padding: '44px 32px 28px', maxWidth: 1200 }}>
       {/* ── Header ── */}
       <h1 style={{ fontSize: 24, fontWeight: 700, fontFamily: 'var(--font-heading)', marginBottom: 4 }}>
         {t('contracts.title')}
@@ -208,8 +208,6 @@ export default function ContractAnalysis() {
           </button>
         )}
       </DCard>
-
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
 
       {/* ── States: empty / loading / analyzing / failed / completed ── */}
       {!selectedDocId && (

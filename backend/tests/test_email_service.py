@@ -1,6 +1,10 @@
 """Tests for email_service — HTML builders and structure."""
 
-from app.services.email_service import _build_invitation_html, _build_reset_html
+from app.services.email_service import (
+    _build_invitation_html,
+    _build_login_security_html,
+    _build_reset_html,
+)
 
 
 class TestBuildInvitationHtml:
@@ -48,3 +52,32 @@ class TestBuildResetHtml:
     def test_mentions_daleel(self):
         html = _build_reset_html("https://ok.com")
         assert "Daleel" in html
+
+
+class TestBuildLoginSecurityHtml:
+    def test_contains_login_details_and_action(self):
+        html = _build_login_security_html(
+            "Amina",
+            "2026-06-04 10:30 UTC",
+            "203.0.113.10",
+            "Firefox",
+            "https://daleel.tn/login",
+        )
+        assert "Nouvelle connexion" in html
+        assert "Amina" in html
+        assert "203.0.113.10" in html
+        assert "Firefox" in html
+        assert "https://daleel.tn/login" in html
+
+    def test_html_escapes_login_details(self):
+        html = _build_login_security_html(
+            "<script>alert(1)</script>",
+            "now",
+            "127.0.0.1",
+            "<img src=x>",
+            "https://ok.com?a=1&b=2",
+        )
+        assert "<script>" not in html
+        assert "<img" not in html
+        assert "&lt;script&gt;" in html
+        assert "&amp;" in html

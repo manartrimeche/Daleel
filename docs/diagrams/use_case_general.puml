@@ -1,0 +1,173 @@
+@startuml use_case_general
+' ═══════════════════════════════════════════════════════════════════════
+'  Diagramme de cas d'utilisation général — Plateforme Daleel
+'  Acteurs : Visiteur, Membre, Owner (admin entreprise), Super Admin
+'  Basé sur l'inventaire réel des endpoints REST du backend
+' ═══════════════════════════════════════════════════════════════════════
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam ArrowColor #5B6B7B
+skinparam packageStyle rectangle
+skinparam defaultFontName "DejaVu Sans"
+skinparam defaultFontSize 13
+
+skinparam actor {
+    BackgroundColor #ECF0F1
+    BorderColor #2C3E50
+    FontStyle bold
+}
+skinparam usecase {
+    BackgroundColor #F4F9FF
+    BorderColor #2980B9
+    FontSize 12
+}
+skinparam package {
+    BorderColor #95A5A6
+    FontStyle bold
+    FontSize 14
+}
+
+left to right direction
+
+' ─────────────────── ACTEURS ───────────────────
+actor "Visiteur" as VIS
+actor "Membre" as MEM
+actor "Owner\n(Admin entreprise)" as OWN
+actor "Super Admin\n(Plateforme)" as SA
+
+' Hiérarchie : héritage cumulatif des permissions
+MEM --|> VIS
+OWN --|> MEM
+
+' ─────────────────── 1. AUTHENTIFICATION & COMPTE ───────────────────
+rectangle "Authentification & Compte" #FDF6E3 {
+    usecase "S'inscrire\n(compte + organisation)" as UC_register
+    usecase "Vérifier email" as UC_vmail
+    usecase "Vérifier téléphone (OTP)" as UC_vphone
+    usecase "Se connecter" as UC_login
+    usecase "Se déconnecter" as UC_logout
+    usecase "Réinitialiser\nmot de passe" as UC_reset
+    usecase "Gérer son profil" as UC_profile
+    usecase "Changer\nmot de passe" as UC_chpwd
+}
+
+' ─────────────────── 2. LEGAL RAG — ASSISTANT JURIDIQUE ───────────────────
+rectangle "Legal RAG — Assistant juridique" #E8F8F0 {
+    usecase "Poser une question\njuridique (chat RAG)" as UC_ask
+    usecase "Activer l'agent\nautonome ReAct" as UC_agent
+    usecase "Poser une question\nsur un document" as UC_askdoc
+    usecase "Utiliser l'assistant\nvocal (STT + TTS)" as UC_voice
+    usecase "Analyser un contrat" as UC_contract
+    usecase "Consulter / gérer\nl'historique des chats" as UC_history
+    usecase "Donner un feedback\n(👍 / 👎)" as UC_feedback
+}
+
+' ─────────────────── 3. GESTION DOCUMENTAIRE (GED) ───────────────────
+rectangle "Gestion documentaire" #EAF2FB {
+    usecase "Téléverser un\ndocument (PDF)" as UC_upload
+    usecase "Consulter documents\net contenu traité" as UC_docview
+    usecase "Extraire les exigences\nd'un document" as UC_exig
+    usecase "Rechercher / matcher\ndes exigences" as UC_match
+    usecase "Classifier un document\n(base / amendement)" as UC_classify
+}
+
+' ─────────────────── 4. CORPUS LÉGISLATIF ───────────────────
+rectangle "Corpus législatif" #F5EEF8 {
+    usecase "Consulter lois,\narticles et versions" as UC_corpus
+    usecase "Consulter exigences\net actions d'un article" as UC_artreq
+    usecase "Consulter les\namendements" as UC_amend
+    usecase "Consulter la criticité\nd'une action" as UC_crit
+}
+
+' ─────────────────── 5. COMPLIANCE OPERATIONS ───────────────────
+rectangle "Compliance Operations" #FEF9E7 {
+    usecase "Gérer le profil\nentreprise & applicabilité" as UC_company
+    usecase "Créer / suivre un dossier\nde non-conformité" as UC_case
+    usecase "Orchestrer l'analyse\n(ASK/CLARIFY/ACT/REVIEW)" as UC_orch
+    usecase "Gérer constats &\nactions correctives" as UC_finding
+    usecase "Gérer évaluations &\ncontrôles internes" as UC_assess
+    usecase "Gérer preuves\net exceptions" as UC_evidence
+    usecase "Consulter le tableau\nde bord BI" as UC_dashboard
+}
+
+' ─────────────────── 6. ADMINISTRATION ENTREPRISE ───────────────────
+rectangle "Administration entreprise" #FDEDEC {
+    usecase "Inviter & gérer\nles membres" as UC_invite
+    usecase "Gérer les rôles" as UC_roles
+    usecase "Consulter le journal\nd'audit" as UC_audit
+    usecase "Gérer les notifications" as UC_notif
+}
+
+' ─────────────────── 7. ADMINISTRATION PLATEFORME ───────────────────
+rectangle "Administration plateforme" #EBF5FB {
+    usecase "Approuver / suspendre\nles organisations" as UC_approve
+    usecase "Gérer le corpus juridique\nglobal (lois, amendements)" as UC_managecorpus
+    usecase "Consulter les statistiques\nagrégées" as UC_stats
+    usecase "Configurer la plateforme\n(LLM, paramètres)" as UC_config
+    usecase "Superviser les\nnotifications admin" as UC_supervnotif
+}
+
+' ─────────────────── RELATIONS «include» ───────────────────
+UC_ask ..> UC_login : <<include>>
+UC_case ..> UC_company : <<include>>
+UC_orch ..> UC_finding : <<include>>
+UC_exig ..> UC_upload : <<include>>
+
+' ─────────────────── ASSOCIATIONS VISITEUR ───────────────────
+VIS -- UC_register
+VIS -- UC_login
+VIS -- UC_reset
+VIS -- UC_vmail
+VIS -- UC_vphone
+
+' ─────────────────── ASSOCIATIONS MEMBRE ───────────────────
+MEM -- UC_logout
+MEM -- UC_profile
+MEM -- UC_chpwd
+MEM -- UC_ask
+MEM -- UC_agent
+MEM -- UC_askdoc
+MEM -- UC_voice
+MEM -- UC_contract
+MEM -- UC_history
+MEM -- UC_feedback
+MEM -- UC_docview
+MEM -- UC_corpus
+MEM -- UC_artreq
+MEM -- UC_amend
+MEM -- UC_crit
+MEM -- UC_dashboard
+
+' ─────────────────── ASSOCIATIONS OWNER ───────────────────
+OWN -- UC_upload
+OWN -- UC_exig
+OWN -- UC_match
+OWN -- UC_classify
+OWN -- UC_company
+OWN -- UC_case
+OWN -- UC_orch
+OWN -- UC_finding
+OWN -- UC_assess
+OWN -- UC_evidence
+OWN -- UC_invite
+OWN -- UC_roles
+OWN -- UC_audit
+OWN -- UC_notif
+
+' ─────────────────── ASSOCIATIONS SUPER ADMIN ───────────────────
+SA -- UC_approve
+SA -- UC_managecorpus
+SA -- UC_stats
+SA -- UC_config
+SA -- UC_supervnotif
+
+note bottom of SA
+  Le Super Admin pilote la **plateforme**
+  (organisations, corpus global, config).
+  Il **n'accède pas** aux données métier
+  des entreprises (chats, dossiers,
+  conformité) — isolation par organization_id.
+end note
+
+@enduml

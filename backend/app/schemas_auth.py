@@ -30,6 +30,21 @@ ORG_STATUS_CHOICES = ("active", "inactive", "suspended", "pending_approval", "re
 INVITATION_STATUS_CHOICES = ("pending", "accepted", "expired", "revoked", "pending_approval", "rejected")
 SUBSCRIPTION_TYPE_CHOICES = ("monthly", "annual")
 
+# E.164 international phone format: optional leading "+", 8 to 15 digits.
+_PHONE_REGEX = r"^\+?[1-9]\d{7,14}$"
+
+NEED_CHOICES = (
+    "conformite",          # suivi conformité réglementaire
+    "veille",              # veille juridique
+    "contrats",            # analyse / rédaction contrats
+    "audit",               # audit & risques
+    "amendements",         # suivi amendements
+    "documentation",       # gestion documentaire
+    "assistance",          # assistance juridique IA
+    "formation",           # formation équipes
+    "autre",
+)
+
 
 # ── Authentication ──
 
@@ -48,19 +63,65 @@ def _validate_password_strength(password: str) -> str:
 
 class RegisterRequest(BaseModel):
     email: EmailStr
+    phone: str = Field(..., pattern=_PHONE_REGEX, description="Numéro E.164, ex: +21698123456")
     password: str = Field(..., min_length=8, max_length=128)
     full_name: str = Field(..., min_length=2, max_length=128)
     organization_name: str = Field(..., min_length=2, max_length=256)
     sector: str = Field(..., min_length=2, max_length=64)
     size: Optional[str] = Field(None, pattern=r"^(micro|small|medium|large)$")
     employees: Optional[int] = Field(None, ge=1)
+    activities: Optional[str] = Field(None, max_length=1000)
+    country: str = Field(..., min_length=2, max_length=64, description="Pays d'opération principal")
     jurisdiction: str = Field(default="tunisia", max_length=64)
+    needs: List[str] = Field(default_factory=list, max_length=10)
     subscription_type: str = Field(default="monthly", pattern=r"^(monthly|annual)$")
 
     @field_validator("password")
     @classmethod
     def password_strength(cls, v: str) -> str:
         return _validate_password_strength(v)
+
+    @field_validator("needs")
+    @classmethod
+    def validate_needs(cls, v: List[str]) -> List[str]:
+        invalid = [n for n in v if n not in NEED_CHOICES]
+        if invalid:
+            raise ValueError(f"Besoins invalides : {', '.join(invalid)}")
+        return v
+
+
+class RegisterResponse(BaseModel):
+    """Réponse à /auth/register : aucun token tant que la modération n'a pas eu lieu."""
+    status: str = "pending_verification"
+    user_id: str
+    organization_id: str
+    email: str
+    phone: str
+    message: str
+    next_steps: List[str] = Field(
+        default_factory=lambda: [
+            "verify_email",
+            "verify_phone",
+            "await_super_admin_approval",
+        ]
+    )
+
+
+class VerifyEmailRequest(BaseModel):
+    token: str
+
+
+class SendPhoneOTPRequest(BaseModel):
+    user_id: str
+
+
+class VerifyPhoneRequest(BaseModel):
+    user_id: str
+    code: str = Field(..., min_length=4, max_length=8)
+
+
+class OrganizationRejectRequest(BaseModel):
+    reason: str = Field(..., min_length=3, max_length=500)
 
 class LoginRequest(BaseModel):
     email: EmailStr
@@ -69,7 +130,7 @@ class LoginRequest(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
-    token_type: str = "bearer"
+    token_type: str = "bearer"  # noqa: S105  OAuth2 standard constant, not a credential
     expires_in: int
     user: "UserOut"
 
@@ -97,8 +158,10 @@ class OrganizationUpdate(BaseModel):
     activities: Optional[str] = Field(None, max_length=1000)
     jurisdiction: Optional[str] = Field(None, max_length=64)
     logo_url: Optional[str] = None
-    status: Optional[str] = Field(None, pattern=r"^(active|inactive|suspended|pending_approval|rejected)$")
     subscription_type: Optional[str] = Field(None, pattern=r"^(monthly|annual)$")
+
+class OrganizationStatusUpdate(BaseModel):
+    status: str = Field(..., pattern=r"^(active|inactive|suspended)$")
 
 class OrganizationRenewRequest(BaseModel):
     subscription_type: str = Field(default="monthly", pattern=r"^(monthly|annual)$")
@@ -110,9 +173,18 @@ class OrganizationOut(BaseModel):
     size: Optional[str] = None
     employees: Optional[int] = None
     activities: Optional[str] = None
+    country: Optional[str] = None
     jurisdiction: str
+    needs: List[str] = Field(default_factory=list)
     logo_url: Optional[str] = None
     status: str
+    rejection_reason: Optional[str] = None
+    requested_by_email: Optional[str] = None
+    requested_by_phone: Optional[str] = None
+    contact_email_verified: bool = False
+    contact_phone_verified: bool = False
+    approved_at: Optional[datetime] = None
+    approved_by: Optional[str] = None
     subscription_type: Optional[str] = None
     subscription_started_at: Optional[datetime] = None
     subscription_ends_at: Optional[datetime] = None
@@ -130,12 +202,15 @@ class OrganizationListOut(BaseModel):
 class UserOut(BaseModel):
     id: str
     email: str
+    phone: Optional[str] = None
     full_name: str
     role: str
     organization_id: Optional[str] = None
     organization_name: Optional[str] = None
     organization_status: Optional[str] = None
     is_active: bool
+    email_verified: bool = False
+    phone_verified: bool = False
     last_login: Optional[datetime] = None
     created_at: datetime
 

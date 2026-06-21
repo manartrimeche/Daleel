@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import DIcon from '../../components/DIcon';
-import { DCard, DButton, EmptyState, Skeleton } from '../../components/UI';
+import { DCard, DButton, EmptyState, Skeleton, useConfirm, useToast } from '../../components/UI';
 import { authFetch, getUser } from '../../utils/auth';
 
 const PAGE_SIZE = 25;
@@ -17,7 +17,6 @@ function emitUnreadRefresh(delta = 0) {
 const TYPE_ICONS = {
   amendment_impact: 'layers',
   amendment_summary: 'layers',
-  coverage_change: 'barChart',
   approval_organization: 'globe',
   approval_invitation: 'mail',
   approval_document: 'fileText',
@@ -28,10 +27,35 @@ const TYPE_ICONS = {
   account_deactivated: 'lock',
   member_joined: 'users',
   invitation_revoked: 'x',
+  organization_approved: 'check',
+  organization_rejected: 'x',
+};
+
+const ROLE_NOTIFICATION_TYPES = {
+  super_admin: new Set([
+    'approval_organization',
+    'approval_invitation',
+    'approval_document',
+    'approval_amendment',
+    'amendment_summary',
+  ]),
+  owner: new Set([
+    'amendment_impact',
+    'subscription_expiring',
+    'account_login',
+    'account_updated',
+    'account_deactivated',
+    'member_joined',
+    'invitation_revoked',
+    'organization_approved',
+    'organization_rejected',
+  ]),
 };
 
 export default function Notifications() {
   const { t, i18n } = useTranslation();
+  const toast = useToast();
+  const confirm = useConfirm();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -39,18 +63,25 @@ export default function Notifications() {
   const [typeFilter, setTypeFilter] = useState('all');
   const [hasMore, setHasMore] = useState(false);
   const [totalUnread, setTotalUnread] = useState(0);
+  const [processingId, setProcessingId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
   const currentUser = getUser();
   const locale = i18n.language === 'ar' ? 'ar-TN' : i18n.language === 'en' ? 'en-US' : 'fr-FR';
+  const canDeleteNotifications = ['owner', 'super_admin'].includes(currentUser?.role);
 
   const endpointBase = currentUser?.role === 'super_admin'
     ? '/api/v1/admin/notifications'
     : '/api/v1/notifications/mine';
+  const allowedTypes = ROLE_NOTIFICATION_TYPES[currentUser?.role] || null;
 
   async function fetchPage(skip) {
     const res = await authFetch(`${endpointBase}?skip=${skip}&limit=${PAGE_SIZE}`);
     if (!res.ok) return { items: [], total: 0 };
     const data = await res.json();
-    const items = data.notifications || (Array.isArray(data) ? data : []);
+    const rawItems = data.notifications || (Array.isArray(data) ? data : []);
+    const items = allowedTypes
+      ? rawItems.filter(n => allowedTypes.has(n.alert_type))
+      : rawItems;
     return { items, total: data.total ?? items.length };
   }
 
@@ -131,6 +162,63 @@ export default function Notifications() {
       emitUnreadRefresh(-totalUnread);
     }
     setMarkingAll(false);
+  };
+
+  const processApproval = async (notification, decision) => {
+    const id = notification.id || notification._id;
+    if (!id || processingId) return;
+    setProcessingId(id);
+    try {
+      const res = await authFetch(`/api/v1/admin/notifications/${id}/${decision}`, { method: 'POST' });
+      if (!res.ok) throw new Error('approval_failed');
+      const wasUnread = !notification.read;
+      setNotifications(prev => prev.map(n => (n.id || n._id) === id ? {
+        ...n,
+        read: true,
+        details: {
+          ...(n.details || {}),
+          approval_status: decision === 'approve' ? 'approved' : 'rejected',
+        },
+      } : n));
+      if (wasUnread) {
+        setTotalUnread(prev => Math.max(0, prev - 1));
+        emitUnreadRefresh(-1);
+      }
+      toast.success(
+        decision === 'approve'
+          ? t('notifications.approved', { defaultValue: 'Approuvé' })
+          : t('notifications.rejected', { defaultValue: 'Refusé' })
+      );
+    } catch {
+      toast.error(t('notifications.actionFailed', { defaultValue: "L'action n'a pas pu être effectuée." }));
+    }
+    setProcessingId(null);
+  };
+
+  const deleteNotification = async (notification) => {
+    const id = notification.id || notification._id;
+    if (!id || deletingId) return;
+    const ok = await confirm(t('notifications.deleteConfirm'), {
+      variant: 'danger',
+      confirmLabel: t('common.delete'),
+    });
+    if (!ok) return;
+
+    setDeletingId(id);
+    try {
+      const res = await authFetch(`/api/v1/notifications/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('delete_failed');
+      const wasUnread = !notification.read;
+      setNotifications(prev => prev.filter(n => (n.id || n._id) !== id));
+      if (wasUnread) {
+        setTotalUnread(prev => Math.max(0, prev - 1));
+        emitUnreadRefresh(-1);
+      }
+      toast.success(t('notifications.deleted'));
+    } catch {
+      toast.error(t('notifications.deleteFailed'));
+    }
+    setDeletingId(null);
   };
 
   const typeIcon = (type) => TYPE_ICONS[type] || 'bell';
@@ -235,8 +323,11 @@ export default function Notifications() {
             >
               {visibleNotifications.map(n => {
                 const isUnread = !n.read;
+                const isApproval = currentUser?.role === 'super_admin' && (n.alert_type || '').startsWith('approval_');
+                const isPendingApproval = isApproval && isUnread && (n.details?.approval_status || 'pending_approval') === 'pending_approval';
+                const currentId = n.id || n._id;
                 return (
-                <div key={n.id || n._id} style={{
+                <div key={currentId} style={{
                   display: 'flex',
                   gap: 12,
                   padding: '12px 10px',
@@ -264,10 +355,46 @@ export default function Notifications() {
                     <div style={{ fontSize: 13, fontWeight: isUnread ? 700 : 500, marginBottom: 2 }}>{n.title}</div>
                     <div style={{ fontSize: 12, color: isUnread ? 'var(--text-secondary)' : 'var(--text-muted)', lineHeight: 1.5, whiteSpace: 'pre-line' }}>{n.message}</div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{new Date(n.created_at).toLocaleString(locale, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>
+                    {isPendingApproval && (
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+                        <DButton
+                          size="sm"
+                          icon="check"
+                          disabled={processingId === currentId}
+                          onClick={() => processApproval(n, 'approve')}
+                        >
+                          {t('notifications.approve', { defaultValue: 'Approuver' })}
+                        </DButton>
+                        <DButton
+                          variant="danger"
+                          size="sm"
+                          icon="x"
+                          disabled={processingId === currentId}
+                          onClick={() => processApproval(n, 'reject')}
+                        >
+                          {t('notifications.reject', { defaultValue: 'Refuser' })}
+                        </DButton>
+                      </div>
+                    )}
                   </div>
-                  {isUnread && (
-                    <DButton variant="ghost" size="sm" onClick={() => markRead(n.id || n._id)}>{t('notifications.markRead')}</DButton>
-                  )}
+                  <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'center' }}>
+                    {isUnread && !isPendingApproval && (
+                      <DButton variant="ghost" size="sm" onClick={() => markRead(currentId)}>{t('notifications.markRead')}</DButton>
+                    )}
+                    {canDeleteNotifications && (
+                      <DButton
+                        variant="danger"
+                        size="sm"
+                        icon="trash"
+                        title={t('common.delete')}
+                        aria-label={t('common.delete')}
+                        disabled={deletingId === currentId || processingId === currentId}
+                        onClick={() => deleteNotification(n)}
+                        style={{ width: 34, height: 30, padding: 0, justifyContent: 'center' }}
+                      >
+                      </DButton>
+                    )}
+                  </div>
                 </div>
                 );
               })}

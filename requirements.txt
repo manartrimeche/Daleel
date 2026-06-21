@@ -26,6 +26,11 @@ Pillow>=10.0.0
 # Requires PyTorch (CPU version installed automatically)
 easyocr>=1.7.1
 
+# Voice assistant: speech-to-text and text-to-speech
+faster-whisper>=1.0.3
+edge-tts>=7.0.0
+piper-tts>=1.2.0
+
 # NumPy is needed to bridge PyMuPDF pixel buffers → EasyOCR
 numpy>=1.24.0,<2.0
 

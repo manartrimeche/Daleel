@@ -13,6 +13,7 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import time
@@ -231,9 +232,9 @@ class FaissIndexManager:
     async def _validate_embedding_dimensions(self) -> tuple[bool, int | None, int]:
         from app.services.embedding_service import get_primary_embedding_dimension
 
-        # Torch model initialization can crash on Windows when done from a worker thread.
-        # Resolve the embedding dimension on the main thread during rebuild startup.
-        current_dim = int(get_primary_embedding_dimension())
+        # Model initialization can be slow; keep background rebuilds from blocking
+        # the event loop while resolving the active embedding dimension.
+        current_dim = int(await asyncio.to_thread(get_primary_embedding_dimension))
         dims: set[int] = set()
 
         cursor = get_collection("chunks").find(

@@ -5,6 +5,7 @@ from app.services.voice_service import (
     EDGE_TTS_VOICES,
     PIPER_VOICES,
     _resolve_piper_executable,
+    assess_transcription_confidence,
 )
 
 
@@ -40,3 +41,38 @@ class TestResolvePiperExecutable:
     def test_fallback_is_piper(self):
         result = _resolve_piper_executable()
         assert "piper" in result.lower()
+
+
+class TestTranscriptionConfidence:
+    def test_accepts_clear_transcription(self):
+        result = assess_transcription_confidence(
+            "Quelles sont les obligations du gerant ?",
+            language_probability=0.92,
+            segments=[
+                {
+                    "avg_logprob": -0.25,
+                    "no_speech_prob": 0.05,
+                    "compression_ratio": 1.1,
+                }
+            ],
+        )
+
+        assert result["is_confident"] is True
+        assert result["confidence_reasons"] == []
+
+    def test_rejects_likely_silence_hallucination(self):
+        result = assess_transcription_confidence(
+            "Sous-titres realises par la communaute",
+            language_probability=0.22,
+            segments=[
+                {
+                    "avg_logprob": -1.9,
+                    "no_speech_prob": 0.94,
+                    "compression_ratio": 1.3,
+                }
+            ],
+        )
+
+        assert result["is_confident"] is False
+        assert "low_language_probability" in result["confidence_reasons"]
+        assert "likely_silence" in result["confidence_reasons"]

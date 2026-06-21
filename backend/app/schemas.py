@@ -241,6 +241,7 @@ class SourceInfo(BaseModel):
     )
 
     document_id: str
+    document_title: Optional[str] = None
     filename: str
     page_number: Optional[int] = None
     section: Optional[str] = None
@@ -354,6 +355,15 @@ class CompanyProfileOut(BaseModel):
 class CompanyProfileListOut(BaseModel):
     profiles: List[CompanyProfileOut]
     total: int
+
+
+class CompanyProfileBootstrapOut(BaseModel):
+    profile: CompanyProfileOut
+    created: bool = False
+    attached_legacy_profile: bool = False
+    applicability_total: int = 0
+    applicable: int = 0
+    not_applicable: int = 0
 
 
 class ExigenceApplicabilityOut(BaseModel):
@@ -763,3 +773,19 @@ class RecalculationResponse(BaseModel):
     actions_extracted: int
     criticalities_computed: int
     message: str
+
+
+# ── User memory ──
+
+
+class UserMemoryOut(BaseModel):
+    user_id: str
+    organization_id: Optional[str] = None
+    facts: List[str] = Field(default_factory=list)
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class UserMemoryUpdate(BaseModel):
+    facts: List[str] = Field(default_factory=list)
+    replace: bool = False

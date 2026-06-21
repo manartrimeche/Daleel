@@ -1,18 +1,29 @@
-import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import DIcon from './DIcon';
 import { Avatar } from './UI';
 import { useAuth } from '../utils/AuthContext';
+import loginLegalBg from '../assets/login-legal-bg.webp';
 
 const sidebarStyles = {
-  sidebar: { width: 'var(--sidebar-width)', height: '100vh', background: 'var(--sidebar-bg)', display: 'flex', flexDirection: 'column', flexShrink: 0, position: 'relative', overflow: 'hidden' },
+  sidebar: {
+    width: 'var(--sidebar-width)',
+    height: '100vh',
+    backgroundColor: 'var(--sidebar-bg)',
+    backgroundImage: `linear-gradient(180deg, rgba(9, 22, 39, 0.94), rgba(27, 43, 66, 0.9)), url(${loginLegalBg})`,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    display: 'flex',
+    flexDirection: 'column',
+    flexShrink: 0,
+    position: 'relative',
+    overflow: 'hidden',
+  },
   pattern: { position: 'absolute', inset: 0, opacity: 0.025, backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 24px, rgba(255,255,255,0.4) 24px, rgba(255,255,255,0.4) 25px)', pointerEvents: 'none' },
   nav: { flex: 1, overflowY: 'auto', padding: '20px 12px', position: 'relative', zIndex: 1 },
   groupLabel: { fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.3)', padding: '12px 12px 6px', marginTop: 8 },
   item: { display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 13, fontWeight: 400, color: 'var(--sidebar-text)', transition: 'all .12s', border: 'none', width: '100%', textAlign: 'left', background: 'none' },
   itemActive: { background: 'var(--sidebar-active)', color: 'var(--sidebar-text-active)', fontWeight: 600 },
-  itemHover: { background: 'var(--sidebar-hover)' },
   footer: { padding: '16px', borderTop: '1px solid rgba(255,255,255,0.06)', position: 'relative', zIndex: 1 },
   badge: { marginLeft: 'auto', fontSize: 10, fontWeight: 600, background: 'var(--gold)', color: '#fff', borderRadius: 99, padding: '1px 7px', lineHeight: '16px' },
 };
@@ -22,7 +33,6 @@ export default function Sidebar() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const [hovered, setHovered] = useState(null);
   const userRole = user?.role || 'member';
 
   const navSections = [
@@ -40,13 +50,14 @@ export default function Sidebar() {
         { id: 'amendments', icon: 'edit', labelKey: 'sidebar.amendments', path: '/admin/amendments', roles: ['super_admin', 'owner', 'admin'] },
         { id: 'cases', icon: 'shieldCheck', labelKey: 'sidebar.cases', path: '/admin/cases', roles: ['owner', 'admin', 'member'] },
         { id: 'history', icon: 'clock', labelKey: 'sidebar.memberHistory', path: '/admin/history', roles: ['owner'] },
+        { id: 'audit_log', icon: 'archive', labelKey: 'sidebar.auditLog', path: '/admin/audit-log', roles: ['super_admin'] },
       ],
     },
     {
       labelKey: 'sidebar.administration',
       items: [
         { id: 'company_profile', icon: 'database', labelKey: 'sidebar.companyProfile', path: '/admin/company', roles: ['owner', 'admin'] },
-        { id: 'users', icon: 'users', labelKey: 'sidebar.users', path: '/admin/users', roles: ['owner', 'admin'] },
+        { id: 'users', icon: 'users', labelKey: 'sidebar.users', path: '/admin/users', roles: ['owner'] },
         { id: 'organizations', icon: 'globe', labelKey: 'sidebar.organizations', path: '/admin/organizations', roles: ['super_admin'] },
         { id: 'notifications', icon: 'bell', labelKey: 'sidebar.notifications', path: '/admin/notifications', roles: ['super_admin', 'owner', 'admin', 'member'] },
         { id: 'settings', icon: 'settings', labelKey: 'sidebar.settings', path: '/admin/settings' },
@@ -101,17 +112,14 @@ export default function Sidebar() {
               <div style={sidebarStyles.groupLabel}>{t(section.labelKey)}</div>
               {visibleItems.map(item => {
                 const active = isActive(item);
-                const hover = hovered === item.id && !active;
                 return (
                   <button
                     key={item.id}
                     onClick={() => navigate(item.path)}
-                    onMouseEnter={() => setHovered(item.id)}
-                    onMouseLeave={() => setHovered(null)}
+                    className="sidebar-item"
                     style={{
                       ...sidebarStyles.item,
                       ...(active ? sidebarStyles.itemActive : {}),
-                      ...(hover ? sidebarStyles.itemHover : {}),
                     }}
                   >
                     <DIcon name={item.icon} size={18} />
@@ -129,14 +137,11 @@ export default function Sidebar() {
       <div style={{ padding: '0 12px 8px', position: 'relative', zIndex: 1 }}>
         <button
           onClick={() => navigate('/voice-assistant')}
-          onMouseEnter={() => setHovered('voice-cta')}
-          onMouseLeave={() => setHovered(null)}
+          className="sidebar-voice-cta"
           style={{
             width: '100%', padding: '14px 14px',
             borderRadius: 'var(--radius-lg)',
-            background: hovered === 'voice-cta'
-              ? 'linear-gradient(135deg, rgba(184,147,90,0.2), rgba(184,147,90,0.1))'
-              : 'linear-gradient(135deg, rgba(184,147,90,0.12), rgba(184,147,90,0.06))',
+            background: 'linear-gradient(135deg, rgba(184,147,90,0.12), rgba(184,147,90,0.06))',
             border: '1px solid rgba(184,147,90,0.2)',
             cursor: 'pointer',
             display: 'flex', alignItems: 'center', gap: 12,
@@ -174,9 +179,8 @@ export default function Sidebar() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
           <button
             onClick={logout}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 6, fontSize: 12, color: 'rgba(255,255,255,0.5)', background: 'none', border: 'none', cursor: 'pointer', transition: 'color .15s' }}
-            onMouseEnter={e => e.currentTarget.style.color = 'var(--error)'}
-            onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.5)'}
+            className="hover-text-error"
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 6, fontSize: 12, color: 'rgba(255,255,255,0.5)', background: 'none', border: 'none', cursor: 'pointer' }}
           >
             <DIcon name="logout" size={15} />
             {t('sidebar.logout')}

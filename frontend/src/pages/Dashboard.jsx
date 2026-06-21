@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import DIcon from '../components/DIcon';
-import { StatCard, DCard, ProgressBar, Badge, ScoreRing, Skeleton, MiniLineChart, AreaLineChart, DonutChart, HorizontalBarChart } from '../components/UI';
+import { StatCard, DCard, ProgressBar, Badge, ScoreRing, Skeleton, MiniLineChart, AreaLineChart, DonutChart, useConfirm, useToast } from '../components/UI';
 import { authFetch, getUser } from '../utils/auth';
 
 // ─── Count-up hook ───
@@ -83,7 +83,33 @@ const COLORS = {
   donut: ['#b8860b', '#1b2b42', '#2d6a4f', '#e74c3c', '#3498db', '#9b59b6', '#e67e22', '#1abc9c'],
 };
 
+function asPercent(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return 0;
+  return Math.round(numeric > 1 ? numeric : numeric * 100);
+}
+
+function complianceCoveragePercent(compliance) {
+  return asPercent(
+    compliance?.coverage
+      ?? compliance?.overall_coverage_score
+      ?? compliance?.overall_score
+      ?? compliance?.score
+      ?? 0
+  );
+}
+
 // ─── Super Admin Dashboard (BI) ───
+function coverageSuggestionLabel(t, status) {
+  if (status === 'fully_covered') return t('dashboard.coverageSuggestedFully');
+  return t('dashboard.coverageSuggestedNone');
+}
+
+function coverageSuggestionColor(status) {
+  if (status === 'fully_covered') return 'var(--success)';
+  return 'var(--error)';
+}
+
 function SuperAdminDashboard({ t, locale, navigate }) {
   const [stats, setStats] = useState(null);
   const [analytics, setAnalytics] = useState(null);
@@ -140,14 +166,6 @@ function SuperAdminDashboard({ t, locale, navigate }) {
   const exigByType = stats?.exigences?.by_type || {};
   const exigSegments = Object.entries(exigByType).map(([k, v], i) => ({
     label: k, value: v, color: COLORS.donut[i % COLORS.donut.length],
-  }));
-
-  // ── Coverage bars
-  const coverageItems = (analytics?.coverage || []).map(c => ({
-    label: c.profile_name,
-    value: c.coverage_pct,
-    maxValue: 100,
-    color: c.coverage_pct >= 80 ? COLORS.success : c.coverage_pct >= 50 ? COLORS.warning : COLORS.error,
   }));
 
   // ── Time-series chart data
@@ -209,19 +227,10 @@ function SuperAdminDashboard({ t, locale, navigate }) {
         </div>
       </div>
 
-      {/* ── Row 3: Coverage + Stats + Orgs + Notifs — dense 4-col ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 14, marginBottom: 16 }}>
-        {/* Coverage */}
-        <div style={{ animation: 'biCardIn 0.45s ease 640ms both' }}>
-        <DCard title={t('dashboard.complianceCoverage')}>
-          {loading ? <LoadingPlaceholder /> : coverageItems.length > 0 ? (
-            <HorizontalBarChart items={coverageItems} barHeight={14} />
-          ) : <EmptyText text={t('dashboard.noComplianceData')} />}
-        </DCard>
-        </div>
-
+      {/* ── Row 3: Stats + Orgs + Notifs — dense 3-col ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 16 }}>
         {/* Platform mini-stats */}
-        <div style={{ animation: 'biCardIn 0.45s ease 700ms both' }}>
+        <div style={{ animation: 'biCardIn 0.45s ease 640ms both' }}>
         <DCard title={t('dashboard.platformStats')}>
           {loading ? <LoadingPlaceholder /> : (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
@@ -247,7 +256,7 @@ function SuperAdminDashboard({ t, locale, navigate }) {
         </div>
 
         {/* Orgs */}
-        <div style={{ animation: 'biCardIn 0.45s ease 760ms both' }}>
+        <div style={{ animation: 'biCardIn 0.45s ease 700ms both' }}>
         <DCard title={t('dashboard.recentOrgs')} action={
           <button onClick={() => navigate('/admin/organizations')} style={{ fontSize: 11, color: 'var(--gold)', fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer' }}>{t('common.seeAll')}</button>
         }>
@@ -272,7 +281,7 @@ function SuperAdminDashboard({ t, locale, navigate }) {
         </div>
 
         {/* Notifications */}
-        <div style={{ animation: 'biCardIn 0.45s ease 820ms both' }}>
+        <div style={{ animation: 'biCardIn 0.45s ease 760ms both' }}>
         <DCard title={t('dashboard.notifications')} action={
           <button onClick={() => navigate('/admin/notifications')} style={{ fontSize: 11, color: 'var(--gold)', fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer' }}>{t('common.seeAll')}</button>
         }>
@@ -310,7 +319,24 @@ function SuperAdminDashboard({ t, locale, navigate }) {
   );
 }
 
-// ─── Owner / Admin Dashboard ───
+// ─── CTA Empty State ───
+function EmptyCTA({ icon, text, actionLabel, onAction }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '28px 16px', textAlign: 'center', gap: 12 }}>
+      <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--gold-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gold)' }}>
+        <DIcon name={icon} size={20} />
+      </div>
+      <div style={{ fontSize: 12, color: 'var(--text-muted)', maxWidth: 240 }}>{text}</div>
+      {actionLabel && onAction && (
+        <button onClick={onAction} className="hover-border-accent" style={{ padding: '8px 18px', borderRadius: 8, background: 'var(--navy)', color: '#fff', fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'opacity .15s' }}>
+          {actionLabel}
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ─── Owner / Admin Dashboard (BI style) ───
 function AdminDashboard({ t, locale, navigate, user }) {
   const [stats, setStats] = useState(null);
   const [docs, setDocs] = useState([]);
@@ -318,7 +344,14 @@ function AdminDashboard({ t, locale, navigate, user }) {
   const [chatHistory, setChatHistory] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [compliance, setCompliance] = useState(null);
+  const [profileId, setProfileId] = useState(null);
+  const [coveringGapId, setCoveringGapId] = useState(null);
+  const [initializingProfile, setInitializingProfile] = useState(false);
+  const [suggestingCoverage, setSuggestingCoverage] = useState(false);
+  const [coverageSuggestions, setCoverageSuggestions] = useState({});
   const [loading, setLoading] = useState(true);
+  const toast = useToast();
+  const confirm = useConfirm();
 
   useEffect(() => {
     const orgId = user?.organization_id;
@@ -336,11 +369,17 @@ function AdminDashboard({ t, locale, navigate, user }) {
       setChatHistory(ch?.entries || (Array.isArray(ch) ? ch : []));
       setNotifications(n?.notifications || []);
 
-      // Fetch compliance posture if company profile exists
       const profileList = Array.isArray(profiles) ? profiles : profiles?.profiles || [];
       if (profileList.length > 0) {
-        const posture = await safeFetch(`/api/v1/compliance/posture/${profileList[0].id}`);
+        const currentProfileId = profileList[0].id;
+        setProfileId(currentProfileId);
+        const posture = await safeFetch(`/api/v1/compliance/posture/${currentProfileId}`);
         setCompliance(posture);
+        setCoverageSuggestions({});
+      } else {
+        setProfileId(null);
+        setCompliance(null);
+        setCoverageSuggestions({});
       }
 
       setStats({
@@ -355,173 +394,328 @@ function AdminDashboard({ t, locale, navigate, user }) {
   const openCases = cases?.open_count || cases?.open || caseStatus.open || 0;
   const inProgressCases = cases?.in_progress_count || cases?.in_progress || caseStatus.in_progress || 0;
   const closedCases = cases?.closed_count || cases?.closed || caseStatus.closed || 0;
-  const complianceScore = compliance?.overall_score || compliance?.score || 0;
+  const totalCases = openCases + inProgressCases + closedCases;
+  const complianceScore = complianceCoveragePercent(compliance);
+  const hasComplianceData = Number(compliance?.total_applicable || 0) > 0;
+  const complianceGaps = compliance?.gaps_count ?? (Array.isArray(compliance?.gaps) ? compliance.gaps.length : undefined);
+  const visibleComplianceGaps = Array.isArray(compliance?.gaps) ? compliance.gaps.slice(0, 4) : [];
+  const canManageCoverage = user?.role === 'owner';
+  const docCount = (typeof stats?.documents === 'object' ? stats.documents.total : stats?.documents) || 0;
+  const userCount = (typeof stats?.users === 'object' ? stats.users.total : stats?.users) || 0;
+
+  const coverGap = async (gap, suggestion = null) => {
+    if (!canManageCoverage || !profileId || !gap?.exigence_id) return;
+    const ok = await confirm(t('dashboard.coverRequirementConfirm'), {
+      title: t('dashboard.coverRequirement'),
+      confirmLabel: t('dashboard.coverRequirement'),
+    });
+    if (!ok) return;
+
+    setCoveringGapId(gap.exigence_id);
+    try {
+      const titleSource = gap.exigence_title || gap.exigence_id;
+      const suggestedJustification = suggestion?.rationale
+        ? `${t('dashboard.manualCoverageJustification')} ${t('dashboard.coverageSuggestion')}: ${suggestion.rationale}`
+        : t('dashboard.manualCoverageJustification');
+      const res = await authFetch(`/api/v1/compliance/posture/${profileId}/cover/${gap.exigence_id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          control_title: `${t('dashboard.coverageControlPrefix')}: ${String(titleSource).slice(0, 180)}`,
+          justification: suggestedJustification,
+          linked_by: user?.email || user?.full_name || 'dashboard',
+        }),
+      });
+      if (!res.ok) throw new Error('coverage-update-failed');
+      const updatedPosture = await res.json();
+      setCompliance(updatedPosture);
+      setCoverageSuggestions(prev => {
+        const next = { ...prev };
+        delete next[gap.exigence_id];
+        return next;
+      });
+      toast.success(t('dashboard.coverageUpdated'));
+    } catch {
+      toast.error(t('dashboard.coverageUpdateFailed'));
+    } finally {
+      setCoveringGapId(null);
+    }
+  };
+
+  const initializeComplianceProfile = async () => {
+    if (initializingProfile) return;
+    setInitializingProfile(true);
+    try {
+      const res = await authFetch('/api/v1/company-profiles/ensure-current', {
+        method: 'POST',
+      });
+      if (!res.ok) throw new Error('compliance-init-failed');
+      const data = await res.json();
+      const nextProfileId = data?.profile?.id;
+      if (!nextProfileId) throw new Error('missing-profile');
+      setProfileId(nextProfileId);
+      const posture = await safeFetch(`/api/v1/compliance/posture/${nextProfileId}`);
+      setCompliance(posture);
+      setCoverageSuggestions({});
+      if (Number(data?.applicability_total || 0) > 0 || Number(posture?.total_applicable || 0) > 0) {
+        toast.success(t('dashboard.complianceInitialized'));
+      } else {
+        toast.info(t('dashboard.complianceNeedsEvaluation'));
+      }
+    } catch {
+      toast.error(t('dashboard.complianceInitFailed'));
+    } finally {
+      setInitializingProfile(false);
+    }
+  };
+
+  const suggestCoverage = async () => {
+    if (!profileId || suggestingCoverage) return;
+    setSuggestingCoverage(true);
+    try {
+      const res = await authFetch(`/api/v1/compliance/posture/${profileId}/suggest-coverage?limit=8`, {
+        method: 'POST',
+      });
+      if (!res.ok) throw new Error('coverage-suggestions-failed');
+      const data = await res.json();
+      const byExigence = {};
+      for (const suggestion of data?.suggestions || []) {
+        if (suggestion?.exigence_id) byExigence[suggestion.exigence_id] = suggestion;
+      }
+      setCoverageSuggestions(byExigence);
+      toast.success(t('dashboard.coverageSuggestionsReady'));
+    } catch {
+      toast.error(t('dashboard.coverageSuggestionsFailed'));
+    } finally {
+      setSuggestingCoverage(false);
+    }
+  };
+
+  // Donut: cases
+  const caseSegments = [
+    { label: t('dashboard.caseOpen'), value: openCases, color: 'var(--warning)' },
+    { label: t('dashboard.caseInProgress'), value: inProgressCases, color: 'var(--info)' },
+    { label: t('dashboard.caseClosed'), value: closedCases, color: 'var(--success)' },
+  ];
 
   return (
     <>
-      {/* KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 16, marginBottom: 28 }}>
-        <StatCard icon="fileText" label={t('dashboard.docsIndexed')} value={loading ? '...' : (typeof stats?.documents === 'object' ? stats.documents.total : stats?.documents) || 0} />
-        <StatCard icon="messageCircle" label={t('dashboard.questionsAsked')} value={loading ? '...' : chatHistory.length} />
-        <StatCard icon="users" label={t('dashboard.users')} value={loading ? '...' : (typeof stats?.users === 'object' ? stats.users.total : stats?.users) || 0} />
-        <StatCard icon="target" label={t('dashboard.openCases')} value={loading ? '...' : openCases + inProgressCases} variant={openCases > 0 ? 'warning' : 'default'} />
-        <StatCard icon="shieldCheck" label={t('dashboard.complianceScore')} value={loading ? '...' : complianceScore ? `${complianceScore}%` : '--'} variant={complianceScore >= 80 ? 'success' : complianceScore >= 50 ? 'warning' : 'error'} />
+      <div className="owner-kpi-grid">
+        <BICard icon="fileText" label={t('dashboard.docsIndexed')} value={docCount} loading={loading} onClick={() => navigate('/admin/documents')} accent="#b8860b" delay={0} />
+        <BICard icon="messageCircle" label={t('dashboard.questionsAsked')} value={chatHistory.length} loading={loading} accent="#e67e22" delay={60} />
+        <BICard icon="users" label={t('dashboard.users')} value={userCount} loading={loading} accent="#7c3aed" delay={120} />
+        <BICard icon="target" label={t('dashboard.openCases')} value={openCases + inProgressCases} loading={loading} accent="#3498db" delay={180} />
+        <BICard icon="shieldCheck" label={t('dashboard.complianceScore')} value={hasComplianceData ? complianceScore : 0} loading={loading} accent="#2d6a4f" delay={240} sub={hasComplianceData ? '%' : null} />
       </div>
 
-      {/* Conformité + Dossiers */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 24 }}>
-        <DCard title={t('dashboard.compliance')} action={<Badge variant="gold">{complianceScore ? `${complianceScore}%` : t('dashboard.inProgress')}</Badge>}>
-          {loading ? <LoadingPlaceholder /> : compliance ? (
-            <>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 24, marginBottom: 20 }}>
-                <ScoreRing value={complianceScore} size={80} variant={complianceScore >= 80 ? 'success' : complianceScore >= 50 ? 'warning' : 'error'} />
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>{t('dashboard.globalScore')}</div>
-                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{t('dashboard.globalScoreDesc')}</div>
-                </div>
+      <div className="owner-dashboard-layout">
+        <div className="owner-main-stack">
+          <div style={{ animation: 'biCardIn 0.45s ease 320ms both' }}>
+            <DCard title={t('dashboard.complianceCoverage')} style={{ height: '100%' }} action={hasComplianceData ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {canManageCoverage && visibleComplianceGaps.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={suggestCoverage}
+                    disabled={suggestingCoverage}
+                    title={t('dashboard.coverageAnalyze')}
+                    aria-label={t('dashboard.coverageAnalyze')}
+                    style={{ height: 28, padding: '0 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--navy)', display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, cursor: suggestingCoverage ? 'wait' : 'pointer', whiteSpace: 'nowrap' }}
+                  >
+                    <DIcon name="sparkle" size={12} />
+                    {suggestingCoverage ? t('dashboard.coverageAnalyzing') : t('dashboard.coverageAnalyze')}
+                  </button>
+                )}
+                <Badge variant="gold">{complianceScore}%</Badge>
               </div>
-              {compliance.coverage !== undefined && (
-                <ProgressBar value={Math.round(compliance.coverage * 100) || compliance.coverage} label={t('dashboard.complianceCoverage')} variant="success" />
+            ) : null}>
+              {loading ? <LoadingPlaceholder /> : hasComplianceData ? (
+                <>
+                  <div className="owner-compliance-summary">
+                    <ScoreRing value={complianceScore} size={76} variant={complianceScore >= 80 ? 'success' : complianceScore >= 50 ? 'warning' : 'error'} />
+                    <div className="owner-compliance-copy">
+                      <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{t('dashboard.globalScore')}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.55 }}>{t('dashboard.globalScoreDesc')}</div>
+                    </div>
+                    <div className="owner-compliance-facts">
+                      {complianceGaps !== undefined && (
+                        <div className="owner-fact-pill">
+                          <span>{t('dashboard.complianceGaps')}</span>
+                          <strong style={{ color: 'var(--error)' }}>{complianceGaps}</strong>
+                        </div>
+                      )}
+                      {compliance.controls_count !== undefined && (
+                        <div className="owner-fact-pill">
+                          <span>{t('dashboard.complianceControls')}</span>
+                          <strong style={{ color: 'var(--success)' }}>{compliance.controls_count}</strong>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <ProgressBar value={complianceScore} label={t('dashboard.complianceCoverage')} variant={complianceScore >= 80 ? 'success' : complianceScore >= 50 ? 'warning' : 'error'} />
+                  {canManageCoverage && visibleComplianceGaps.length > 0 && (
+                    <div className="owner-gap-list">
+                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 0 }}>
+                        {t('dashboard.coverageGapList')}
+                      </div>
+                      {visibleComplianceGaps.map((gap) => {
+                        const isCovering = coveringGapId === gap.exigence_id;
+                        const suggestion = coverageSuggestions[gap.exigence_id];
+                        const suggestionStatus = suggestion?.suggested_status;
+                        const suggestionPercent = Math.round(Number(suggestion?.confidence || 0) * 100);
+                        const showSuggestionPercent = suggestionStatus === 'fully_covered';
+                        return (
+                          <div key={gap.exigence_id} className="owner-gap-item">
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {gap.exigence_title || gap.exigence_id}
+                              </div>
+                              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>
+                                {gap.coverage_status || 'not_covered'}
+                              </div>
+                              {suggestion && (
+                                <>
+                                  <div style={{ marginTop: 5, display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 700, color: coverageSuggestionColor(suggestionStatus) }}>
+                                    <DIcon name="sparkle" size={10} />
+                                    <span>
+                                      {t('dashboard.coverageSuggestion')}: {coverageSuggestionLabel(t, suggestionStatus)}
+                                      {showSuggestionPercent ? ` · ${suggestionPercent}%` : ` · ${t('dashboard.coverageInsufficientEvidence')}`}
+                                    </span>
+                                  </div>
+                                  <div title={suggestion.rationale} style={{ marginTop: 2, fontSize: 10, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {suggestion.rationale}
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => coverGap(gap, suggestion)}
+                              disabled={Boolean(coveringGapId)}
+                              title={t('dashboard.coverRequirement')}
+                              aria-label={t('dashboard.coverRequirement')}
+                              style={{ minWidth: 92, height: 30, marginTop: 2, padding: '0 9px', borderRadius: 6, border: '1px solid var(--success)', background: isCovering ? 'var(--success-bg)' : 'transparent', color: 'var(--success)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, fontSize: 11, fontWeight: 700, cursor: coveringGapId ? 'wait' : 'pointer', whiteSpace: 'nowrap' }}
+                            >
+                              <DIcon name="check" size={13} />
+                              {isCovering ? '...' : t('dashboard.coverRequirement')}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <ProgressBar value={0} label={t('dashboard.complianceCoverage')} variant="error" />
+                  <EmptyCTA
+                    icon="shieldCheck"
+                    text={t('dashboard.noComplianceData')}
+                    actionLabel={initializingProfile ? t('dashboard.initializingCompliance') : t('dashboard.initializeCompliance')}
+                    onAction={initializeComplianceProfile}
+                  />
+                </>
               )}
-              {compliance.gaps_count !== undefined && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: 13 }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>{t('dashboard.complianceGaps')}</span>
-                  <span style={{ fontWeight: 600, color: 'var(--error)' }}>{compliance.gaps_count}</span>
-                </div>
-              )}
-              {compliance.controls_count !== undefined && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: 13 }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>{t('dashboard.complianceControls')}</span>
-                  <span style={{ fontWeight: 600, color: 'var(--success)' }}>{compliance.controls_count}</span>
-                </div>
-              )}
-            </>
-          ) : (
-            <EmptyText text={t('dashboard.noComplianceData')} />
-          )}
-        </DCard>
+            </DCard>
+          </div>
 
-        <DCard title={t('dashboard.caseSummary')} action={
-          <button onClick={() => navigate('/admin/cases')} style={{ fontSize: 12, color: 'var(--gold)', fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer' }}>{t('common.seeAll')}</button>
-        }>
-          {loading ? <LoadingPlaceholder /> : cases ? (
-            <>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
+          <div style={{ animation: 'biCardIn 0.45s ease 500ms both' }}>
+            <DCard title={t('dashboard.recentDocs')} action={
+              <button onClick={() => navigate('/admin/documents')} style={{ fontSize: 11, color: 'var(--gold)', fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer' }}>{t('common.seeAll')}</button>
+            }>
+              {loading ? <LoadingPlaceholder /> : docs.length > 0 ? (
+                <div className="owner-list">
+                  {docs.slice(0, 4).map((doc, i) => (
+                    <div key={i} className="owner-list-item">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 9, flex: 1, minWidth: 0 }}>
+                        <DIcon name="fileText" size={14} style={{ color: 'var(--gold)', flexShrink: 0 }} />
+                        <span style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.filename || doc.title || doc.name}</span>
+                      </div>
+                      <Badge variant={['processed', 'ready'].includes(doc.status) ? 'success' : doc.status === 'error' ? 'error' : 'neutral'}>
+                        {['processed', 'ready'].includes(doc.status) ? t('dashboard.statusProcessed') : doc.status === 'error' ? t('dashboard.statusError') : t('dashboard.statusPending')}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              ) : <EmptyCTA icon="fileText" text={t('dashboard.noDocs')} actionLabel={t('dashboard.importDoc')} onAction={() => navigate('/admin/documents')} />}
+            </DCard>
+          </div>
+        </div>
+
+        <div className="owner-side-stack">
+          <div style={{ animation: 'biCardIn 0.45s ease 380ms both' }}>
+            <DCard title={t('dashboard.caseSummary')} style={{ height: '100%' }}>
+              {loading ? <LoadingPlaceholder /> : totalCases > 0 ? (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '6px 0' }}>
+                  <DonutChart segments={caseSegments} centerValue={totalCases} centerLabel={t('dashboard.total')} size={124} thickness={18} />
+                </div>
+              ) : (
+                <EmptyCTA icon="target" text={t('dashboard.noCases')} actionLabel={t('dashboard.newCase')} onAction={() => navigate('/admin/cases')} />
+              )}
+            </DCard>
+          </div>
+
+          <div style={{ animation: 'biCardIn 0.45s ease 440ms both' }}>
+            <DCard title={t('dashboard.quickActions')} style={{ height: '100%' }}>
+              <div className="owner-action-grid">
                 {[
-                  { label: t('dashboard.caseOpen'), value: openCases, color: 'var(--warning)' },
-                  { label: t('dashboard.caseInProgress'), value: inProgressCases, color: 'var(--info)' },
-                  { label: t('dashboard.caseClosed'), value: closedCases, color: 'var(--success)' },
-                ].map((c, i) => (
-                  <div key={i} style={{ textAlign: 'center', padding: '14px 8px', borderRadius: 'var(--radius-md)', background: 'var(--surface-hover)', border: '1px solid var(--border-subtle)' }}>
-                    <div style={{ fontSize: 22, fontWeight: 700, fontFamily: 'var(--font-heading)', color: c.color }}>{c.value}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>{c.label}</div>
+                  { icon: 'messageCircle', label: t('dashboard.askQuestion'), color: 'var(--gold)', bg: 'var(--gold-bg)', path: '/chat' },
+                  { icon: 'upload', label: t('dashboard.importDoc'), color: 'var(--info)', bg: 'var(--info-bg)', path: '/admin/documents' },
+                  { icon: 'edit', label: t('dashboard.importAmendment'), color: 'var(--success)', bg: 'var(--success-bg)', path: '/admin/amendments' },
+                  { icon: 'target', label: t('dashboard.newCase'), color: 'var(--warning)', bg: 'var(--warning-bg)', path: '/admin/cases' },
+                ].map((action, i) => (
+                  <button key={i} onClick={() => navigate(action.path)} className="owner-action-button hover-border-accent" style={{ '--action-color': action.color }}>
+                    <div style={{ width: 28, height: 28, borderRadius: 7, background: action.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: action.color }}>
+                      <DIcon name={action.icon} size={13} />
+                    </div>
+                    <span>{action.label}</span>
+                  </button>
+                ))}
+              </div>
+            </DCard>
+          </div>
+        </div>
+      </div>
+
+      <div className="owner-activity-grid">
+        <div style={{ animation: 'biCardIn 0.45s ease 560ms both' }}>
+          <DCard title={t('dashboard.recentQuestions')} style={{ height: '100%' }} action={
+            <button onClick={() => navigate('/admin/history')} style={{ fontSize: 11, color: 'var(--gold)', fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer' }}>{t('common.seeAll')}</button>
+          }>
+            {loading ? <LoadingPlaceholder /> : chatHistory.length > 0 ? (
+              <div className="owner-list">
+                {chatHistory.slice(0, 4).map((entry, i) => (
+                  <div key={i} className="owner-list-item owner-list-item-start">
+                    <DIcon name="messageCircle" size={14} style={{ color: 'var(--info)', marginTop: 2, flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.question}</div>
+                      <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 1 }}>
+                        {entry.created_at ? new Date(entry.created_at).toLocaleDateString(locale) : ''}
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
-              {cases.by_priority && (
-                <>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>{t('dashboard.caseByPriority')}</div>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    {[
-                      { label: t('dashboard.priorityHigh'), value: cases.by_priority.high || 0, variant: 'error' },
-                      { label: t('dashboard.priorityMedium'), value: cases.by_priority.medium || 0, variant: 'warning' },
-                      { label: t('dashboard.priorityLow'), value: cases.by_priority.low || 0, variant: 'info' },
-                    ].map((p, i) => (
-                      <Badge key={i} variant={p.variant}>{p.label}: {p.value}</Badge>
-                    ))}
-                  </div>
-                </>
-              )}
-            </>
-          ) : <EmptyText text={t('dashboard.noCases')} />}
-        </DCard>
-      </div>
+            ) : <EmptyText text={t('dashboard.noQuestions')} />}
+          </DCard>
+        </div>
 
-      {/* Documents récents + Questions récentes */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 24 }}>
-        <DCard title={t('dashboard.recentDocs')} action={
-          <button onClick={() => navigate('/admin/documents')} style={{ fontSize: 12, color: 'var(--gold)', fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer' }}>{t('common.seeAll')}</button>
-        }>
-          {loading ? <LoadingPlaceholder /> : docs.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {docs.slice(0, 5).map((doc, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 'var(--radius-md)', background: 'var(--surface-hover)', border: '1px solid var(--border-subtle)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
-                    <DIcon name="fileText" size={15} style={{ color: 'var(--gold)', flexShrink: 0 }} />
-                    <span style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.filename || doc.title || doc.name}</span>
+        <div style={{ animation: 'biCardIn 0.45s ease 620ms both' }}>
+          <DCard title={t('dashboard.notifications')} style={{ height: '100%' }} action={
+            <button onClick={() => navigate('/admin/notifications')} style={{ fontSize: 11, color: 'var(--gold)', fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer' }}>{t('common.seeAll')}</button>
+          }>
+            {loading ? <LoadingPlaceholder /> : notifications.length > 0 ? (
+              <div className="owner-list">
+                {notifications.slice(0, 4).map((n, i) => (
+                  <div key={i} className="owner-list-item" style={{ background: n.read ? 'var(--surface-hover)' : 'var(--gold-bg)' }}>
+                    <DIcon name="bell" size={13} style={{ color: 'var(--gold)', flexShrink: 0 }} />
+                    <div style={{ flex: 1, fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.title || n.type}</div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-                    <Badge variant={['processed', 'ready'].includes(doc.status) ? 'success' : doc.status === 'error' ? 'error' : 'neutral'}>
-                      {['processed', 'ready'].includes(doc.status) ? t('dashboard.statusProcessed') : doc.status === 'error' ? t('dashboard.statusError') : t('dashboard.statusPending')}
-                    </Badge>
-                    <span style={{ fontSize: 11, color: 'var(--text-muted)', minWidth: 65, textAlign: 'right' }}>
-                      {doc.created_at ? new Date(doc.created_at).toLocaleDateString(locale) : ''}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : <EmptyText text={t('dashboard.noDocs')} />}
-        </DCard>
-
-        <DCard title={t('dashboard.recentQuestions')} action={
-          <button onClick={() => navigate('/admin/history')} style={{ fontSize: 12, color: 'var(--gold)', fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer' }}>{t('common.seeAll')}</button>
-        }>
-          {loading ? <LoadingPlaceholder /> : chatHistory.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {chatHistory.slice(0, 5).map((entry, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 12px', borderRadius: 'var(--radius-md)', background: 'var(--surface-hover)', border: '1px solid var(--border-subtle)' }}>
-                  <DIcon name="messageCircle" size={15} style={{ color: 'var(--info)', marginTop: 2, flexShrink: 0 }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.question}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                      {entry.user_name && <span>{entry.user_name} · </span>}
-                      {entry.created_at ? new Date(entry.created_at).toLocaleDateString(locale) : ''}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : <EmptyText text={t('dashboard.noQuestions')} />}
-        </DCard>
-      </div>
-
-      {/* Notifications + Actions rapides */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-        <DCard title={t('dashboard.notifications')} action={
-          <button onClick={() => navigate('/admin/notifications')} style={{ fontSize: 12, color: 'var(--gold)', fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer' }}>{t('common.seeAll')}</button>
-        }>
-          {loading ? <LoadingPlaceholder /> : notifications.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {notifications.slice(0, 4).map((n, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 'var(--radius-md)', background: n.read ? 'transparent' : 'var(--gold-bg)', border: '1px solid var(--border-subtle)' }}>
-                  <DIcon name="bell" size={15} style={{ color: 'var(--gold)' }} />
-                  <div style={{ flex: 1, fontSize: 13 }}>{n.message || n.title || n.type}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{n.created_at ? new Date(n.created_at).toLocaleDateString(locale) : ''}</div>
-                </div>
-              ))}
-            </div>
-          ) : <EmptyText text={t('dashboard.noNotifications')} />}
-        </DCard>
-
-        <DCard title={t('dashboard.quickActions')}>
-          <div style={{ display: 'flex', gap: 12 }}>
-            {[
-              { icon: 'messageCircle', label: t('dashboard.askQuestion'), color: 'var(--gold)', path: '/chat' },
-              { icon: 'upload', label: t('dashboard.importDoc'), color: 'var(--info)', path: '/admin/documents' },
-              { icon: 'edit', label: t('dashboard.importAmendment'), color: 'var(--success)', path: '/admin/amendments' },
-            ].map((action, i) => (
-              <button key={i} onClick={() => navigate(action.path)} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderRadius: 'var(--radius-md)', background: 'var(--surface-hover)', border: '1px solid var(--border)', cursor: 'pointer', transition: 'all .15s', '--action-color': action.color }}
-                className="hover-border-accent"
-              >
-                <div style={{ width: 32, height: 32, borderRadius: 'var(--radius-md)', background: `${action.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: action.color }}>
-                  <DIcon name={action.icon} size={16} />
-                </div>
-                <span style={{ fontSize: 13, fontWeight: 500 }}>{action.label}</span>
-              </button>
-            ))}
-          </div>
-        </DCard>
+                ))}
+              </div>
+            ) : <EmptyText text={t('dashboard.noNotifications')} />}
+          </DCard>
+        </div>
       </div>
     </>
   );
@@ -532,6 +726,7 @@ function MemberDashboard({ t, locale, navigate }) {
   const [cases, setCases] = useState(null);
   const [chatHistory, setChatHistory] = useState([]);
   const [notifications, setNotifications] = useState([]);
+  const [compliance, setCompliance] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -539,15 +734,25 @@ function MemberDashboard({ t, locale, navigate }) {
       safeFetch('/api/v1/cases?limit=5'),
       safeFetch('/api/v1/chat-history?limit=5'),
       safeFetch('/api/v1/notifications/mine?limit=5'),
-    ]).then(([c, ch, n]) => {
+      safeFetch('/api/v1/company-profiles?limit=1'),
+    ]).then(async ([c, ch, n, profiles]) => {
       setCases(c);
       setChatHistory(ch?.entries || (Array.isArray(ch) ? ch : []));
       setNotifications(n?.notifications || []);
+
+      const profileList = Array.isArray(profiles) ? profiles : profiles?.profiles || [];
+      if (profileList.length > 0) {
+        const posture = await safeFetch(`/api/v1/compliance/posture/${profileList[0].id}`);
+        setCompliance(posture);
+      }
+
       setLoading(false);
     });
   }, []);
 
   const caseList = Array.isArray(cases) ? cases : cases?.cases || [];
+  const complianceCoverage = complianceCoveragePercent(compliance);
+  const hasComplianceData = Number(compliance?.total_applicable || 0) > 0;
 
   return (
     <>
@@ -558,8 +763,25 @@ function MemberDashboard({ t, locale, navigate }) {
         <StatCard icon="bell" label={t('dashboard.activeAlerts')} value={loading ? '...' : notifications.filter(n => !n.read).length} variant={notifications.filter(n => !n.read).length > 0 ? 'warning' : 'default'} />
       </div>
 
-      {/* Dossiers + Questions */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 24 }}>
+      {/* Conformité + Dossiers + Questions */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 20, marginBottom: 24 }}>
+        <DCard title={t('dashboard.complianceCoverage')}>
+          {loading ? <LoadingPlaceholder /> : hasComplianceData ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <ProgressBar value={complianceCoverage} label={t('dashboard.complianceCoverage')} variant={complianceCoverage >= 80 ? 'success' : complianceCoverage >= 50 ? 'warning' : 'error'} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 12 }}>
+                <span style={{ color: 'var(--text-secondary)' }}>{t('dashboard.complianceGaps')}</span>
+                <span style={{ fontWeight: 600, color: 'var(--error)' }}>{Array.isArray(compliance.gaps) ? compliance.gaps.length : 0}</span>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <ProgressBar value={0} label={t('dashboard.complianceCoverage')} variant="error" />
+              <EmptyText text={t('dashboard.noComplianceData')} />
+            </div>
+          )}
+        </DCard>
+
         <DCard title={t('dashboard.myCases')} action={
           <button onClick={() => navigate('/admin/cases')} style={{ fontSize: 12, color: 'var(--gold)', fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer' }}>{t('common.seeAll')}</button>
         }>

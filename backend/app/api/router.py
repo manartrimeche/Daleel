@@ -11,7 +11,7 @@ from fastapi.responses import StreamingResponse
 from pymongo import UpdateOne
 from typing import Any
 
-from app.api.auth import get_current_user, get_optional_current_user, require_api_key, require_admin
+from app.api.auth import get_current_user, get_optional_current_user, require_api_key, require_admin, require_role
 from app.config import get_settings
 from app.database import get_db
 from app.limiter import limiter
@@ -39,6 +39,7 @@ from app.schemas import (
     ClassifyDocumentRequest,
     CleanedTextListOut,
     CompanyProfileCreate,
+    CompanyProfileBootstrapOut,
     CompanyProfileListOut,
     CompanyProfileOut,
     ComputeCriticalityRequest,
@@ -68,6 +69,8 @@ from app.schemas import (
     SearchResult,
     SegmentDocumentRequest,
     SegmentDocumentResponse,
+    UserMemoryOut,
+    UserMemoryUpdate,
 )
 from app.services import (
     amendment_service,
@@ -81,6 +84,7 @@ from app.services import (
     feedback_service,
     llm_service,
     loi_service,
+    memory_service,
     notification_service,
     recalculation_service,
     roadmap_service,
@@ -171,6 +175,10 @@ async def _save_chat_history(
 
 def _can_access_org_notifications(user: dict | None) -> bool:
     return bool(user and user.get("role") in {"owner", "admin", "member"})
+
+
+def _can_see_org_wide_notifications(user: dict | None) -> bool:
+    return bool(user and user.get("role") == "owner")
 
 
 def _chat_history_created_at_filter(entry_id: str) -> Any:
@@ -287,6 +295,7 @@ async def upload_document(
                 "requested_by": str(current_user["_id"]),
                 "organization_id": current_user.get("organization_id"),
                 "approval_status": "pending_approval",
+                "audience": "super_admin",
             },
         )
         return doc
@@ -368,6 +377,7 @@ async def upload_amendment(
                 "requested_by": str(current_user["_id"]),
                 "organization_id": current_user.get("organization_id"),
                 "approval_status": "pending_approval",
+                "audience": "super_admin",
             },
         )
         return {
@@ -758,6 +768,8 @@ async def ask_question(
         use_quality_guard=body.use_quality_guard,
         intent=body.intent,
         organization_id=_organization_scope(_user),
+        user_id=_current_user_id(_user) if _user else None,
+        conversation_id=body.conversation_id,
     )
 
     await _save_chat_history(db, _user, body.question, result.get("answer", ""), len(result.get("sources", [])), conversation_id=body.conversation_id)
@@ -875,6 +887,9 @@ async def ask_question_auto(request: Request, body: AskRequest, db: Any = Depend
         intent=body.intent,
         organization_id=_organization_scope(_user),
     )
+
+    await _save_chat_history(db, _user, body.question, result.get("answer", ""), len(result.get("sources", [])), conversation_id=body.conversation_id)
+
     return AgenticAskResponse(**result)
 
 
@@ -993,6 +1008,41 @@ async def list_company_profiles(
         db, skip=skip, limit=limit, organization_id=_organization_scope(_user)
     )
     return CompanyProfileListOut(profiles=profiles, total=total)
+
+
+@router.post("/company-profiles/ensure-current", response_model=CompanyProfileBootstrapOut)
+async def ensure_current_company_profile(
+    db: Any = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Ensure the current organization has a compliance profile."""
+    if current_user.get("role") not in {"owner", "admin"}:
+        raise HTTPException(403, "Only organization owners/admins can initialize compliance profile")
+    org_id = current_user.get("organization_id")
+    if not org_id:
+        raise HTTPException(400, "Organization is required")
+    organization = await auth_service.get_organization(org_id)
+    if not organization:
+        raise HTTPException(404, "Organization not found")
+
+    profile, created, attached_legacy = await applicability_service.ensure_company_profile_for_organization(
+        db,
+        organization,
+        org_id,
+    )
+    summary = await applicability_service.get_applicability_summary(
+        db,
+        profile["id"],
+        organization_id=org_id,
+    )
+    return CompanyProfileBootstrapOut(
+        profile=profile,
+        created=created,
+        attached_legacy_profile=attached_legacy,
+        applicability_total=summary["total"],
+        applicable=summary["applicable"],
+        not_applicable=summary["not_applicable"],
+    )
 
 
 @router.get("/company-profiles/{profile_id}", response_model=CompanyProfileOut)
@@ -2336,8 +2386,29 @@ async def reindex_embeddings(
 
     faiss_manager.mark_unavailable("reindexing")
     result = await document_service.reindex_all_documents(db)
+
+    # rebuild() swallows exceptions internally — surface the resulting state
+    # so callers see whether the in-memory FAISS index actually loaded.
+    index_ready = faiss_manager.is_ready
+    index_size = faiss_manager.size
+    blocked_reason = faiss_manager.blocked_reason
+
+    if not index_ready:
+        return {
+            **result,
+            "index_ready": False,
+            "index_size": index_size,
+            "blocked_reason": blocked_reason,
+            "message": (
+                "Re-embedding complete, but FAISS index failed to load "
+                f"(reason: {blocked_reason or 'unknown'}). Check server logs."
+            ),
+        }
+
     return {
         **result,
+        "index_ready": True,
+        "index_size": index_size,
         "message": "Re-embedding complete; FAISS index rebuilt.",
     }
 
@@ -2373,7 +2444,11 @@ async def get_my_notifications(
         return {"notifications": [], "total": 0}
 
     user_id = _current_user_id(user)
-    filt = {"details.organization_id": org_id}
+    filt = notification_service.organization_notification_query(
+        org_id,
+        user_id=user_id,
+        include_org_wide=_can_see_org_wide_notifications(user),
+    )
     total = await db["notifications"].count_documents(filt)
     cursor = (
         db["notifications"]
@@ -2396,7 +2471,10 @@ async def get_unread_count(
 ):
     """Count unread notifications for the current user."""
     if user["role"] == "super_admin":
-        count = await db["notifications"].count_documents({"read": False})
+        count = await db["notifications"].count_documents(
+            notification_service.super_admin_notification_query()
+            | {"read": False}
+        )
     elif not _can_access_org_notifications(user):
         count = 0
     else:
@@ -2405,11 +2483,17 @@ async def get_unread_count(
             count = 0
         else:
             user_id = _current_user_id(user)
-            count = await db["notifications"].count_documents({
-                "details.organization_id": org_id,
-                "read": {"$ne": True},
-                "read_by": {"$ne": user_id},
-            })
+            notif_filter = notification_service.organization_notification_query(
+                org_id,
+                user_id=user_id,
+                include_org_wide=_can_see_org_wide_notifications(user),
+            )
+            count = await db["notifications"].count_documents(
+                notif_filter | {
+                    "read": {"$ne": True},
+                    "read_by": {"$ne": user_id},
+                }
+            )
     return {"unread": count}
 
 
@@ -2430,6 +2514,7 @@ async def mark_all_notifications_read(
         organization_id=user.get("organization_id"),
         allow_global=is_super_admin,
         user_id=_current_user_id(user),
+        include_org_wide=_can_see_org_wide_notifications(user),
     )
     return {"status": "ok", "updated": updated}
 
@@ -2452,6 +2537,7 @@ async def mark_notification_read(
         organization_id=user.get("organization_id"),
         allow_global=user.get("role") == "super_admin",
         user_id=_current_user_id(user),
+        include_org_wide=_can_see_org_wide_notifications(user),
     )
     if status == "denied":
         raise HTTPException(status_code=403, detail="Insufficient scope")
@@ -2460,7 +2546,34 @@ async def mark_notification_read(
     return {"status": status}
 
 
-@router.post("/admin/notifications/{notification_id}/approve", dependencies=[Depends(require_admin)])
+@router.delete("/notifications/{notification_id}")
+async def delete_notification(
+    notification_id: str,
+    user: Any = Depends(get_current_user),
+    db: Any = Depends(get_db),
+):
+    """Delete a notification for owner or super admin within their scope."""
+    is_super_admin = user.get("role") == "super_admin"
+    is_owner = user.get("role") == "owner"
+    if not is_super_admin and not is_owner:
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+
+    status = await notification_service.delete_notification(
+        db,
+        notification_id,
+        organization_id=user.get("organization_id"),
+        allow_global=is_super_admin,
+        user_id=_current_user_id(user),
+        include_org_wide=_can_see_org_wide_notifications(user),
+    )
+    if status == "denied":
+        raise HTTPException(status_code=403, detail="Insufficient scope")
+    if status == "not_found":
+        raise HTTPException(status_code=404, detail="Notification not found")
+    return {"status": status}
+
+
+@router.post("/admin/notifications/{notification_id}/approve", dependencies=[Depends(require_role("super_admin"))])
 async def approve_notification(notification_id: str, db: Any = Depends(get_db)):
     notification = await db["notifications"].find_one({"id": notification_id})
     if not notification:
@@ -2537,7 +2650,7 @@ async def approve_notification(notification_id: str, db: Any = Depends(get_db)):
     return result
 
 
-@router.post("/admin/notifications/{notification_id}/reject", dependencies=[Depends(require_admin)])
+@router.post("/admin/notifications/{notification_id}/reject", dependencies=[Depends(require_role("super_admin"))])
 async def reject_notification(notification_id: str, db: Any = Depends(get_db)):
     notification = await db["notifications"].find_one({"id": notification_id})
     if not notification:
@@ -2859,6 +2972,64 @@ async def delete_chat_history_entry(
         raise HTTPException(404, "Entry not found")
     await db["chat_history"].delete_one({"_id": entry["_id"]})
     return {"deleted": True}
+
+
+# ══════════════════════════════════════════════════════════════
+#  USER MEMORY  — Faits persistants injectés dans les prompts
+# ══════════════════════════════════════════════════════════════
+
+
+@router.get("/memory", response_model=UserMemoryOut, tags=["memory"])
+async def get_memory(
+    user: dict = Depends(get_current_user),
+    db: Any = Depends(get_db),
+):
+    """Retourne les faits persistants de l'utilisateur courant."""
+    uid = _current_user_id(user)
+    doc = await memory_service.get_user_memory(db, uid) or {}
+    return UserMemoryOut(
+        user_id=uid,
+        organization_id=doc.get("organization_id") or user.get("organization_id"),
+        facts=doc.get("facts") or [],
+        created_at=doc.get("created_at"),
+        updated_at=doc.get("updated_at"),
+    )
+
+
+@router.put("/memory", response_model=UserMemoryOut, tags=["memory"])
+async def update_memory(
+    body: UserMemoryUpdate,
+    user: dict = Depends(get_current_user),
+    db: Any = Depends(get_db),
+):
+    """Met à jour les faits persistants (merge par défaut, replace si demandé)."""
+    uid = _current_user_id(user)
+    if not uid:
+        raise HTTPException(401, "Authentication required")
+    doc = await memory_service.upsert_user_facts(
+        db,
+        user_id=uid,
+        facts=body.facts,
+        organization_id=user.get("organization_id"),
+        replace=body.replace,
+    )
+    return UserMemoryOut(
+        user_id=uid,
+        organization_id=doc.get("organization_id"),
+        facts=doc.get("facts") or [],
+        updated_at=doc.get("updated_at"),
+    )
+
+
+@router.delete("/memory", tags=["memory"])
+async def clear_memory(
+    user: dict = Depends(get_current_user),
+    db: Any = Depends(get_db),
+):
+    """Supprime toute la mémoire persistante de l'utilisateur courant."""
+    uid = _current_user_id(user)
+    deleted = await memory_service.delete_user_memory(db, uid)
+    return {"deleted": deleted}
 
 
 # ══════════════════════════════════════════════════════════════

@@ -43,9 +43,24 @@ export default function CompanyProfile() {
   if (!org) return <div style={{ padding: '28px 32px' }}><h1 style={{ fontSize: 24, fontFamily: 'var(--font-heading)' }}>{t('company.title')}</h1><p style={{ color: 'var(--text-muted)', marginTop: 8 }}>{t('company.noOrg')}</p></div>;
 
   const update = (field, value) => setOrg(prev => ({ ...prev, [field]: value }));
+  const orgStatus = org.status || (org.is_active === false ? 'inactive' : 'active');
+  const statusLabel = {
+    active: t('common.active'),
+    inactive: t('common.inactive'),
+    suspended: t('organizations.statusSuspended'),
+    pending_approval: t('organizations.statusPendingApproval'),
+    rejected: t('organizations.statusRejected'),
+  }[orgStatus] || orgStatus || '-';
+  const statusVariant = {
+    active: 'success',
+    inactive: 'error',
+    suspended: 'warning',
+    pending_approval: 'info',
+    rejected: 'error',
+  }[orgStatus] || 'neutral';
 
   return (
-    <div style={{ padding: '28px 32px', maxWidth: 1200 }}>
+    <div style={{ padding: '44px 32px 28px', maxWidth: 1200 }}>
       <h1 style={{ fontSize: 24, fontWeight: 700, fontFamily: 'var(--font-heading)', marginBottom: 4 }}>{t('company.title')}</h1>
       <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 24 }}>{t('company.subtitle')}</p>
 
@@ -81,7 +96,7 @@ export default function CompanyProfile() {
           <button onClick={saveOrg} disabled={saving} style={{ padding: '10px 24px', borderRadius: 8, background: 'var(--navy)', color: '#fff', fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer' }}>
             {saving ? t('common.saving') : t('common.save')}
           </button>
-          <Badge variant={org.is_active ? 'success' : 'error'}>{org.is_active ? t('common.active') : t('common.inactive')}</Badge>
+          <Badge variant={statusVariant}>{statusLabel}</Badge>
         </div>
       </DCard>
     </div>

@@ -2,11 +2,12 @@ import { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import DOMPurify from 'dompurify';
 import DIcon from '../../components/DIcon';
-import { DCard, Badge, StatCard } from '../../components/UI';
+import { DCard, DButton, Badge, StatCard, useToast } from '../../components/UI';
 import { authFetch } from '../../utils/auth';
 
 export default function Amendments() {
   const { t } = useTranslation();
+  const toast = useToast();
   const [step, setStep] = useState('upload');
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -27,10 +28,10 @@ export default function Amendments() {
         setStep('result');
       } else {
         const err = await res.json().catch(() => ({}));
-        alert(err.detail || t('amendments.errorProcessing'));
+        toast.error(err.detail || t('amendments.errorProcessing'));
       }
     } catch {
-      alert(t('amendments.connectionError'));
+      toast.error(t('amendments.connectionError'));
     }
     setLoading(false);
   };
@@ -42,7 +43,7 @@ export default function Amendments() {
       const res = await authFetch(`/api/v1/lois/${result.document.loi_id}/recalculate`, { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
-        alert(`Recalcul: ${data.versions_processed || 0} versions, ${data.exigences_extracted || 0} exigences, ${data.actions_extracted || 0} actions`);
+        toast.success(`Recalcul: ${data.versions_processed || 0} versions, ${data.exigences_extracted || 0} exigences, ${data.actions_extracted || 0} actions`);
       }
     } catch {
       // Recalculation failures keep the uploaded amendment result visible.
@@ -61,7 +62,7 @@ export default function Amendments() {
   };
 
   return (
-    <div style={{ padding: '28px 32px', maxWidth: 1100 }}>
+    <div style={{ padding: '44px 32px 28px', maxWidth: 1100 }}>
       <h1 style={{ fontSize: 24, fontWeight: 700, fontFamily: 'var(--font-heading)', marginBottom: 4 }}>{t('amendments.title')}</h1>
       <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 24 }}>{t('amendments.subtitle')}</p>
 
@@ -94,18 +95,9 @@ export default function Amendments() {
             <input ref={fileRef} type="file" accept=".pdf,.docx,.doc,.txt" style={{ display: 'none' }} onChange={e => { if (e.target.files.length) setFile(e.target.files[0]); }} />
           </div>
 
-          <button
-            onClick={handleUpload}
-            disabled={!file || loading}
-            style={{
-              marginTop: 16, padding: '10px 20px', borderRadius: 'var(--radius-md)',
-              background: file ? 'var(--navy)' : 'var(--surface-active)',
-              color: file ? '#fff' : 'var(--text-muted)',
-              fontSize: 13, fontWeight: 600, border: 'none', cursor: file ? 'pointer' : 'default',
-            }}
-          >
+          <DButton onClick={handleUpload} disabled={!file || loading} style={{ marginTop: 16 }}>
             {loading ? t('amendments.processing') : t('amendments.compare')}
-          </button>
+          </DButton>
         </DCard>
       )}
 
@@ -161,13 +153,13 @@ export default function Amendments() {
 
           <div style={{ display: 'flex', gap: 10 }}>
             {result.document?.loi_id && (
-              <button onClick={handleRecalc} disabled={loading} style={{ padding: '10px 18px', borderRadius: 'var(--radius-md)', background: 'var(--navy)', color: '#fff', fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer' }}>
+              <DButton onClick={handleRecalc} disabled={loading}>
                 {loading ? t('amendments.recalculating') : t('amendments.recalculate')}
-              </button>
+              </DButton>
             )}
-            <button onClick={reset} style={{ padding: '10px 18px', borderRadius: 'var(--radius-md)', background: 'var(--surface-active)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, border: '1px solid var(--border)', cursor: 'pointer' }}>
+            <DButton variant="ghost" onClick={reset}>
               {t('amendments.newAmendment')}
-            </button>
+            </DButton>
           </div>
         </>
       )}

@@ -1,0 +1,290 @@
+﻿=== PAGE 15 ===
+Introduction g�n�rale
+La num�risation des activit�s juridiques et de conformit� conna�t une acc�l�ration sous
+l�effet des progr�s de l�intelligence artificielle. Dans les secteurs traitant de grands volumes de
+documents, les professionnels doivent traiter quotidiennement des textes r�glementaires vo-
+lumineux lois, d�crets, amendements, circulaires, proc�dures internes dans des d�lais limit�s.
+Les mod�les de langage de grande taille (Large Language Models, LLMs) et les architectures
+de type Retrieval-Augmented Generation (RAG) ouvrent de nouvelles perspectives pour ex-
+ploiter ces corpus complexes et en �volution continue. Il ne s�agit plus seulement de stocker
+l�information juridique, mais de la rendre interrogeable, contextualis�e et exploitable dans
+un cadre op�rationnel.
+Le contexte tunisien illustre ces enjeux. Le cadre juridique national est riche et dyna-
+mique : codes, lois organiques, d�crets, circulaires et jurisprudences se superposent et se mo-
+difient r�guli�rement, en fran�ais comme en arabe. Une partie essentielle de ces textes n�est
+disponible qu�en format PDF ou sous forme num�ris�e, rendant la recherche et l�analyse au-
+tomatis�es difficiles. Les juristes et les �
+
+=== PAGE 16 ===
+Introduction g�n�rale
+applicables � l�orchestration des actions correctives, en passant par l��valuation des �carts et
+le suivi des preuves. � cela s�ajoute l�absence d�un cadre int�gr� de pilotage de la conformit� :
+les organisations ne disposent d�aucun outil connectant directement les textes juridiques ap-
+plicables � la gestion op�rationnelle de leurs dossiers de non-conformit�, de leurs actions
+correctives et de leurs contr�les internes.
+La probl�matique principale de ce Projet de Fin d��tudes peut �tre formul�e comme suit :
+comment concevoir une plateforme d�assistance juridique et de conformit�, fon-
+d�e sur l�intelligence artificielle, qui fournisse des r�ponses pertinentes, robustes,
+tra�ables et op�rationnellement exploitables dans le contexte r�glementaire tu-
+nisien ?
+Pour r�pondre � cette probl�matique, ce travail propose la conception et l�impl�mentation
+de Daleel (� le guide � en arabe), une plateforme int�gr�e de Legal RAG et de Compliance
+Operations sp�cialis�e sur le droit tunisien. La plateforme repose sur deux volets compl�-
+mentaires. Le premier volet Legal RAG permet d�interroger le corpus juridique tunisien en
+langage naturel arabe, fran�ais, anglais et de g�
+
+=== PAGE 17 ===
+Introduction g�n�rale
+tableau de bord de la posture de conformit�, le tout orchestr� par un agent LLM structurant
+ses d�cisions selon un arbre ASK / CLARIFY / ACT / REVIEW.
+Sur le plan technique, ces deux volets reposent sur plus de 90 points d�acc�s REST
+organis�s en 7 routeurs FastAPI, 35 collections MongoDB, un index vectoriel
+FAISS HNSW reconstruit en m�moire au d�marrage, 40 services m�tier et un total de 68
+modules backend Python d�ploy�s sous Docker Compose, ainsi que sur 30 composants
+React c�t� frontend.
+Le pr�sent m�moire est organis� en cinq chapitres. Le premier chapitre pose le cadre g�-
+n�ral du projet : pr�sentation de l�entreprise d�accueil Didax IT, analyse de la probl�matique,
+vue d�ensemble de la solution, m�thodologie CRISP-DM adopt�e, et sp�cification des be-
+soins fonctionnels et non fonctionnels consolid�e par un diagramme de cas d�utilisation
+g�n�ral. Le deuxi�me chapitre pr�sente l��tat de l�art des composantes essentielles du
+projet : mod�les de langage de grande taille, architectures de g�n�ration augment�e par r�-
+cup�ration, techniques de recherche hybride et de reranking, agents IA et paradigme ReAct,
+ing�nierie de prompts et garde-qualit�, mod�les d�e
+
+=== PAGE 18 ===
+1
+Pr�sentation du projet
+Introduction
+Ce premier chapitre d�finit le cadre g�n�ral du Projet de Fin d��tudes. Il pr�sente l�en-
+treprise d�accueil Didax IT et le contexte professionnel qui a conduit � la conception de la
+solution Daleel, expose les enjeux m�tier et scientifiques du projet, propose une vue d�en-
+semble de la solution dans ses deux dimensions Legal RAG et Compliance Operations, analyse
+en d�tail la probl�matique � laquelle elle r�pond, formule les objectifs du projet, d�crit ses
+composantes principales, et pr�sente la m�thodologie de conduite de projet adopt�e, fond�e
+sur le cycle CRISP-DM adapt� au d�veloppement d�une solution d�intelligence artificielle
+appliqu�e au domaine juridique.
+1.1
+Pr�sentation de l�entreprise d�accueil
+Didax IT est une entreprise de services informatiques fond�e � Duba� en 2024. Son
+mod�le �conomique repose sur une structure g�ographique hybride : un bureau commercial
+implant� � Duba� servant d�antenne aupr�s d�une client�le internationale, et des �quipes
+techniques localis�es dans des pays � co�t comp�titif, notamment la Tunisie et l�Inde,
+permettant de proposer une offre globale � la fois comp�titive et de haute qualit� technique.
+4
+
+
+=== PAGE 19 ===
+Chapitre 1. Pr�sentation du projet
+Les activit�s de Didax IT se d�clinent en quatre domaines :
+� Conception et d�veloppement de logiciels sur mesure : analyse des besoins
+clients et proposition de solutions adapt�es � leurs m�tiers, incluant des applications
+int�grant l�intelligence artificielle pour automatiser les t�ches r�p�titives et assister la
+prise de d�cision fond�e sur la donn�e.
+� Transformation num�rique et conseil : accompagnement dans l�identification des
+besoins et l�int�gration de solutions logicielles, principalement open source, offrant des
+alternatives �conomiques efficaces, adapt�es aux petites et moyennes entreprises.
+� Gestion de projets e-learning : intervention aupr�s d��tablissements d�enseigne-
+ment et d�entreprises sur l�ensemble de la cha�ne : analyse des besoins, conception
+p�dagogique, conseil sur les outils, d�veloppement de contenus et accompagnement �
+la mise en �uvre.
+� Repr�sentation de solutions logicielles m�tier : conseil, revente, impl�mentation,
+formation des utilisateurs et maintenance de solutions sp�cialis�es r�pondant � des
+besoins sectoriels pr�cis.
+C�est dans le cadre de sa mission de d�veloppement de solutions IA sur mesure que le
+proje
+
+=== PAGE 20 ===
+Chapitre 1. Pr�sentation du projet
+Dans ce contexte, les professionnels du droit en Tunisie manquent d�outils adapt�s. Les
+sites juridiques existants, tels que le site de l�Imprimerie Officielle de la R�publique
+Tunisienne (IORT) ou le Journal Officiel de la R�publique Tunisienne (JORT),
+permettent uniquement la consultation statique des textes, sans capacit� de recherche s�-
+mantique, d�analyse d�applicabilit� ou de pilotage de la conformit�. Ce besoin cr�e une op-
+portunit� m�tier r�elle : concevoir un assistant intelligent, bas� sur les textes de r�f�rence
+officiels, capable d�assister les professionnels aussi bien dans leurs recherches juridiques que
+dans la gestion op�rationnelle de leur conformit�.
+1.2.2
+Contexte scientifique
+Sur le plan scientifique, le projet s�inscrit dans le champ �mergent de la LegalTech bas�e
+sur l�intelligence artificielle. Aujourd�hui, plusieurs avanc�es rendent techniquement possible
+la conception d�un assistant juridique fiable et sp�cialis�.
+Les mod�les de langage de grande taille (LLMs) sont capables de comprendre et
+de g�n�rer du texte en langage naturel, y compris dans des registres sp�cialis�s tels que
+le langage juridique. Mais, utilis�s seuls
+
+=== PAGE 21 ===
+python : Traceback (most recent call last):
+At line:1 char:1
++ python -c "
++ ~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last)::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "<string>", line 8, in <module>
+  File "C:\Users\RSCH\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2194' in position 471: character maps to <undefined>
+Chapitre 1. Pr�sentation du projet
+Enfin, les architectures d�orchestration de conformit� permettent d�automatiser des
+flux de travail complexes analyse d�un dossier de non-conformit�, proposition de constats,
+formulation d�actions correctives constituant le socle du pilier Compliance Operations de
+Daleel.
+1.3
+Pr�sentation g�n�rale de la plateforme Daleel
+Daleel est une plateforme int�gr�e de Legal RAG (Retrieval-Augmented Generation)
+et de Compliance Operations, sp�cialis�e sur le corpus juridique tunisien. Elle permet �
+ses utilisateurs d�interroger en langage naturel un ensemble de textes de loi, de recevoir
+des r�ponses fond�es sur des sources v�rifiables, et de piloter l�int�gralit� de leur cycle de
+conformit� r�glementaire de bout en bout.
+La plateforme repose sur deux volets compl�mentaires :
+� Volet 1 � Legal RAG : moteur de recherche hybride multilingue (arabe, fran�ais,
+anglais) combinant recherche vectorielle FAISS HNSW et signaux lexicaux par fusion
+pond�r�e, reranking par cross-encoder, synth�se contextuelle par un mod�le de lan-
+gage qwen2.5 :7b d�ploy� via Ollama, et gestion structur�e du cycle de vie des textes
+(ingestion, segmentation, versionnement, traitement des
+
+=== PAGE 22 ===
+Chapitre 1. Pr�sentation du projet
+de 35 collections, soutenus par un index vectoriel FAISS HNSW en m�moire et 40
+services m�tier d�ployables sous Docker. Deux interfaces web compl�tent la plateforme :
+un chatbot conversationnel multilingue pour les utilisateurs finaux et un panneau d�ad-
+ministration pour la gestion du syst�me, du corpus, des organisations et de la conformit�,
+totalisant 30 composants React (dont 18 pages).
+1.4
+Probl�matique d�taill�e
+1.4.1
+Volume et fragmentation de l�information juridique
+Le corpus juridique tunisien applicable aux entreprises est � la fois volumineux et forte-
+ment fragment�. Il r�unit les principaux codes juridiques : Code du Travail, Code des Soci�t�s
+Commerciales, Code de l�Investissement, des lois organiques sp�cifiques telles que la loi no
+2004-63 relative � la protection des donn�es � caract�re personnel, aussi, un ensemble de d�-
+crets, arr�t�s minist�riels, circulaires et notes de la Banque Centrale de Tunisie. Ces textes
+sont disponibles sous des formats h�t�rog�nes : PDF natifs, documents num�ris�s � qualit�
+optique variable, et fichiers DOCX. Une fraction significative, les versions arabes, n�est acces-
+sible qu�en format scann�, ren
+
+=== PAGE 23 ===
+Chapitre 1. Pr�sentation du projet
+� cette complexit� formelle s�ajoute une complexit� s�mantique propre au langage juri-
+dique. Les obligations, interdictions, conditions et sanctions sont exprim�es avec des nuances
+modales pr�cises (� doit �, � peut �, � est tenu de �) portant des significations juridiques dis-
+tinctes qu�un mod�le g�n�rique non adapt� risque d�ignorer ou de confondre. La gestion des
+amendements constitue une contrainte sp�cifique suppl�mentaire : les op�rations peuvent
+�tre additives (insertion d�un article), substitutives (remplacement d�un alin�a), mo-
+dificatives (retouche d�une formulation) ou abrogatives (suppression d�une disposition).
+Chacune doit �tre identifi�e, extraite et appliqu�e de fa�on tra�able, tout en conservant
+l�historique des versions ant�rieures pour des besoins d�audit.
+1.4.3
+Incoh�rences de terminologie et de classification
+Le corpus juridique tunisien est r�dig� en deux langues officielles, le fran�ais et l�arabe,
+qui ne constituent pas toujours de simples traductions l�une de l�autre. Certains textes sont
+disponibles uniquement en arabe, d�autres uniquement en fran�ais, et d�autres dans les deux
+langues avec des formulations parfois div
+
+=== PAGE 24 ===
+Chapitre 1. Pr�sentation du projet
+Probl�mes d�encodage des versions arabes. Les documents arabes t�l�charg�s de-
+puis les portails officiels utilisent des encodages h�t�rog�nes : UTF-8, Windows-1256, CP1256,
+ISO-8859-6 ou Latin-1. En l�absence d�une d�claration d�encodage explicite dans les m�ta-
+donn�es du fichier, les syst�mes de lecture standard �chouent � interpr�ter correctement les
+caract�res arabes, produisant des s�quences illisibles. Le syst�me doit tenter successivement
+plusieurs encodages avant d�obtenir un texte exploitable.
+Documents num�ris�s et artefacts OCR. Une fraction significative des textes arabes
+n�est disponible qu�en version num�ris�e, c�est-�-dire sous forme d�images scann�es int�gr�es
+dans un PDF, sans couche textuelle exploitable. L�application d�un moteur de reconnaissance
+optique de caract�res (OCR) sur ces documents produit un texte bruit� pr�sentant plusieurs
+classes d�artefacts :
+� Caract�res parasites : l�OCR peut ins�rer au sein du texte arabe des caract�res
+ind�sirables, par exemple des lettres accentu�es comme �, � ou �, certains caract�res
+chinois, ainsi que des signes de ponctuation tels que ., ,, ; ou �, en raison d�une
+confusion visuelle ent
+
+=== PAGE 25 ===
+Chapitre 1. Pr�sentation du projet
+Ces probl�mes de qualit� des donn�es justifient la conception d�un pipeline de traitement
+documentaire � plusieurs niveaux, d�crit en section 3.2, combinant extraction multi-moteurs,
+normalisation Unicode sp�cialis�e pour l�arabe, d�tection automatique de texte d�grad� et
+nettoyage juridique structur�.
+1.4.5
+Absence d�un cadre int�gr� de pilotage de la conformit�
+Au-del� de la recherche juridique, les organisations tunisiennes font face � un cinqui�me
+d�fi : l�absence d�un outil couvrant l�int�gralit� du cycle op�rationnel de la conformit� r�gle-
+mentaire. Il n�existe pas,jusqu�� pr�sent, de solution accessible qui connecte directement les
+textes juridiques applicables � un profil d�entreprise donn� � la gestion op�rationnelle des
+dossiers de non-conformit�, des actions correctives et des contr�les internes. Les �quipes de
+conformit� recourent g�n�ralement � des feuilles de calcul manuelles ou � des outils g�n�-
+riques de gestion de projet, qui ne sont ni capables d��valuer automatiquement l�applicabilit�
+d�une exigence r�glementaire, ni d�orchestrer une analyse de conformit� fond�e sur les textes
+de r�f�rence, ni de maintenir un registre d�except
+
+=== PAGE 26 ===
+Chapitre 1. Pr�sentation du projet
+pour am�liorer significativement la pertinence de la recherche s�mantique.
+1.5.2
+Analyse temporelle et comparative
+Le second objectif porte sur la dimension temporelle li�e au droit : les textes �voluent,
+les articles sont amend�s, des dispositions ne sont plus applicables et sont remplac�es. Le
+syst�me doit distinguer la version en vigueur d�un article de ses versions ant�rieures, iden-
+tifier automatiquement la nature des op�rations d�amendement (ajout, remplacement, mo-
+dification, abrogation) et les appliquer de fa�on tra�able avec un historique complet. Cette
+tra�abilit� est essentielle pour r�pondre � des questions portant sur l��tat du droit � une
+date donn�e ou pour comparer des versions successives d�un m�me article. Le syst�me doit
+permettre l�analyse comparative de l�applicabilit� d�une exigence r�glementaire � diff�rents
+profils d�entreprises, selon leur secteur d�activit�, leur taille et leur juridiction.
+1.5.3
+Scalabilit� et int�gration dans l��cosyst�me existant
+Le troisi�me objectif est d�ordre architectural : la plateforme doit �tre con�ue pour �voluer
+et s�int�grer dans des environnements de production r�els. Cela n�cessite une a
+
+=== PAGE 27 ===
+Chapitre 1. Pr�sentation du projet
+avec gestion des d�pendances, le suivi des preuves de mise en conformit�, la gestion des
+contr�les internes (pr�ventifs, d�tectifs, correctifs) et d�un registre d�exceptions (acceptations
+de risques, d�rogations, compensating controls), mais aussi la production d�un tableau de
+bord de la posture de conformit� par �valuation et par organisation. L�ensemble de ces flux
+est orchestr� par le mod�le de langage selon un arbre de d�cision structur�, garantissant une
+assistance � la fois analytique et op�rationnellement exploitable.
+1.6
+M�thodologie de projet
+1.6.1
+M�thodologie CRISP-DM
+1.6.1.1
+Vue d�ensemble de CRISP-DM
+La m�thodologie retenue pour conduire ce projet est CRISP-DM (Cross-Industry Stan-
+dard Process for Data Mining) [29], un cadre de r�f�rence it�ratif largement adopt� pour les
+projets d�intelligence artificielle et de science des donn�es. Il d�compose le cycle de vie d�un
+projet IA en six phases s�quentielles et r�versibles : compr�hension du probl�me m�tier, com-
+pr�hension des donn�es, pr�paration des donn�es, mod�lisation, �valuation et d�ploiement.
+La nature cyclique de CRISP-DM est adapt�e au projet Daleel, dont les exigences ont �t�
+
+=== PAGE 28 ===
+Chapitre 1. Pr�sentation du projet
+: Cycle CRISP-DM appliqu� au projet Daleel
+Figure 1.1 � Cycle CRISP-DM appliqu� au projet Daleel.
+1. Compr�hension du m�tier
+(besoins juristes / DSI)
+2. Compr�hension des donn�es
+14
+
+
+=== PAGE 29 ===
+Chapitre 1. Pr�sentation du projet
+(corpus JORT, langues,
+OCR, structures)
+3. Pr�paration des donn�es
+(extraction, nettoyage,
+segmentation, chunks)
+4. Mod�lisation
+(fine-tuning, RAG, agent,
+garde-qualit�, compliance)
+5. �valuation
+(Recall@k, MRR, nDCG,
+ablation, garde-qualit�)
+6. D�ploiement
+(Docker, CI/CD, UI)
+Les fl�ches de retour illustrent les it�rations effectives du projet : la phase d��valuation
+15
+
+
+=== PAGE 30 ===

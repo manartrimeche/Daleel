@@ -750,6 +750,34 @@
             flex-shrink: 0;
         }
 
+        .inline-source-title {
+            display: inline-flex;
+            max-width: 100%;
+            vertical-align: baseline;
+            background: var(--accent-glow);
+            color: var(--accent-light);
+            padding: 1px 7px;
+            border-radius: 999px;
+            font-size: 13.5px;
+            font-weight: 800;
+            line-height: 1.35;
+            overflow-wrap: anywhere;
+            white-space: normal;
+        }
+
+        .bot-section-title {
+            display: block;
+            margin: 10px 0 4px;
+            color: var(--text-primary);
+            font-size: 15.5px;
+            font-weight: 800;
+            line-height: 1.45;
+        }
+
+        .bot-legal-title {
+            font-weight: 800;
+        }
+
         /* â”€â”€ Loading â”€â”€ */
         .typing-indicator {
             display: flex;
@@ -1659,6 +1687,100 @@
             return '<p>' + html + '</p>';
         }
 
+        function getSourceDisplayTitle(source, fallback) {
+            const title = source?.document_title || source?.title || source?.filename || fallback;
+            return String(title || fallback).trim() || fallback;
+        }
+
+        function renderSourceTitles(html, sources) {
+            if (!sources || !sources.length) return html;
+            return html.replace(/\[Source\s+(\d+)\]/gi, (match, number) => {
+                const source = sources[Number(number) - 1];
+                if (!source) return match;
+                const title = escapeHtml(getSourceDisplayTitle(source, match));
+                return `<span class="inline-source-title" title="${escapeHtml(match)}">${title}</span>`;
+            });
+        }
+
+        function normalizeSectionTitle(text) {
+            return String(text || '')
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/^[^\p{L}\p{N}]+/u, '')
+                .trim()
+                .toLowerCase();
+        }
+
+        function isBotSectionTitle(line) {
+            const trimmed = String(line || '').replace(/<[^>]*>/g, '').trim();
+            if (!trimmed || trimmed.length > 90) return false;
+            if (/\[Source\s+\d+\]/i.test(trimmed)) return false;
+            const normalized = normalizeSectionTitle(trimmed);
+            const words = normalized.split(/\s+/).filter(Boolean);
+            const hasSentenceEnding = /[.;,]$/.test(trimmed);
+            const startsWithIcon = /^[^\p{L}\p{N}\s]/u.test(trimmed);
+            const sectionKeywords = [
+                'a retenir',
+                'analyse',
+                'application pratique',
+                'articles',
+                'base legale',
+                'cadre juridique',
+                'ce que',
+                'conclusion',
+                'conditions',
+                'conseil',
+                'conseils',
+                'demarches',
+                'delais',
+                'diagnostic',
+                'dispositions',
+                'documents',
+                'en pratique',
+                'etapes',
+                'exemples',
+                'limites',
+                'obligations',
+                'plan daction',
+                'points',
+                'preuves',
+                'procedure',
+                'recommandation',
+                'recommandations',
+                'reponse courte',
+                'resume',
+                'risques',
+                'sanctions',
+                'sources',
+                'synthese',
+                'verification',
+            ];
+
+            return sectionKeywords.some(keyword => normalized.startsWith(keyword))
+                || (startsWithIcon && words.length <= 10 && !hasSentenceEnding)
+                || (words.length <= 6 && !hasSentenceEnding && /^[A-ZÀ-ÖØ-Þ]/.test(trimmed));
+        }
+
+        function isBotLegalReferenceTitle(line) {
+            const trimmed = String(line || '').replace(/<[^>]*>/g, '').trim();
+            if (!trimmed || trimmed.length > 140) return false;
+            if (/\[Source\s+\d+\]/i.test(trimmed)) return false;
+
+            const normalized = normalizeSectionTitle(trimmed);
+            return /^(article|art)\s+\d+([^\d].*)?$/.test(normalized)
+                || /^(loi|loi organique|decret|decret-loi|arrete|circulaire)\b/.test(normalized);
+        }
+
+        function renderBotSectionTitles(html) {
+            return html.replace(/(^|<br>)([^<][^<]{1,120})(?=<br>|<\/p>|$)/g, (match, prefix, line) => {
+                if (isBotLegalReferenceTitle(line)) {
+                    return '';
+                }
+                if (!isBotSectionTitle(line)) return match;
+                return `${prefix}<span class="bot-section-title">${line.trim()}</span>`;
+            });
+        }
+
         // â”€â”€ Add user message â”€â”€
         function addUserMessage(text) {
             const ws = document.getElementById('welcomeScreen');
@@ -1706,7 +1828,7 @@
         // â”€â”€ Add bot response â”€â”€
         function addBotMessage(answer, sources, originalQuestion = '') {
             const dir = isArabic(answer) ? 'rtl' : 'ltr';
-            const renderedAnswer = renderMarkdown(answer);
+            const renderedAnswer = renderBotSectionTitles(renderSourceTitles(renderMarkdown(answer), sources));
             const feedbackId = `fb-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 
             let sourcesHtml = '';

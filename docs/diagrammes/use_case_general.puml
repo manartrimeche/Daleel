@@ -1,0 +1,256 @@
+@startuml Daleel_UseCase_General
+
+skinparam backgroundColor #FEFEFE
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 11
+skinparam packageFontSize 13
+skinparam packageFontStyle bold
+skinparam actorFontSize 12
+skinparam actorFontStyle bold
+skinparam usecaseFontSize 10
+skinparam arrowColor #555555
+skinparam packageBorderColor #999999
+skinparam usecaseBackgroundColor #FFFFFF
+skinparam usecaseBorderColor #BBBBBB
+skinparam shadowing false
+skinparam handwritten false
+
+left to right direction
+
+title <b>Diagramme de cas d'utilisation général — Plateforme Daleel</b>\n<size:11>Plateforme d'assistance juridique IA et de pilotage de la conformité réglementaire</size>
+
+' ══════════════════════════════════════════════════════
+' ACTEURS HUMAINS (gauche)
+' ══════════════════════════════════════════════════════
+
+actor "Visiteur" as Visiteur
+actor "Membre" as Membre
+actor "Admin /\nOwner" as Admin
+actor "Super\nAdmin" as SuperAdmin
+
+' Héritage
+Visiteur <|-- Membre
+Membre <|-- Admin
+Admin <|-- SuperAdmin
+
+' ══════════════════════════════════════════════════════
+' ACTEURS SYSTÈME (droite)
+' ══════════════════════════════════════════════════════
+
+actor "Serveur\nSMTP" as SMTP
+actor "Moteur\nLLM" as LLM
+
+' ══════════════════════════════════════════════════════
+' SYSTÈME
+' ══════════════════════════════════════════════════════
+
+rectangle "Plateforme Daleel" {
+
+  ' ── 1. Authentification ──────────────────────────
+  package "Authentification & Gestion des comptes" as P1 #E8F0FE {
+    usecase "Consulter les statistiques\nde la plateforme" as UC01
+    usecase "S'inscrire\n(créer organisation)" as UC02
+    usecase "Confirmer l'adresse\nemail" as UC03
+    usecase "Se connecter" as UC04
+    usecase "Réinitialiser le\nmot de passe" as UC05
+    usecase "Gérer son profil" as UC06
+    usecase "Vérifier le téléphone\n(OTP par email)" as UC07
+    usecase "Inviter un membre\npar email" as UC08
+    usecase "Accepter une\ninvitation" as UC09
+    usecase "Gérer les utilisateurs\n(rôle, statut)" as UC10
+    usecase "Gérer les organisations\n(statut, abonnement)" as UC11
+    usecase "Envoyer un email\ntransactionnel" as UC12
+    usecase "Notifier la connexion\n(alerte sécurité)" as UC13
+  }
+
+  ' ── 2. Legal RAG ─────────────────────────────────
+  package "Assistant juridique IA (Legal RAG)" as P2 #FFF3E0 {
+    usecase "Poser une question\njuridique" as UC20
+    usecase "Poser une question\nsur un document uploadé" as UC21
+    usecase "Rechercher dans le\ncorpus juridique" as UC22
+    usecase "Interagir par la voix\n(STT / TTS)" as UC23
+    usecase "Consulter l'historique\ndes conversations" as UC24
+    usecase "Donner un feedback" as UC25
+    usecase "Récupérer les sources\npertinentes (RAG)" as UC26
+    usecase "Raisonner via l'agent\nautonome ReAct" as UC27
+    usecase "Appliquer la garde\nanti-hallucination" as UC28
+  }
+
+  ' ── 3. Gestion documentaire ─────────────────────
+  package "Gestion documentaire" as P3 #E8F5E9 {
+    usecase "Uploader un document\n(PDF / DOCX)" as UC30
+    usecase "Upload en masse\n(bulk)" as UC31
+    usecase "Consulter / télécharger\nun document" as UC32
+    usecase "Supprimer un document" as UC33
+    usecase "Extraire les exigences\nréglementaires" as UC34
+    usecase "Exporter les exigences\n(XLSX / CSV)" as UC35
+    usecase "Approuver un document\n(workflow)" as UC36
+  }
+
+  ' ── 4. Gestion législative ──────────────────────
+  package "Gestion législative & Amendements" as P4 #F3E5F5 {
+    usecase "Gérer les lois (CRUD)" as UC40
+    usecase "Segmenter un document\nen articles" as UC41
+    usecase "Consulter les articles\net versions" as UC42
+    usecase "Extraire les actions\nde conformité" as UC43
+    usecase "Calculer la criticité\ndes actions" as UC44
+    usecase "Gérer les dépendances\nentre actions" as UC45
+    usecase "Uploader un\namendement" as UC46
+    usecase "Extraire les opérations\nd'amendement" as UC47
+    usecase "Appliquer un amendement\n(versioning immutable)" as UC48
+    usecase "Recalculer après\namendement" as UC49
+  }
+
+  ' ── 5. Conformité ───────────────────────────────
+  package "Conformité & Feuille de route" as P5 #FFF9C4 {
+    usecase "Gérer le profil\nentreprise" as UC50
+    usecase "Évaluer l'applicabilité\ndes exigences" as UC51
+    usecase "Générer la feuille de\nroute de conformité" as UC52
+    usecase "Gérer les contrôles\ninternes" as UC53
+    usecase "Réaliser un\nassessment" as UC54
+    usecase "Gérer les preuves" as UC55
+    usecase "Gérer les exceptions\nréglementaires" as UC56
+  }
+
+  ' ── 6. Case Management ─────────────────────────
+  package "Gestion des dossiers de non-conformité" as P6 #FCE4EC {
+    usecase "Créer / gérer un\ndossier" as UC60
+    usecase "Gérer les constats\n(findings)" as UC61
+    usecase "Gérer les actions\ncorrectives" as UC62
+    usecase "Attacher des documents\nau dossier" as UC63
+    usecase "Converser sur un\ndossier (workflow guidé)" as UC64
+    usecase "Orchestrer l'analyse\n(ASK/CLARIFY/ACT/REVIEW)" as UC65
+    usecase "Générer une réponse\nconseiller" as UC66
+  }
+
+  ' ── 7. Notifications ────────────────────────────
+  package "Notifications" as P7 #E0F2F1 {
+    usecase "Consulter les\nnotifications" as UC70
+    usecase "Marquer comme lu" as UC71
+    usecase "Alerter sur l'impact\nd'un amendement" as UC72
+  }
+}
+
+' ══════════════════════════════════════════════════════
+' ASSOCIATIONS
+' ══════════════════════════════════════════════════════
+
+' ── Visiteur ──
+Visiteur -- UC01
+Visiteur -- UC02
+Visiteur -- UC04
+Visiteur -- UC05
+Visiteur -- UC09
+
+' ── Membre ──
+Membre -- UC06
+Membre -- UC07
+Membre -- UC20
+Membre -- UC21
+Membre -- UC22
+Membre -- UC23
+Membre -- UC24
+Membre -- UC25
+Membre -- UC32
+Membre -- UC42
+Membre -- UC60
+Membre -- UC61
+Membre -- UC62
+Membre -- UC63
+Membre -- UC64
+Membre -- UC70
+Membre -- UC71
+
+' ── Admin / Owner ──
+Admin -- UC08
+Admin -- UC10
+Admin -- UC30
+Admin -- UC33
+Admin -- UC50
+Admin -- UC51
+Admin -- UC52
+Admin -- UC53
+Admin -- UC54
+Admin -- UC55
+Admin -- UC56
+Admin -- UC66
+
+' ── Super Admin ──
+SuperAdmin -- UC11
+SuperAdmin -- UC31
+SuperAdmin -- UC36
+SuperAdmin -- UC34
+SuperAdmin -- UC35
+SuperAdmin -- UC40
+SuperAdmin -- UC41
+SuperAdmin -- UC43
+SuperAdmin -- UC44
+SuperAdmin -- UC45
+SuperAdmin -- UC46
+SuperAdmin -- UC47
+SuperAdmin -- UC48
+
+' ── SMTP ──
+UC12 -- SMTP
+
+' ── LLM ──
+UC26 -- LLM
+UC27 -- LLM
+UC28 -- LLM
+UC34 -- LLM
+UC43 -- LLM
+UC47 -- LLM
+UC51 -- LLM
+UC65 -- LLM
+
+' ══════════════════════════════════════════════════════
+' RELATIONS INCLUDE / EXTEND
+' ══════════════════════════════════════════════════════
+
+UC02 ..> UC03 : <<include>>
+UC02 ..> UC12 : <<include>>
+UC04 ..> UC13 : <<extend>>
+UC13 ..> UC12 : <<include>>
+UC05 ..> UC12 : <<include>>
+UC08 ..> UC12 : <<include>>
+UC07 ..> UC12 : <<include>>
+
+UC20 ..> UC26 : <<include>>
+UC20 ..> UC28 : <<include>>
+UC20 ..> UC27 : <<extend>>
+UC21 ..> UC20 : <<include>>
+UC23 ..> UC20 : <<include>>
+
+UC30 ..> UC36 : <<extend>>
+UC46 ..> UC36 : <<extend>>
+
+UC48 ..> UC49 : <<include>>
+UC48 ..> UC72 : <<include>>
+
+UC52 ..> UC51 : <<include>>
+UC52 ..> UC44 : <<include>>
+
+UC64 ..> UC65 : <<extend>>
+UC65 ..> UC66 : <<include>>
+
+' ══════════════════════════════════════════════════════
+' LÉGENDE
+' ══════════════════════════════════════════════════════
+
+legend bottom
+  |= Couleur |= Module fonctionnel |
+  | <#E8F0FE> | Authentification & Gestion des comptes |
+  | <#FFF3E0> | Assistant juridique IA (Legal RAG) |
+  | <#E8F5E9> | Gestion documentaire |
+  | <#F3E5F5> | Gestion législative & Amendements |
+  | <#FFF9C4> | Conformité & Feuille de route |
+  | <#FCE4EC> | Gestion des dossiers de non-conformité |
+  | <#E0F2F1> | Notifications |
+  --
+  **Héritage des rôles :** Visiteur ← Membre ← Admin/Owner ← Super Admin
+  **Acteurs système :** Serveur SMTP (emails transactionnels), Moteur LLM (IA)
+end legend
+
+footer \nDaleel — Projet de Fin d'Études — 2025\nDiagramme de cas d'utilisation général
+
+@enduml

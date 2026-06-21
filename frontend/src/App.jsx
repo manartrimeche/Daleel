@@ -11,6 +11,7 @@ import Sidebar from './components/Sidebar';
 import Login from './pages/Login';
 import Invite from './pages/Invite';
 import ResetPassword from './pages/ResetPassword';
+import VerifyEmail from './pages/VerifyEmail';
 import Landing from './pages/Landing';
 
 // Lazy imports — heavy pages loaded on demand (code-splitting)
@@ -22,6 +23,7 @@ const Users = lazy(() => import('./pages/admin/Users'));
 const Cases = lazy(() => import('./pages/admin/Cases'));
 const Amendments = lazy(() => import('./pages/admin/Amendments'));
 const History = lazy(() => import('./pages/admin/History'));
+const AuditLog = lazy(() => import('./pages/admin/AuditLog'));
 const CompanyProfile = lazy(() => import('./pages/admin/CompanyProfile'));
 const Organizations = lazy(() => import('./pages/admin/Organizations'));
 const Notifications = lazy(() => import('./pages/admin/Notifications'));
@@ -125,7 +127,6 @@ function NotificationBell() {
   const typeIcon = (type) => ({
     amendment_impact: 'layers',
     amendment_summary: 'layers',
-    coverage_change: 'barChart',
     approval_organization: 'globe',
     approval_invitation: 'mail',
     approval_document: 'fileText',
@@ -136,6 +137,8 @@ function NotificationBell() {
     account_deactivated: 'lock',
     member_joined: 'users',
     invitation_revoked: 'x',
+    organization_approved: 'check',
+    organization_rejected: 'x',
   }[type] || 'bell');
 
   return (
@@ -255,7 +258,7 @@ function AppLayout() {
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--bg)' }}>
         {!isChat && !isVoiceAssistant && (
-          <div style={{ position: 'fixed', top: 14, right: 24, zIndex: 120, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div className="app-connected-navbar">
             <NotificationBell />
             <LangSwitch floating />
           </div>
@@ -282,8 +285,9 @@ function AppLayout() {
           <Route path="/admin/amendments" element={<RoleRoute roles={['super_admin','owner','admin']}><Amendments /></RoleRoute>} />
           <Route path="/admin/cases" element={<RoleRoute roles={['owner','admin','member']}><Cases /></RoleRoute>} />
           <Route path="/admin/history" element={<RoleRoute roles={['owner']}><History /></RoleRoute>} />
+          <Route path="/admin/audit-log" element={<RoleRoute roles={['super_admin']}><AuditLog /></RoleRoute>} />
           <Route path="/admin/company" element={<RoleRoute roles={['owner','admin']}><CompanyProfile /></RoleRoute>} />
-          <Route path="/admin/users" element={<RoleRoute roles={['owner','admin']}><Users /></RoleRoute>} />
+          <Route path="/admin/users" element={<RoleRoute roles={['owner']}><Users /></RoleRoute>} />
           <Route path="/admin/organizations" element={<RoleRoute roles={['super_admin']}><Organizations /></RoleRoute>} />
           <Route path="/admin/notifications" element={<RoleRoute roles={['super_admin','owner','admin','member']}><Notifications /></RoleRoute>} />
           <Route path="/admin/settings" element={<Settings />} />
@@ -313,6 +317,7 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/invite" element={<Invite />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/*" element={
               <ProtectedRoute>
                 <AppLayout />

@@ -38,7 +38,14 @@ export default function ResetPassword() {
         body: JSON.stringify({ token, new_password: password }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.detail || t('resetPassword.error'));
+      if (!res.ok) {
+        const detail = data.detail;
+        let msg;
+        if (typeof detail === 'string') msg = detail;
+        else if (Array.isArray(detail)) msg = detail.map((d) => d?.msg || JSON.stringify(d)).join(', ');
+        else if (detail && typeof detail === 'object') msg = detail.msg || JSON.stringify(detail);
+        throw new Error(msg || t('resetPassword.error'));
+      }
       setMessage(data.message || t('resetPassword.success'));
       setPassword('');
       setConfirmPassword('');

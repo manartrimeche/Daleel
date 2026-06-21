@@ -24,9 +24,9 @@ export function getAdaptiveRetrievalSettings(text) {
   const words = trimmed.split(/\s+/).filter(Boolean).length;
   const hasQuestionChain = /[؟?].*[؟?]|\b(et|ou|puis|ensuite|ainsi que|و|ثم|أو)\b/i.test(trimmed);
   const hasArticleMention = /(article|الفصل|فصل)\s*\d+/i.test(trimmed);
-  let topK = 12, temperature = 0.2;
-  if (words >= 18 || hasQuestionChain || hasArticleMention) { topK = 20; temperature = 0.15; }
-  if (words <= 6 && !hasArticleMention) { topK = 10; temperature = 0.2; }
+  let topK = 6, temperature = 0.2;
+  if (words >= 18 || hasQuestionChain || hasArticleMention) { topK = 10; temperature = 0.15; }
+  if (words <= 6 && !hasArticleMention) { topK = 5; temperature = 0.2; }
   return { topK, temperature };
 }
 
@@ -48,6 +48,31 @@ export function renderMarkdown(text) {
   });
   html = html.replace(/<\/ul>\s*<ul>/g, '');
   return DOMPurify.sanitize('<p>' + html + '</p>');
+}
+
+export function stripMarkdown(text) {
+  return String(text || '')
+    .replace(/\r\n/g, '\n')
+    .replace(/```[^\n]*\n?([\s\S]*?)```/g, '$1')
+    .replace(/^ {0,3}#{1,6}\s+/gm, '')
+    .replace(/^ {0,3}>\s?/gm, '')
+    .replace(/^ {0,3}[-*_]{3,}\s*$/gm, '')
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/\[([^\]]+)\]\[[^\]]+\]/g, '$1')
+    .replace(/^ {0,3}[-*+]\s+/gm, '')
+    .replace(/^ {0,3}\d+[.)]\s+/gm, '')
+    .replace(/^\s*\[[ xX]\]\s+/gm, '')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\*\*([^*\n]+)\*\*/g, '$1')
+    .replace(/__([^_\n]+)__/g, '$1')
+    .replace(/\*([^*\n]+)\*/g, '$1')
+    .replace(/_([^_\n]+)_/g, '$1')
+    .replace(/~~([^~\n]+)~~/g, '$1')
+    .replace(/^\s*\|(.+)\|\s*$/gm, '$1')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 export function formatFileSize(bytes) {

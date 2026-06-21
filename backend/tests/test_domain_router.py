@@ -224,6 +224,20 @@ class TestTunisianLaborRouting:
         assert scores.get("corporate", 0) == 0, f"corporate should be 0, got {scores.get('corporate',0):.3f}"
         assert scores.get("credit_info", 0) == 0, f"credit_info should be 0, got {scores.get('credit_info',0):.3f}"
 
+    def test_labor_scores_dominate_for_cdi_trial_period(self):
+        q = "Quelle est la durée maximale de la période d'essai pour un CDI en Tunisie ?"
+        scores = _lexical_scores(q, "fr")
+        assert scores.get("labor", 0) > 0, f"labor={scores.get('labor',0):.3f}"
+        assert scores.get("labor", 0) > scores.get("corporate", 0)
+        assert scores.get("labor", 0) > scores.get("credit_info", 0)
+
+    @pytest.mark.asyncio
+    async def test_routes_to_labor_cdi_trial_period(self):
+        result = await route_question(
+            "Quelle est la durée maximale de la période d'essai pour un CDI en Tunisie ?", "fr"
+        )
+        assert result.domain == "labor", f"Expected labor, got {result.domain} ({result.explanation})"
+
     @pytest.mark.asyncio
     async def test_routes_to_labor_contracts(self):
         result = await route_question(

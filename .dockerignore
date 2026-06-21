@@ -10,6 +10,7 @@
 
 # Python
 .venv
+.venv-1
 venv
 __pycache__
 *.pyc
@@ -17,6 +18,7 @@ __pycache__
 .pytest_cache
 .ruff_cache
 .mypy_cache
+.tmp*/
 htmlcov
 .coverage
 
@@ -27,10 +29,15 @@ frontend/node_modules
 # Environment
 .env
 .env.*
+!.env.example
 
-# Docker
+# Docker (ne pas envoyer les compose dans le contexte)
 docker-compose.yml
 docker-compose.override.yml
+docker-compose.production.yml
+
+# Azure deployment files
+azure/
 
 # Claude worktrees
 .claude
@@ -42,9 +49,25 @@ Thumbs.db
 # Uploads (mounted as volume)
 uploads/
 
-# Training data / models (large, not needed in image)
-backend/training/models/cache
-backend/training/llama.cpp
+# Training data/scripts and models (models are loaded from host at runtime)
+backend/training/
+
+# Local/generated large artifacts
+data/
+captures/
+tmp_video_frames/
+_ref_khlij/
+*.log
+*.bak
+*.bak2
 
 # Tests
 backend/tests
+
+# Documentation
+*.md
+!frontend/README.md
+
+# Locust / perf tests
+backend/locustfile.py
+backend/locust.conf

@@ -670,7 +670,7 @@ async def analyze_case_document(
                 ocr_used = ocr_result.get("ocr_used", False)
 
     # Detect language
-    language = llm_service._get_detect_query_language(full_text[:1000])
+    language = llm_service._detect_query_language(full_text[:1000])
 
     # Run classification
     classification = await classify_document(full_text[:4000], language)

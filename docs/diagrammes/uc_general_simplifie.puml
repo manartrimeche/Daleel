@@ -1,0 +1,135 @@
+@startuml UC_General_Simplifie
+
+skinparam backgroundColor #FEFEFE
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+skinparam packageFontSize 14
+skinparam packageFontStyle bold
+skinparam actorFontSize 13
+skinparam actorFontStyle bold
+skinparam usecaseFontSize 11
+skinparam arrowColor #555555
+skinparam packageBorderColor #AAAAAA
+skinparam usecaseBackgroundColor #FFFFFF
+skinparam usecaseBorderColor #BBBBBB
+skinparam shadowing false
+
+left to right direction
+
+title <b>Diagramme de cas d'utilisation général</b>\n<size:11>Vue synthétique de la plateforme Daleel</size>
+
+' ── ACTEURS HUMAINS ──
+actor "Visiteur" as V
+actor "Membre" as M
+actor "Admin / Owner" as A
+actor "Super Admin" as SA
+
+V <|-- M
+M <|-- A
+A <|-- SA
+
+' ── ACTEURS SYSTÈME ──
+actor "Serveur SMTP" as SMTP
+actor "Moteur LLM" as LLM
+
+' ── SYSTÈME ──
+rectangle "Plateforme Daleel" {
+
+  package "Authentification &\nGestion des comptes" as P1 #E8F0FE {
+    usecase "S'inscrire / Se connecter" as UC1
+    usecase "Gérer les utilisateurs\net organisations" as UC2
+    usecase "Inviter un membre\npar email" as UC3
+  }
+
+  package "Assistant juridique IA\n(Legal RAG)" as P2 #FFF3E0 {
+    usecase "Poser une question\njuridique (texte / voix)" as UC4
+    usecase "Rechercher dans le\ncorpus juridique" as UC5
+    usecase "Consulter l'historique\net donner un feedback" as UC6
+  }
+
+  package "Gestion documentaire" as P3 #E8F5E9 {
+    usecase "Uploader et gérer\nles documents juridiques" as UC7
+    usecase "Extraire et exporter\nles exigences" as UC8
+  }
+
+  package "Gestion législative\n& Amendements" as P4 #F3E5F5 {
+    usecase "Gérer les lois,\narticles et versions" as UC9
+    usecase "Traiter les amendements\n(versioning immutable)" as UC10
+    usecase "Extraire les actions et\ncalculer la criticité" as UC11
+  }
+
+  package "Conformité &\nFeuille de route" as P5 #FFF9C4 {
+    usecase "Gérer le profil entreprise\net évaluer l'applicabilité" as UC12
+    usecase "Générer la feuille de\nroute de conformité" as UC13
+    usecase "Gérer contrôles,\npreuves et assessments" as UC14
+  }
+
+  package "Gestion des dossiers\nde non-conformité" as P6 #FCE4EC {
+    usecase "Créer et instruire\nun dossier" as UC15
+    usecase "Orchestrer l'analyse\n(ASK/CLARIFY/ACT/REVIEW)" as UC16
+  }
+
+  package "Notifications &\nEmails transactionnels" as P7 #E0F2F1 {
+    usecase "Envoyer les emails\ntransactionnels" as UC17
+    usecase "Notifier les impacts\nréglementaires" as UC18
+  }
+}
+
+' ── ASSOCIATIONS ──
+
+' Visiteur
+V -- UC1
+
+' Membre
+M -- UC4
+M -- UC5
+M -- UC6
+M -- UC15
+
+' Admin / Owner
+A -- UC3
+A -- UC2
+A -- UC7
+A -- UC12
+A -- UC13
+A -- UC14
+A -- UC16
+
+' Super Admin
+SA -- UC8
+SA -- UC9
+SA -- UC10
+SA -- UC11
+
+' Système
+UC17 -- SMTP
+UC4 -- LLM
+UC8 -- LLM
+UC11 -- LLM
+UC12 -- LLM
+UC16 -- LLM
+
+' ── RELATIONS ──
+UC1 ..> UC17 : <<include>>
+UC3 ..> UC17 : <<include>>
+UC10 ..> UC18 : <<include>>
+UC4 ..> UC5 : <<include>>
+UC13 ..> UC12 : <<include>>
+
+' ── LÉGENDE ──
+legend bottom
+  |= Couleur |= Module |
+  | <#E8F0FE> | Authentification & Gestion des comptes |
+  | <#FFF3E0> | Assistant juridique IA (Legal RAG) |
+  | <#E8F5E9> | Gestion documentaire |
+  | <#F3E5F5> | Gestion législative & Amendements |
+  | <#FFF9C4> | Conformité & Feuille de route |
+  | <#FCE4EC> | Gestion des dossiers de non-conformité |
+  | <#E0F2F1> | Notifications & Emails transactionnels |
+  --
+  **Héritage :** Visiteur ← Membre ← Admin/Owner ← Super Admin
+end legend
+
+footer Daleel — PFE 2025 — Diagramme de cas d'utilisation général (vue synthétique)
+
+@enduml

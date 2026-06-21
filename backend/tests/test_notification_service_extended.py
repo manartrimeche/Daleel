@@ -66,8 +66,8 @@ async def test_create_notification_with_details():
     db = _make_db()
     result = await notification_service.create_notification(
         db,
-        alert_type="coverage_change",
-        title="Coverage",
+        alert_type="amendment_impact",
+        title="Impact",
         message="Changed",
         details={"org": "abc"},
     )
@@ -86,6 +86,22 @@ async def test_list_notifications():
     result, total = await notification_service.list_notifications(db, skip=0, limit=10)
     assert total == 2
     assert len(result) == 2
+    expected = {"alert_type": {"$in": ["amendment_summary", "approval_amendment", "approval_document", "approval_invitation", "approval_organization"]}}
+    db._notif.count_documents.assert_awaited_once_with(expected)
+    db._notif.find.assert_called_once_with(expected, {"_id": 0})
+
+
+@pytest.mark.asyncio
+async def test_admin_notification_list_keeps_only_platform_alerts():
+    db = _make_db()
+    db._notif.count_documents = AsyncMock(return_value=0)
+    db._notif.find = MagicMock(return_value=_FakeAsyncCursor([]))
+
+    await notification_service.list_notifications(db)
+
+    expected = {"alert_type": {"$in": ["amendment_summary", "approval_amendment", "approval_document", "approval_invitation", "approval_organization"]}}
+    db._notif.count_documents.assert_awaited_once_with(expected)
+    db._notif.find.assert_called_once_with(expected, {"_id": 0})
 
 
 @pytest.mark.asyncio
@@ -220,7 +236,10 @@ async def test_mark_all_read_global_sets_read_flag_on_unread():
     updated = await notification_service.mark_all_read(db, allow_global=True)
     assert updated == 7
     db._notif.update_many.assert_awaited_once_with(
-        {"read": {"$ne": True}},
+        {
+            "alert_type": {"$in": ["amendment_summary", "approval_amendment", "approval_document", "approval_invitation", "approval_organization"]},
+            "read": {"$ne": True},
+        },
         {"$set": {"read": True}},
     )
 
@@ -236,6 +255,13 @@ async def test_mark_all_read_org_user_uses_read_by():
     db._notif.update_many.assert_awaited_once_with(
         {
             "details.organization_id": "org-1",
+            "details.audience": {"$ne": "super_admin"},
+            "alert_type": {"$in": ["account_deactivated", "account_login", "account_updated", "amendment_impact", "invitation_revoked", "member_joined", "organization_approved", "organization_rejected", "subscription_expiring"]},
+            "$or": [
+                {"details.recipient_user_id": {"$exists": False}},
+                {"details.recipient_user_id": None},
+                {"details.recipient_user_id": "u1"},
+            ],
             "read": {"$ne": True},
             "read_by": {"$ne": "u1"},
         },

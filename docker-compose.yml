@@ -8,35 +8,19 @@
 # Services:
 #   - daleel-api   : FastAPI application (port 8000)
 #   - mongodb      : Document + vector store (port 27017)
-#   - ollama       : Local LLM inference (port 11434, optional)
+#   - ollama       : Local LLM inference (port 11434, optional profile)
 #
 # Notes:
-#   - Ollama requires pulling a model after startup:
+#   - To run the bundled Ollama service:
+#     $env:DALEEL_DOCKER_LLM_BASE_URL="http://ollama:11434"
+#     docker compose --profile ollama up --build
 #     docker compose exec ollama ollama pull qwen2.5:7b
 #   - Set your .env file OR edit environment variables below.
 # ─────────────────────────────────────────────────────────────────────────────
 
-version: "3.8"
-
 services:
-  mongodb:
-    image: mongo:7.0
-    container_name: daleel-mongodb
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:27017:27017"
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-daleel}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-changeme-in-production}
-    volumes:
-      - mongodb_data:/data/db
-    healthcheck:
-      test: ["CMD", "mongosh", "-u", "${MONGO_ROOT_USER:-daleel}", "-p", "${MONGO_ROOT_PASSWORD:-changeme-in-production}", "--eval", "db.runCommand({ping:1}).ok"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - daleel-network
+  # MongoDB is provided by the local Windows service (port 27017).
+  # The daleel-api container connects via host.docker.internal.
 
   daleel-api:
     build:
@@ -47,9 +31,9 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
     environment:
-      DALEEL_MONGODB_URL: mongodb://${MONGO_ROOT_USER:-daleel}:${MONGO_ROOT_PASSWORD:-changeme-in-production}@mongodb:27017
+      DALEEL_MONGODB_URL: mongodb://host.docker.internal:27017
       DALEEL_MONGODB_DB_NAME: manar
-      DALEEL_LLM_BASE_URL: http://ollama:11434
+      DALEEL_LLM_BASE_URL: ${DALEEL_DOCKER_LLM_BASE_URL:-http://host.docker.internal:11434}
       DALEEL_LLM_MODEL: qwen2.5:7b
       DALEEL_LLM_MAX_RETRIES: 3
       DALEEL_LLM_TIMEOUT_CONNECT: 15.0
@@ -66,12 +50,9 @@ services:
       DALEEL_QUALITY_GUARD_ENABLED: true
       DALEEL_KG_LIGHT_ENABLED: true
       DALEEL_AUTO_MODE_ENABLED: true
-      DALEEL_CORS_ORIGINS: http://localhost:8000,http://127.0.0.1:8000
-    depends_on:
-      mongodb:
-        condition: service_healthy
-      ollama:
-        condition: service_started
+      DALEEL_CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000,http://localhost:8000,http://127.0.0.1:8000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - daleel-network
     volumes:
@@ -80,6 +61,8 @@ services:
   ollama:
     image: ollama/ollama:latest
     container_name: daleel-ollama
+    profiles:
+      - ollama
     restart: unless-stopped
     ports:
       - "127.0.0.1:11434:11434"
@@ -91,7 +74,6 @@ services:
     # set DALEEL_LLM_BASE_URL in your .env and remove this service.
 
 volumes:
-  mongodb_data:
   ollama_data:
 
 networks:

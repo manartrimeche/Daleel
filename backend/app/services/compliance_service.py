@@ -13,6 +13,7 @@ audit_service, etc.
 from __future__ import annotations
 
 import logging
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
@@ -22,6 +23,18 @@ from app.services import audit_service
 
 logger = logging.getLogger(__name__)
 _collection = get_collection
+
+_COVERAGE_STOP_WORDS = {
+    "the", "and", "for", "that", "with", "from", "this", "must", "shall",
+    "les", "des", "une", "dans", "pour", "par", "avec", "sur", "aux", "est",
+    "être", "etre", "doit", "sont", "leur", "leurs", "tout", "toute", "tous",
+    "هذا", "هذه", "ذلك", "على", "الى", "إلى", "في", "من", "عن", "أن", "كل",
+    "يجب", "يكون", "تكون", "التي", "الذي", "كما", "أو", "او",
+}
+_UUID_PATTERN = re.compile(
+    r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+    re.IGNORECASE,
+)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -41,6 +54,95 @@ def _scoped_query(query: dict, organization_id: str | None = None) -> dict:
     if organization_id:
         query = {**query, "organization_id": organization_id}
     return query
+
+
+def _compact_text(value: object) -> str:
+    return " ".join(str(value or "").split())
+
+
+def _truncate_text(value: str, max_len: int = 150) -> str:
+    if len(value) <= max_len:
+        return value
+    return value[: max_len - 1].rstrip() + "..."
+
+
+def _exigence_display_title(exigence: dict | None, exigence_id: str) -> str:
+    if not exigence:
+        return f"Exigence {exigence_id[:8]}"
+
+    title = _compact_text(exigence.get("title"))
+    if title and title != exigence_id:
+        return _truncate_text(title)
+
+    article = _compact_text(
+        exigence.get("article_reference")
+        or exigence.get("article")
+        or exigence.get("source_reference")
+    )
+    text = _compact_text(exigence.get("text") or exigence.get("source_citation"))
+    if article and text:
+        return _truncate_text(f"{article} - {text}")
+    if text:
+        return _truncate_text(text)
+    if article:
+        return article
+    return f"Exigence {exigence_id[:8]}"
+
+
+def _coverage_source_title(value: object) -> str:
+    title = _compact_text(value)
+    if not title:
+        return "un contrôle existant"
+    if _UUID_PATTERN.search(title):
+        prefix = title.split(":", 1)[0].strip()
+        return prefix if prefix and not _UUID_PATTERN.search(prefix) else "un contrôle existant"
+    return _truncate_text(title, 90)
+
+
+def _coverage_tokens(value: str) -> set[str]:
+    tokens = re.findall(r"[\w\u0600-\u06FF]+", str(value or "").casefold())
+    return {
+        token
+        for token in tokens
+        if len(token) > 2 and token not in _COVERAGE_STOP_WORDS
+    }
+
+
+def _token_match_score(requirement_text: str, candidate_text: str) -> float:
+    requirement_tokens = _coverage_tokens(requirement_text)
+    candidate_tokens = _coverage_tokens(candidate_text)
+    if not requirement_tokens or not candidate_tokens:
+        return 0.0
+    common = requirement_tokens & candidate_tokens
+    requirement_coverage = len(common) / len(requirement_tokens)
+    candidate_precision = len(common) / len(candidate_tokens)
+    return min(1.0, requirement_coverage * 0.8 + candidate_precision * 0.2)
+
+
+def _suggested_status(score: float, control_status: str | None, has_accepted_evidence: bool) -> str:
+    if score >= 0.8 and control_status == "implemented" and has_accepted_evidence:
+        return "fully_covered"
+    return "not_covered"
+
+
+def _suggestion_rationale(
+    status: str,
+    candidate: dict | None,
+    confidence: float,
+) -> str:
+    percent = round(confidence * 100)
+    if not candidate:
+        return "Décision système : non couverte. Aucune preuve fiable n'a été trouvée pour cette exigence."
+    title = _coverage_source_title(candidate.get("title"))
+    if status == "fully_covered":
+        return (
+            f"Décision système : couverte. Le contrôle « {title} » est implémenté, "
+            f"appuyé par une preuve acceptée, avec une confiance de {percent}%."
+        )
+    return (
+        "Décision système : non couverte. Les éléments trouvés ne sont pas assez fiables "
+        "pour valider cette exigence automatiquement."
+    )
 
 
 async def _get_company_profile(
@@ -650,12 +752,23 @@ async def create_link(
         if assessment.get("company_profile_id") != control.get("company_profile_id"):
             raise ValueError("Assessment and control must belong to the same profile")
 
-    existing = await _collection("requirement_control_links").find_one({
+    duplicate_query = {
         "exigence_id": exigence_id,
         "control_id": control_id,
         "assessment_id": assessment_id,
-        "organization_id": organization_id,
-    })
+    }
+    if organization_id:
+        duplicate_query["$or"] = [
+            {"organization_id": organization_id},
+            {"organization_id": {"$exists": False}},
+            {"organization_id": None},
+        ]
+    else:
+        duplicate_query["organization_id"] = None
+
+    existing = await _collection("requirement_control_links").find_one(
+        duplicate_query
+    )
     if existing:
         raise ValueError(
             f"Link already exists between exigence '{exigence_id}' "
@@ -669,6 +782,7 @@ async def create_link(
         "exigence_id": exigence_id,
         "control_id": control_id,
         "assessment_id": assessment_id,
+        "organization_id": organization_id,
         "coverage_status": coverage_status,
         "coverage_score": max(0.0, min(1.0, coverage_score)),
         "gap_description": gap_description,
@@ -981,8 +1095,19 @@ async def compute_posture(
     async for exc_doc in exc_cursor:
         approved_exceptions.add(exc_doc["exigence_id"])
 
+    control_query = _scoped_query(
+        {"company_profile_id": company_profile_id},
+        organization_id,
+    )
+    control_cursor = _collection("controls").find(control_query)
+    profile_control_ids: list[str] = []
+    async for control_doc in control_cursor:
+        if control_doc.get("id"):
+            profile_control_ids.append(control_doc["id"])
+
     link_query: dict = {
         "exigence_id": {"$in": applicable_exigence_ids},
+        "control_id": {"$in": profile_control_ids},
     }
     if assessment_id:
         assessment = await _get_assessment(assessment_id, organization_id)
@@ -1015,9 +1140,7 @@ async def compute_posture(
             )
             gaps.append({
                 "exigence_id": eid,
-                "exigence_title": (
-                    exigence_doc.get("title") if exigence_doc else None
-                ),
+                "exigence_title": _exigence_display_title(exigence_doc, eid),
                 "coverage_status": "not_covered",
                 "best_coverage_score": 0.0,
                 "linked_controls": 0,
@@ -1052,9 +1175,7 @@ async def compute_posture(
             )
             gaps.append({
                 "exigence_id": eid,
-                "exigence_title": (
-                    exigence_doc.get("title") if exigence_doc else None
-                ),
+                "exigence_title": _exigence_display_title(exigence_doc, eid),
                 "coverage_status": best_status,
                 "best_coverage_score": best_score,
                 "linked_controls": len(links),
@@ -1104,8 +1225,320 @@ async def list_gaps(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# REMEDIATION ACTIONS (bridges to existing 'actions' collection)
+# MANUAL COVERAGE
 # ═══════════════════════════════════════════════════════════════════════════════
+
+async def _coverage_candidate_sources(
+    company_profile_id: str,
+    organization_id: str | None = None,
+) -> list[dict]:
+    control_query = _scoped_query(
+        {"company_profile_id": company_profile_id},
+        organization_id,
+    )
+    controls: list[dict] = []
+    async for control_doc in _collection("controls").find(control_query):
+        controls.append(control_doc)
+
+    if not controls:
+        return []
+
+    control_ids = [control["id"] for control in controls if control.get("id")]
+    evidence_query: dict = {"control_id": {"$in": control_ids}}
+    if organization_id:
+        evidence_query["organization_id"] = organization_id
+
+    evidences_by_control: dict[str, list[dict]] = {}
+    async for evidence_doc in _collection("control_evidences").find(evidence_query):
+        evidences_by_control.setdefault(evidence_doc.get("control_id"), []).append(evidence_doc)
+
+    candidates: list[dict] = []
+    for control in controls:
+        evidences = evidences_by_control.get(control.get("id"), [])
+        evidence_text = " ".join(
+            _compact_text(
+                " ".join(
+                    str(part or "")
+                    for part in (
+                        evidence.get("title"),
+                        evidence.get("description"),
+                        evidence.get("status"),
+                        evidence.get("evidence_type"),
+                    )
+                )
+            )
+            for evidence in evidences
+        )
+        candidate_text = _compact_text(
+            " ".join(
+                str(part or "")
+                for part in (
+                    control.get("title"),
+                    control.get("description"),
+                    control.get("implementation_status"),
+                    control.get("control_type"),
+                    evidence_text,
+                )
+            )
+        )
+        matches = [
+            {
+                "source_type": "control",
+                "title": _coverage_source_title(control.get("title")),
+                "snippet": _truncate_text(_compact_text(control.get("description")), 180),
+                "control_id": control.get("id"),
+                "score": 0.0,
+            }
+        ]
+        for evidence in evidences[:2]:
+            matches.append(
+                {
+                    "source_type": "evidence",
+                    "title": evidence.get("title"),
+                    "snippet": _truncate_text(_compact_text(evidence.get("description")), 180),
+                    "control_id": control.get("id"),
+                    "evidence_id": evidence.get("id"),
+                    "document_id": evidence.get("document_id"),
+                    "score": 0.0,
+                }
+            )
+        candidates.append(
+            {
+                "id": control.get("id"),
+                "title": _coverage_source_title(control.get("title")),
+                "text": candidate_text,
+                "implementation_status": control.get("implementation_status"),
+                "effectiveness_score": float(control.get("effectiveness_score") or 0.0),
+                "has_accepted_evidence": any(e.get("status") == "accepted" for e in evidences),
+                "has_pending_evidence": any(e.get("status") == "pending" for e in evidences),
+                "matches": matches,
+            }
+        )
+    return candidates
+
+
+def _score_coverage_candidate(requirement_text: str, candidate: dict) -> float:
+    score = _token_match_score(requirement_text, candidate.get("text", ""))
+    status = candidate.get("implementation_status")
+    if status == "implemented":
+        score += 0.14
+    elif status == "in_progress":
+        score += 0.06
+    elif status == "planned":
+        score -= 0.04
+    elif status == "not_effective":
+        score -= 0.18
+
+    if candidate.get("has_accepted_evidence"):
+        score += 0.12
+    elif candidate.get("has_pending_evidence"):
+        score += 0.04
+
+    score += min(0.08, max(0.0, candidate.get("effectiveness_score", 0.0)) * 0.08)
+    return max(0.0, min(1.0, score))
+
+
+async def suggest_coverage(
+    db,
+    company_profile_id: str,
+    *,
+    limit: int = 8,
+    organization_id: str | None = None,
+) -> dict:
+    """Suggest coverage status for current gaps without mutating links."""
+    profile = await _get_company_profile(company_profile_id, organization_id)
+    if not profile:
+        raise ValueError(f"Company profile '{company_profile_id}' not found")
+
+    posture = await compute_posture(
+        db,
+        company_profile_id,
+        organization_id=organization_id,
+    )
+    gaps = posture.get("gaps", [])[: max(1, min(limit, 20))]
+    candidates = await _coverage_candidate_sources(
+        company_profile_id,
+        organization_id=organization_id,
+    )
+
+    suggestions: list[dict] = []
+    for gap in gaps:
+        exigence_id = gap["exigence_id"]
+        exigence = await _collection("exigences").find_one({"id": exigence_id})
+        exigence_title = _exigence_display_title(exigence, exigence_id)
+        requirement_text = _compact_text(
+            " ".join(
+                str(part or "")
+                for part in (
+                    exigence_title,
+                    exigence.get("text") if exigence else None,
+                    exigence.get("source_citation") if exigence else None,
+                )
+            )
+        )
+
+        best_candidate: dict | None = None
+        best_score = 0.0
+        for candidate in candidates:
+            candidate_score = _score_coverage_candidate(requirement_text, candidate)
+            if candidate_score > best_score:
+                best_score = candidate_score
+                best_candidate = candidate
+
+        if best_candidate:
+            status = _suggested_status(
+                best_score,
+                best_candidate.get("implementation_status"),
+                bool(best_candidate.get("has_accepted_evidence")),
+            )
+            matches = [
+                {**match, "score": round(best_score, 4)}
+                for match in best_candidate.get("matches", [])
+            ]
+        else:
+            status = "not_covered"
+            matches = []
+
+        suggestions.append(
+            {
+                "exigence_id": exigence_id,
+                "exigence_title": exigence_title,
+                "suggested_status": status,
+                "confidence": round(best_score, 4),
+                "rationale": _suggestion_rationale(status, best_candidate, best_score),
+                "matches": matches,
+            }
+        )
+
+    return {
+        "company_profile_id": company_profile_id,
+        "suggestions": suggestions,
+        "analyzed": len(suggestions),
+        "generated_at": _now(),
+    }
+
+
+async def cover_requirement(
+    db,
+    company_profile_id: str,
+    exigence_id: str,
+    *,
+    control_title: Optional[str] = None,
+    justification: Optional[str] = None,
+    linked_by: str = "system",
+    organization_id: str | None = None,
+) -> dict:
+    """Create or update a full-coverage control link for one applicable requirement."""
+    profile = await _get_company_profile(company_profile_id, organization_id)
+    if not profile:
+        raise ValueError(f"Company profile '{company_profile_id}' not found")
+
+    exigence = await _collection("exigences").find_one({"id": exigence_id})
+    if not exigence:
+        raise ValueError(f"Exigence '{exigence_id}' not found")
+
+    applicability = await _collection("exigence_applicabilities").find_one({
+        "profile_id": company_profile_id,
+        "exigence_id": exigence_id,
+        "is_applicable": True,
+    })
+    if not applicability:
+        raise ValueError("Requirement is not applicable to this profile")
+
+    control_query = _scoped_query(
+        {"company_profile_id": company_profile_id},
+        organization_id,
+    )
+    control_ids: list[str] = []
+    control_cursor = _collection("controls").find(control_query)
+    async for control_doc in control_cursor:
+        if control_doc.get("id"):
+            control_ids.append(control_doc["id"])
+
+    existing_link: dict | None = None
+    if control_ids:
+        link_query = {
+            "exigence_id": exigence_id,
+            "control_id": {"$in": control_ids},
+        }
+        link_cursor = _collection("requirement_control_links").find(link_query)
+        async for link_doc in link_cursor:
+            existing_link = link_doc
+            break
+
+    final_justification = justification or (
+        "Manual coverage recorded from the compliance dashboard."
+    )
+
+    if existing_link:
+        await update_link(
+            db,
+            existing_link["id"],
+            coverage_status="fully_covered",
+            coverage_score=1.0,
+            gap_description=None,
+            justification=final_justification,
+            organization_id=organization_id,
+        )
+        if existing_link.get("control_id"):
+            await update_control(
+                db,
+                existing_link["control_id"],
+                implementation_status="implemented",
+                effectiveness_score=1.0,
+                organization_id=organization_id,
+            )
+    else:
+        base_title = control_title or (
+            f"Coverage control - {exigence.get('title') or exigence_id}"
+        )
+        title = base_title[:512]
+        description = (
+            "Manual control created to document full coverage for an "
+            "applicable legal requirement.\n\n"
+            f"Justification: {final_justification}"
+        )
+        control = await create_control(
+            db,
+            company_profile_id=company_profile_id,
+            title=title,
+            description=description,
+            control_type="preventive",
+            owner=linked_by,
+            risk_level="medium",
+            review_frequency="quarterly",
+            organization_id=organization_id,
+        )
+        await update_control(
+            db,
+            control["id"],
+            implementation_status="implemented",
+            effectiveness_score=1.0,
+            organization_id=organization_id,
+        )
+        await create_link(
+            db,
+            exigence_id=exigence_id,
+            control_id=control["id"],
+            coverage_status="fully_covered",
+            coverage_score=1.0,
+            gap_description=None,
+            justification=final_justification,
+            linked_by=linked_by,
+            organization_id=organization_id,
+        )
+
+    return await compute_posture(
+        db,
+        company_profile_id,
+        organization_id=organization_id,
+    )
+
+
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# REMEDIATION ACTIONS (bridges to existing 'actions' collection)
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
 
 async def create_remediation_action(
     db,

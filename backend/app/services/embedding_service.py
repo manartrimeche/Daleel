@@ -137,7 +137,7 @@ def _get_model():
         settings = get_settings()
         model_name_or_path = _resolve_model_name_or_path(settings.embedding_model)
         logger.info("Loading embedding model: %s", model_name_or_path)
-        _model = SentenceTransformer(model_name_or_path)
+        _model = SentenceTransformer(model_name_or_path, device="cpu")
         logger.info("Embedding model ready")
     return _model
 
@@ -158,7 +158,7 @@ def _get_model_dim_384():
         settings = get_settings()
         name = _resolve_model_name_or_path(settings.embedding_model_dim_384)
         logger.info("Loading 384-dim embedding model (query compat): %s", name)
-        _model_dim_384 = SentenceTransformer(name)
+        _model_dim_384 = SentenceTransformer(name, device="cpu")
         d = int(_model_dim_384.get_sentence_embedding_dimension())
         if d != 384:
             logger.warning(

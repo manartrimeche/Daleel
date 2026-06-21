@@ -117,6 +117,41 @@ class TestDocumentEndpoints(unittest.TestCase):
         r = self.client.post("/api/v1/search", json={"query": "test", "top_k": 5})
         self.assertEqual(r.status_code, 200)
 
+    @patch("app.services.document_service.reindex_all_documents", new_callable=AsyncMock)
+    def test_reindex_reports_ready_index(self, mock_reindex):
+        mock_reindex.return_value = {
+            "documents_total": 6, "documents_reindexed": 6, "chunks_rebuilt": 2157,
+        }
+        from app.services import faiss_index as faiss_mod
+        with patch.object(faiss_mod.faiss_manager, "mark_unavailable"), \
+             patch.object(type(faiss_mod.faiss_manager), "is_ready", new_callable=lambda: property(lambda self: True)), \
+             patch.object(type(faiss_mod.faiss_manager), "size", new_callable=lambda: property(lambda self: 2157)), \
+             patch.object(type(faiss_mod.faiss_manager), "blocked_reason", new_callable=lambda: property(lambda self: None)):
+            r = self.client.post("/api/v1/admin/reindex")
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertTrue(data["index_ready"])
+        self.assertEqual(data["index_size"], 2157)
+        self.assertIn("rebuilt", data["message"])
+
+    @patch("app.services.document_service.reindex_all_documents", new_callable=AsyncMock)
+    def test_reindex_surfaces_silent_failure(self, mock_reindex):
+        mock_reindex.return_value = {
+            "documents_total": 6, "documents_reindexed": 6, "chunks_rebuilt": 2157,
+        }
+        from app.services import faiss_index as faiss_mod
+        with patch.object(faiss_mod.faiss_manager, "mark_unavailable"), \
+             patch.object(type(faiss_mod.faiss_manager), "is_ready", new_callable=lambda: property(lambda self: False)), \
+             patch.object(type(faiss_mod.faiss_manager), "size", new_callable=lambda: property(lambda self: 0)), \
+             patch.object(type(faiss_mod.faiss_manager), "blocked_reason", new_callable=lambda: property(lambda self: "build_failed")):
+            r = self.client.post("/api/v1/admin/reindex")
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertFalse(data["index_ready"])
+        self.assertEqual(data["index_size"], 0)
+        self.assertEqual(data["blocked_reason"], "build_failed")
+        self.assertIn("failed to load", data["message"])
+
     @patch("app.api.router.search_service.get_vector_stats", new_callable=AsyncMock)
     def test_vector_stats(self, mock_stats):
         mock_stats.return_value = {
@@ -361,6 +396,135 @@ class TestAuthEnforcement(unittest.TestCase):
             headers={"X-API-Key": "wrong-key"},
         )
         self.assertEqual(r.status_code, 403)
+
+
+class TestChatHistoryConversation(unittest.TestCase):
+    """Cover PATCH /chat-history/conversation/{id}/archive and /rename."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.client = _make_client()
+
+    def _override_db(self, matched: int):
+        from app.database import get_db
+        from app.main import app
+
+        class FakeUpdateResult:
+            def __init__(self, n):
+                self.matched_count = n
+
+        last_call = {}
+
+        class FakeCollection:
+            async def update_many(self, query, update):
+                last_call["query"] = query
+                last_call["update"] = update
+                return FakeUpdateResult(matched)
+
+        class FakeDb(dict):
+            def __getitem__(self, name):
+                if name not in self:
+                    self[name] = FakeCollection()
+                return dict.__getitem__(self, name)
+
+        fake_db = FakeDb()
+
+        async def override_get_db():
+            yield fake_db
+
+        app.dependency_overrides[get_db] = override_get_db
+        return last_call, lambda: app.dependency_overrides.pop(get_db, None)
+
+    def test_archive_conversation_ok(self):
+        last_call, cleanup = self._override_db(matched=3)
+        try:
+            r = self.client.patch(
+                "/api/v1/chat-history/conversation/conv-1/archive",
+                json={"archived": True},
+            )
+        finally:
+            cleanup()
+        self.assertEqual(r.status_code, 200)
+        body = r.json()
+        self.assertEqual(body["conversation_id"], "conv-1")
+        self.assertTrue(body["archived"])
+        # Scopes to the current user so a foreign conversation cannot be touched.
+        self.assertIn("user_id", last_call["query"])
+        self.assertEqual(last_call["query"]["conversation_id"], "conv-1")
+        self.assertTrue(last_call["update"]["$set"]["archived"])
+
+    def test_restore_conversation_ok(self):
+        last_call, cleanup = self._override_db(matched=2)
+        try:
+            r = self.client.patch(
+                "/api/v1/chat-history/conversation/conv-1/archive",
+                json={"archived": False},
+            )
+        finally:
+            cleanup()
+        self.assertEqual(r.status_code, 200)
+        self.assertFalse(r.json()["archived"])
+        self.assertFalse(last_call["update"]["$set"]["archived"])
+        self.assertIn("archived_at", last_call["update"]["$unset"])
+
+    def test_archive_unknown_conversation_returns_404(self):
+        _, cleanup = self._override_db(matched=0)
+        try:
+            r = self.client.patch(
+                "/api/v1/chat-history/conversation/missing/archive",
+                json={"archived": True},
+            )
+        finally:
+            cleanup()
+        self.assertEqual(r.status_code, 404)
+
+    def test_rename_conversation_ok(self):
+        last_call, cleanup = self._override_db(matched=4)
+        try:
+            r = self.client.patch(
+                "/api/v1/chat-history/conversation/conv-1/rename",
+                json={"title": "  Nouveau titre  "},
+            )
+        finally:
+            cleanup()
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["title"], "Nouveau titre")
+        self.assertEqual(last_call["update"]["$set"]["conversation_title"], "Nouveau titre")
+
+    def test_rename_truncates_to_120_chars(self):
+        last_call, cleanup = self._override_db(matched=1)
+        long_title = "a" * 300
+        try:
+            r = self.client.patch(
+                "/api/v1/chat-history/conversation/conv-1/rename",
+                json={"title": long_title},
+            )
+        finally:
+            cleanup()
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(len(last_call["update"]["$set"]["conversation_title"]), 120)
+
+    def test_rename_empty_title_returns_422(self):
+        _, cleanup = self._override_db(matched=0)
+        try:
+            r = self.client.patch(
+                "/api/v1/chat-history/conversation/conv-1/rename",
+                json={"title": "   "},
+            )
+        finally:
+            cleanup()
+        self.assertEqual(r.status_code, 422)
+
+    def test_rename_unknown_conversation_returns_404(self):
+        _, cleanup = self._override_db(matched=0)
+        try:
+            r = self.client.patch(
+                "/api/v1/chat-history/conversation/missing/rename",
+                json={"title": "X"},
+            )
+        finally:
+            cleanup()
+        self.assertEqual(r.status_code, 404)
 
 
 if __name__ == "__main__":

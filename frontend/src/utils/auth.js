@@ -1,14 +1,14 @@
 const API = '/api/v1';
 const TOKEN_KEY = 'daleel_access_token';
-const REFRESH_KEY = 'daleel_refresh_token';
 const USER_KEY = 'daleel_user';
+
+// Note: the refresh token is now stored by the backend in an HttpOnly cookie
+// (`daleel_refresh`, scoped to /api/v1/auth). The frontend never reads or
+// writes it. `credentials: 'include'` on the /auth/refresh call is what
+// carries it back to the server.
 
 export function getAccessToken() {
   return localStorage.getItem(TOKEN_KEY);
-}
-
-export function getRefreshToken() {
-  return localStorage.getItem(REFRESH_KEY);
 }
 
 export function getUser() {
@@ -19,9 +19,8 @@ export function getUser() {
   }
 }
 
-export function setTokens(access, refresh) {
+export function setTokens(access /* , refresh — ignored, cookie-based now */) {
   localStorage.setItem(TOKEN_KEY, access);
-  if (refresh) localStorage.setItem(REFRESH_KEY, refresh);
 }
 
 export function setUser(user) {
@@ -30,8 +29,9 @@ export function setUser(user) {
 
 export function clearAuth() {
   localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(REFRESH_KEY);
   localStorage.removeItem(USER_KEY);
+  // Legacy key from earlier versions — clear it too on logout / session loss.
+  localStorage.removeItem('daleel_refresh_token');
 }
 
 function decodeJwtPayload(token) {
@@ -55,17 +55,16 @@ export function isTokenExpired(token) {
 }
 
 export async function refreshAccessToken() {
-  const refreshToken = getRefreshToken();
-  if (!refreshToken || isTokenExpired(refreshToken)) return false;
   try {
     const res = await fetch(`${API}/auth/refresh`, {
       method: 'POST',
+      credentials: 'include', // send HttpOnly refresh cookie
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh_token: refreshToken }),
+      body: '{}',
     });
     if (!res.ok) return false;
     const data = await res.json();
-    setTokens(data.access_token, data.refresh_token);
+    setTokens(data.access_token);
     setUser(data.user);
     return true;
   } catch {
@@ -118,6 +117,7 @@ export async function logout() {
     if (token) {
       await fetch(`${API}/auth/logout`, {
         method: 'POST',
+        credentials: 'include',
         headers: { Authorization: `Bearer ${token}` },
       });
     }

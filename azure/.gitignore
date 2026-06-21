@@ -1,0 +1,2 @@
+# Ne jamais commiter les secrets Azure
+.env.azure

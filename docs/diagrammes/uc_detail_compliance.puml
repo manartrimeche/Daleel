@@ -1,0 +1,136 @@
+@startuml UC_Detail_Compliance
+
+skinparam backgroundColor #FEFEFE
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 11
+skinparam packageFontSize 14
+skinparam packageFontStyle bold
+skinparam actorFontSize 12
+skinparam actorFontStyle bold
+skinparam usecaseFontSize 10
+skinparam arrowColor #555555
+skinparam packageBorderColor #AAAAAA
+skinparam usecaseBackgroundColor #FFFFFF
+skinparam usecaseBorderColor #BBBBBB
+skinparam shadowing false
+
+left to right direction
+
+title <b>Diagramme de cas d'utilisation détaillé</b>\n<size:11>Module : Conformité, dossiers de non-conformité & feuille de route</size>
+
+' ── ACTEURS ──
+actor "Membre" as M
+actor "Admin / Owner" as A
+actor "Super Admin" as SA
+actor "Moteur LLM" as LLM
+
+M <|-- A
+A <|-- SA
+
+' ── SYSTÈME ──
+rectangle "Conformité & Pilotage réglementaire" {
+
+  package "Profil entreprise &\nApplicabilité" as P1 #FFF9C4 {
+    usecase "Créer / modifier le\nprofil entreprise" as UC01
+    usecase "Évaluer l'applicabilité\ndes exigences (LLM)" as UC02
+    usecase "Consulter le résumé\nd'applicabilité" as UC03
+  }
+
+  package "Feuille de route\nde conformité" as P2 #FFF9C4 {
+    usecase "Générer la feuille\nde route dynamique" as UC04
+    usecase "Rafraîchir la feuille\nde route" as UC05
+  }
+
+  package "Contrôles, assessments\n& preuves" as P3 #FFF9C4 {
+    usecase "Gérer les contrôles\ninternes" as UC06
+    usecase "Réaliser un assessment\nde conformité" as UC07
+    usecase "Gérer les preuves\nde conformité" as UC08
+    usecase "Gérer les exceptions\nréglementaires" as UC09
+    usecase "Évaluer la posture\nglobale de conformité" as UC10
+    usecase "Lier exigences\naux contrôles" as UC11
+    usecase "Détecter les lacunes\nde couverture" as UC12
+  }
+
+  package "Gestion des dossiers\nde non-conformité" as P4 #FCE4EC {
+    usecase "Créer un dossier\nde non-conformité" as UC20
+    usecase "Créer un dossier\npar conversation" as UC21
+    usecase "Gérer les constats\n(findings)" as UC22
+    usecase "Gérer les actions\ncorrectives" as UC23
+    usecase "Attacher / analyser\ndes documents" as UC24
+    usecase "Converser sur un\ndossier (workflow guidé)" as UC25
+    usecase "Orchestrer l'analyse\n(ASK/CLARIFY/ACT/REVIEW)" as UC26
+    usecase "Générer une réponse\nconseiller (advisor)" as UC27
+    usecase "Consulter le résumé\nstructuré du dossier" as UC28
+  }
+}
+
+' ── ASSOCIATIONS ──
+
+M -- UC03
+M -- UC20
+M -- UC21
+M -- UC22
+M -- UC23
+M -- UC24
+M -- UC25
+M -- UC28
+M -- UC10
+
+A -- UC01
+A -- UC02
+A -- UC04
+A -- UC05
+A -- UC06
+A -- UC07
+A -- UC08
+A -- UC09
+A -- UC11
+A -- UC12
+A -- UC27
+
+SA -- UC26
+
+UC02 -- LLM
+UC26 -- LLM
+UC27 -- LLM
+UC24 -- LLM
+UC12 -- LLM
+
+' ── INCLUDE / EXTEND ──
+UC04 ..> UC02 : <<include>>
+UC04 ..> UC03 : <<include>>
+UC05 ..> UC04 : <<include>>
+UC21 ..> UC20 : <<include>>
+UC25 ..> UC26 : <<extend>>\n[analyse complète]
+UC26 ..> UC27 : <<include>>
+UC26 ..> UC22 : <<extend>>\n[constats détectés]
+UC26 ..> UC23 : <<extend>>\n[actions recommandées]
+UC07 ..> UC10 : <<extend>>
+UC06 ..> UC11 : <<include>>
+
+note right of UC04
+  Feuille de route dynamique :
+  1. Récupère les actions applicables
+  2. Calcule la criticité manquante
+  3. Tri topologique (dépendances)
+  4. Ordre : critique → importante → secondaire
+end note
+
+note right of UC26
+  Arbre de décision LLM :
+  **ASK** — collecter les faits
+  **CLARIFY** — lever les ambiguïtés
+  **ACT** — proposer des actions
+  **REVIEW** — valider et conclure
+end note
+
+note bottom of UC24
+  Analyse automatique des
+  documents joints par LLM :
+  extraction de faits, dates,
+  montants, parties impliquées.
+end note
+
+footer Daleel — PFE 2025 — UC détaillé : Conformité & Dossiers de non-conformité
+
+@enduml

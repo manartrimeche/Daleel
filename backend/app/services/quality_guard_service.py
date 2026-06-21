@@ -332,10 +332,15 @@ async def audit_and_guard(
     if not is_language_compliant(answer, lang):
         issues.append("Language mismatch detected")
 
-    # 3. Semantic fidelity (only if refs passed to avoid double work)
-    fidelity = await _semantic_fidelity_check(answer, chunks, lang)
-    if not fidelity["supported"]:
-        issues.extend(fidelity["issues"])
+    # 3. Optional semantic fidelity check. It calls the LLM a second time, so
+    # keep it opt-in for low-latency responses while retaining deterministic
+    # reference and language checks by default.
+    if getattr(settings, "quality_guard_semantic_check_enabled", False):
+        fidelity = await _semantic_fidelity_check(answer, chunks, lang)
+        if not fidelity["supported"]:
+            issues.extend(fidelity["issues"])
+    else:
+        fidelity = {"supported": True, "confidence": 1.0, "issues": []}
 
     # Decision logic
     confidence = fidelity["confidence"]

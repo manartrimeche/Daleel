@@ -10,6 +10,7 @@ PUT  /auth/me/password       — Change password
 GET  /auth/organizations                 — List orgs (super_admin)
 GET  /auth/organizations/{id}            — Org details
 PUT  /auth/organizations/{id}            — Update org (owner/super_admin)
+PATCH /auth/organizations/{id}/status    — Manual status update (super_admin)
 POST /auth/organizations/{id}/renew      — Renew subscription (super_admin)
 
 GET  /auth/organizations/{id}/users      — List org members (admin+)
@@ -28,7 +29,8 @@ import asyncio
 import logging
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Body, Cookie, Depends, HTTPException, Request, Response
+from pymongo.errors import DuplicateKeyError
 
 from app.limiter import limiter
 
@@ -36,7 +38,7 @@ from app.api.auth import get_current_user, require_role
 from app.config import get_settings
 from app.database import mongo_db
 from app.services import auth_service
-from app.services.notification_service import create_notification
+from app.services.notification_service import create_notification as _create_notification
 from app.schemas_auth import (
     AcceptInvitationRequest,
     ChangePasswordRequest,
@@ -47,20 +49,54 @@ from app.schemas_auth import (
     LoginRequest,
     OrganizationListOut,
     OrganizationOut,
+    OrganizationRejectRequest,
     OrganizationRenewRequest,
+    OrganizationStatusUpdate,
     OrganizationUpdate,
-    RefreshRequest,
     RegisterRequest,
+    RegisterResponse,
     ResetPasswordRequest,
+    SendPhoneOTPRequest,
     TokenResponse,
     UserListOut,
     UserOut,
     UserUpdate,
+    VerifyEmailRequest,
+    VerifyPhoneRequest,
 )
+from app.services import verification_service
+from app.services.email_service import send_login_security_email, send_verification_email
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+# ── Refresh token cookie (P2 hardening) ──
+# The refresh token lives in an HttpOnly cookie to keep it out of reach of
+# any XSS payload that might land in the SPA. The access token stays in
+# memory / localStorage (acceptable: 30 min lifetime + revocable via jti).
+REFRESH_COOKIE_NAME = "daleel_refresh"
+
+
+def _set_refresh_cookie(response: Response, request: Request, token: str) -> None:
+    settings = get_settings()
+    is_https = request.url.scheme == "https"
+    response.set_cookie(
+        key=REFRESH_COOKIE_NAME,
+        value=token,
+        max_age=settings.jwt_refresh_token_expire_days * 24 * 3600,
+        httponly=True,
+        secure=is_https,
+        samesite="strict",
+        path="/api/v1/auth",
+    )
+
+
+def _clear_refresh_cookie(response: Response) -> None:
+    response.delete_cookie(
+        key=REFRESH_COOKIE_NAME,
+        path="/api/v1/auth",
+    )
 
 
 def _as_utc(value: datetime) -> datetime:
@@ -69,75 +105,249 @@ def _as_utc(value: datetime) -> datetime:
     return value.astimezone(timezone.utc)
 
 
+async def _owner_recipient_details(
+    organization_id: str | None,
+    *,
+    exclude_user_id: str | None = None,
+) -> dict[str, str]:
+    if not organization_id:
+        return {}
+    owner = await auth_service.get_organization_owner(organization_id)
+    if not owner:
+        return {}
+    owner_id = str(owner["_id"])
+    if exclude_user_id and owner_id == exclude_user_id:
+        return {}
+    return {
+        "recipient_user_id": owner_id,
+        "recipient_role": "owner",
+    }
+
+
+def _request_ip(request: Request) -> str:
+    forwarded_for = request.headers.get("x-forwarded-for")
+    if forwarded_for:
+        return forwarded_for.split(",", 1)[0].strip()
+    return request.client.host if request.client else "inconnue"
+
+
+def _request_user_agent(request: Request) -> str:
+    return (request.headers.get("user-agent") or "inconnu")[:300]
+
+
+_OWNER_ACTIVITY_ALERT_TYPES = frozenset({
+    "account_login",
+    "account_updated",
+    "account_deactivated",
+    "member_joined",
+    "invitation_revoked",
+    "organization_approved",
+    "organization_rejected",
+    "subscription_expiring",
+})
+
+
+async def create_notification(
+    db,
+    *,
+    alert_type: str,
+    profile_id=None,
+    profile_name=None,
+    title: str,
+    message: str,
+    details: dict | None = None,
+):
+    details = dict(details or {})
+    if alert_type == "account_login":
+        owner_recipient = await _owner_recipient_details(
+            details.get("organization_id"),
+            exclude_user_id=details.get("user_id"),
+        )
+        if not owner_recipient:
+            return {}
+        details.update(owner_recipient)
+    elif alert_type in _OWNER_ACTIVITY_ALERT_TYPES and details.get("organization_id"):
+        owner_recipient = await _owner_recipient_details(
+            details.get("organization_id"),
+        )
+        details.update(owner_recipient)
+    return await _create_notification(
+        db,
+        alert_type=alert_type,
+        profile_id=profile_id,
+        profile_name=profile_name,
+        title=title,
+        message=message,
+        details=details,
+    )
+
+
 # ── Register ──
 
-@router.post("/register", response_model=TokenResponse, status_code=201)
+@router.post("/register", response_model=RegisterResponse, status_code=201)
 @limiter.limit("3/minute")
 async def register(request: Request, body: RegisterRequest, background_tasks: BackgroundTasks):
-    existing = await auth_service.get_user_by_email(body.email)
-    if existing:
-        raise HTTPException(status_code=409, detail="Un compte avec cet email existe déjà ou l'inscription a échoué.")
+    """
+    Inscription d'une nouvelle entreprise.
 
-    org = await auth_service.create_organization(
-        name=body.organization_name,
-        sector=body.sector,
-        size=body.size,
-        employees=body.employees,
-        jurisdiction=body.jurisdiction,
-        subscription_type=body.subscription_type,
-        status="pending_approval",
-    )
+    Le compte est créé en ``pending_approval`` et ne reçoit AUCUN token.
+    Trois étapes restent à franchir avant d'avoir accès :
+      1. Vérification email (lien envoyé).
+      2. Vérification téléphone (OTP SMS envoyé sur demande).
+      3. Approbation par le super admin.
+    """
+    if (
+        await auth_service.get_user_by_email(body.email)
+        or await auth_service.get_organization_by_requested_email(body.email)
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="Cette adresse email existe déjà.",
+        )
+
+    if (
+        await auth_service.get_user_by_phone(body.phone)
+        or await auth_service.get_organization_by_phone(body.phone)
+    ):
+        raise HTTPException(status_code=409, detail="Ce numéro de téléphone existe déjà.")
+
+    if await auth_service.get_organization_by_name(body.organization_name):
+        raise HTTPException(status_code=409, detail="Le nom de l'entreprise existe déjà.")
+
+    try:
+        org = await auth_service.create_organization(
+            name=body.organization_name,
+            sector=body.sector,
+            size=body.size,
+            employees=body.employees,
+            activities=body.activities,
+            country=body.country,
+            jurisdiction=body.jurisdiction,
+            needs=body.needs,
+            requested_by_email=body.email,
+            requested_by_phone=body.phone,
+            subscription_type=body.subscription_type,
+            status="pending_approval",
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    except DuplicateKeyError:
+        raise HTTPException(status_code=409, detail="Ces informations existent déjà.")
     org_id = str(org["_id"])
 
-    user = await auth_service.create_user(
-        email=body.email,
-        password_hash=auth_service.hash_password(body.password),
-        full_name=body.full_name,
-        role="owner",
-        organization_id=org_id,
-    )
+    try:
+        user = await auth_service.create_user(
+            email=body.email,
+            phone=body.phone,
+            password_hash=auth_service.hash_password(body.password),
+            full_name=body.full_name,
+            role="owner",
+            organization_id=org_id,
+            email_verified=False,
+            phone_verified=False,
+        )
+    except ValueError as exc:
+        await mongo_db["organizations"].delete_one({"_id": org["_id"]})
+        raise HTTPException(status_code=409, detail=str(exc))
+    except DuplicateKeyError:
+        await mongo_db["organizations"].delete_one({"_id": org["_id"]})
+        raise HTTPException(status_code=409, detail="Ces informations existent déjà.")
     user_id = str(user["_id"])
 
-    background_tasks.add_task(auth_service.update_last_login, user_id)
+    # Envoi du lien de vérification email (fire-and-forget).
+    email_token = await verification_service.create_email_verification_token(
+        user_id, body.email
+    )
+    background_tasks.add_task(send_verification_email, body.email, email_token)
+
+    # Envoi de l'OTP téléphone.
+    otp = await verification_service.create_phone_otp(user_id, body.phone)
+    background_tasks.add_task(
+        verification_service.send_phone_otp, user_id, body.phone, otp
+    )
+
+    # Notification super admin.
     await create_notification(
         mongo_db,
         alert_type="approval_organization",
         title="Nouvelle inscription entreprise",
         message=(
             f"L'entreprise « {org['name']} » demande l'activation de son compte. "
-            "Une approbation super admin est requise."
+            "Vérifications email/téléphone et approbation super admin requises."
         ),
         details={
             "target_type": "organization",
             "organization_id": org_id,
             "organization_name": org["name"],
+            "country": body.country,
+            "sector": body.sector,
+            "needs": body.needs,
             "requested_by": user_id,
             "requested_by_email": user["email"],
+            "requested_by_phone": body.phone,
             "approval_status": "pending_approval",
+            "audience": "super_admin",
         },
     )
 
-    settings = get_settings()
-    access_token = auth_service.create_access_token(user_id, "owner", org_id)
-    refresh_token = auth_service.create_refresh_token(user_id)
-
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        expires_in=settings.jwt_access_token_expire_minutes * 60,
-        user=UserOut(
-            **auth_service.serialize_user(user),
-            organization_name=org["name"],
-            organization_status=org.get("status"),
+    return RegisterResponse(
+        user_id=user_id,
+        organization_id=org_id,
+        email=body.email,
+        phone=body.phone,
+        message=(
+            "Inscription enregistrée. Vérifiez votre email et votre téléphone, "
+            "puis attendez l'approbation du super administrateur."
         ),
     )
+
+
+# ── Vérification email / téléphone ──
+
+@router.post("/verify-email", status_code=200)
+@limiter.limit("10/minute")
+async def verify_email(request: Request, body: VerifyEmailRequest):
+    user = await verification_service.consume_email_token(body.token)
+    if not user:
+        raise HTTPException(status_code=400, detail="Lien invalide ou expiré.")
+    return {
+        "message": "Email vérifié avec succès.",
+        "user_id": str(user["_id"]),
+        "email_verified": True,
+    }
+
+
+@router.post("/verify-phone/send", status_code=200)
+@limiter.limit("3/minute")
+async def send_phone_otp(request: Request, body: SendPhoneOTPRequest, background_tasks: BackgroundTasks):
+    user = await auth_service.get_user_by_id(body.user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Utilisateur introuvable.")
+    if user.get("phone_verified"):
+        return {"message": "Téléphone déjà vérifié.", "already_verified": True}
+    phone = user.get("phone")
+    if not phone:
+        raise HTTPException(status_code=400, detail="Aucun téléphone associé au compte.")
+
+    code = await verification_service.create_phone_otp(body.user_id, phone)
+    background_tasks.add_task(verification_service.send_phone_otp, body.user_id, phone, code)
+    return {"message": "Code envoyé.", "ttl_minutes": verification_service.PHONE_OTP_TTL_MINUTES}
+
+
+@router.post("/verify-phone", status_code=200)
+@limiter.limit("10/minute")
+async def verify_phone(request: Request, body: VerifyPhoneRequest):
+    ok = await verification_service.verify_phone_otp(body.user_id, body.code)
+    if not ok:
+        raise HTTPException(status_code=400, detail="Code invalide, expiré ou trop de tentatives.")
+    return {"message": "Téléphone vérifié avec succès.", "phone_verified": True}
 
 
 # ── Login ──
 
 @router.post("/login", response_model=TokenResponse)
 @limiter.limit("5/minute")
-async def login(request: Request, body: LoginRequest, background_tasks: BackgroundTasks):
+async def login(request: Request, response: Response, body: LoginRequest, background_tasks: BackgroundTasks):
     user = await auth_service.get_user_by_email(body.email)
     if not user:
         # Run verify_password against a dummy hash to preserve constant-time
@@ -145,6 +355,11 @@ async def login(request: Request, body: LoginRequest, background_tasks: Backgrou
         await asyncio.to_thread(
             auth_service.verify_password, body.password,
             "$2b$12$eImiTXuWVxfM37uY4JANjQ" + "x" * 31,
+        )
+        # P10: trace failed authentication attempts for audit purposes.
+        logger.warning(
+            "auth.login_failed reason=unknown_email email=%s ip=%s",
+            body.email, request.client.host if request.client else "?",
         )
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
@@ -154,9 +369,14 @@ async def login(request: Request, body: LoginRequest, background_tasks: Backgrou
         auth_service.verify_password, body.password, user["password_hash"]
     )
     if not password_ok:
+        logger.warning(
+            "auth.login_failed reason=bad_password user_id=%s ip=%s",
+            str(user["_id"]), request.client.host if request.client else "?",
+        )
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
     if not user.get("is_active", True):
+        logger.warning("auth.login_blocked reason=deactivated user_id=%s", str(user["_id"]))
         raise HTTPException(status_code=403, detail="Account deactivated")
 
     user_id = str(user["_id"])
@@ -227,8 +447,20 @@ async def login(request: Request, body: LoginRequest, background_tasks: Backgrou
                         },
                     )
 
-    # Notify super_admin of login activity — fire-and-forget, no need to
-    # block the response waiting for a DB write the user doesn't care about.
+    # Send a personal security email for the login. In-app login activity
+    # stays reserved for the organization owner, not the logged-in user.
+    login_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    login_ip = _request_ip(request)
+    login_user_agent = _request_user_agent(request)
+    background_tasks.add_task(
+        send_login_security_email,
+        user.get("email"),
+        full_name=user.get("full_name") or user.get("email") or "",
+        login_time=login_time,
+        ip_address=login_ip,
+        user_agent=login_user_agent,
+    )
+
     background_tasks.add_task(
         create_notification,
         mongo_db,
@@ -247,12 +479,16 @@ async def login(request: Request, body: LoginRequest, background_tasks: Backgrou
             "role": user.get("role"),
             "organization_id": org_id,
             "organization_name": org_name,
+            "ip_address": login_ip,
+            "user_agent": login_user_agent,
+            "login_time": login_time,
         },
     )
 
     settings = get_settings()
     access_token = auth_service.create_access_token(user_id, user["role"], org_id)
     refresh_token = auth_service.create_refresh_token(user_id)
+    _set_refresh_cookie(response, request, refresh_token)
 
     return TokenResponse(
         access_token=access_token,
@@ -269,10 +505,22 @@ async def login(request: Request, body: LoginRequest, background_tasks: Backgrou
 # ── Refresh ──
 
 @router.post("/refresh", response_model=TokenResponse)
-async def refresh_token(body: RefreshRequest):
+async def refresh_token(
+    request: Request,
+    response: Response,
+    body: dict | None = Body(default=None),
+    refresh_cookie: str | None = Cookie(default=None, alias=REFRESH_COOKIE_NAME),
+):
+    # Prefer the HttpOnly cookie; fall back to body for legacy clients
+    # (the cookie-based frontend posts ``{}`` so the body may be empty).
+    body_token = body.get("refresh_token") if isinstance(body, dict) else None
+    raw_token = refresh_cookie or body_token
+    if not raw_token:
+        raise HTTPException(status_code=401, detail="Missing refresh token")
     try:
-        payload = auth_service.decode_token(body.refresh_token)
+        payload = auth_service.decode_token(raw_token)
     except Exception:
+        logger.warning("auth.refresh_failed reason=decode_error")
         raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
     if payload.get("type") != "refresh":
         raise HTTPException(status_code=401, detail="Invalid token type")
@@ -282,6 +530,7 @@ async def refresh_token(body: RefreshRequest):
     iat_ts = payload.get("iat")
     iat_dt = datetime.fromtimestamp(iat_ts, tz=timezone.utc) if iat_ts else None
     if jti and await auth_service.is_token_blacklisted(jti, user_id_from_token, iat_dt):
+        logger.warning("auth.refresh_failed reason=blacklisted user_id=%s", user_id_from_token)
         raise HTTPException(status_code=401, detail="Token has been revoked")
 
     user = await auth_service.get_user_by_id(user_id_from_token)
@@ -315,6 +564,7 @@ async def refresh_token(body: RefreshRequest):
     settings = get_settings()
     access_token = auth_service.create_access_token(user_id, user["role"], org_id)
     new_refresh = auth_service.create_refresh_token(user_id)
+    _set_refresh_cookie(response, request, new_refresh)
 
     return TokenResponse(
         access_token=access_token,
@@ -331,10 +581,11 @@ async def refresh_token(body: RefreshRequest):
 # ── Logout ──
 
 @router.post("/logout", status_code=200)
-async def logout(user: dict = Depends(get_current_user)):
+async def logout(response: Response, user: dict = Depends(get_current_user)):
     """Blacklist all tokens for the current user, forcing re-login."""
     user_id = str(user["_id"])
     await auth_service.blacklist_all_user_tokens(user_id)
+    _clear_refresh_cookie(response)
     return {"detail": "Déconnecté avec succès"}
 
 
@@ -359,12 +610,23 @@ async def get_me(user: dict = Depends(get_current_user)):
 
 @router.put("/me/password")
 @limiter.limit("3/minute")
-async def change_password(request: Request, body: ChangePasswordRequest, user: dict = Depends(get_current_user)):
-    if not auth_service.verify_password(body.current_password, user["password_hash"]):
+async def change_password(
+    request: Request,
+    response: Response,
+    body: ChangePasswordRequest,
+    user: dict = Depends(get_current_user),
+):
+    # P4: bcrypt is CPU-bound; offload to a thread to avoid blocking the event loop.
+    password_ok = await asyncio.to_thread(
+        auth_service.verify_password, body.current_password, user["password_hash"]
+    )
+    if not password_ok:
+        logger.warning("auth.change_password_failed user_id=%s", str(user["_id"]))
         raise HTTPException(status_code=400, detail="Current password is incorrect")
-    new_hash = auth_service.hash_password(body.new_password)
+    new_hash = await asyncio.to_thread(auth_service.hash_password, body.new_password)
     await auth_service.update_user(str(user["_id"]), {"password_hash": new_hash})
     await auth_service.blacklist_all_user_tokens(str(user["_id"]))
+    _clear_refresh_cookie(response)
     return {"message": "Password updated"}
 
 
@@ -386,6 +648,10 @@ async def reset_password(request: Request, body: ResetPasswordRequest):
     new_hash = auth_service.hash_password(body.new_password)
     success = await auth_service.use_reset_token(body.token, new_hash)
     if not success:
+        logger.warning(
+            "auth.reset_password_failed reason=invalid_token ip=%s",
+            request.client.host if request.client else "?",
+        )
         raise HTTPException(status_code=400, detail="Token invalide ou expiré")
     return {"message": "Mot de passe réinitialisé avec succès"}
 
@@ -440,11 +706,139 @@ async def update_organization(
     updates = body.model_dump(exclude_unset=True)
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
-    org = await auth_service.update_organization(org_id, updates)
+    try:
+        org = await auth_service.update_organization(org_id, updates)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    except DuplicateKeyError:
+        raise HTTPException(status_code=409, detail="Ces informations existent déjà.")
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
     count = await auth_service.get_organization_member_count(org_id)
     return OrganizationOut(**auth_service.serialize_organization(org, count))
+
+
+@router.patch("/organizations/{org_id}/status", response_model=OrganizationOut)
+async def update_organization_status(
+    org_id: str,
+    body: OrganizationStatusUpdate,
+    user: dict = Depends(require_role("super_admin")),
+):
+    """Met à jour manuellement le statut opérationnel sans toucher au workflow d'inscription."""
+    org = await auth_service.get_organization(org_id)
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    current_status = org.get("status")
+    if current_status in {"pending_approval", "rejected"}:
+        raise HTTPException(
+            status_code=400,
+            detail="Utilisez le workflow d'approbation/refus pour ce statut.",
+        )
+
+    updated = await auth_service.update_organization(org_id, {
+        "status": body.status,
+        "manual_status_updated_at": datetime.now(timezone.utc),
+        "manual_status_updated_by": str(user["_id"]),
+    })
+    if not updated:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    count = await auth_service.get_organization_member_count(org_id)
+    return OrganizationOut(**auth_service.serialize_organization(updated, count))
+
+
+@router.post("/organizations/{org_id}/approve", response_model=OrganizationOut)
+async def approve_organization(
+    org_id: str,
+    user: dict = Depends(require_role("super_admin")),
+):
+    """Approuve une inscription en attente. Exige email + téléphone vérifiés."""
+    org = await auth_service.get_organization(org_id)
+    if not org:
+        raise HTTPException(status_code=404, detail="Organisation introuvable.")
+    if org.get("status") != "pending_approval":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Statut actuel : {org.get('status')}. Seules les inscriptions en attente peuvent être approuvées.",
+        )
+    if not org.get("contact_email_verified") or not org.get("contact_phone_verified"):
+        raise HTTPException(
+            status_code=400,
+            detail="Email et/ou téléphone du contact non vérifiés. Approbation impossible.",
+        )
+
+    now = datetime.now(timezone.utc)
+    updated = await auth_service.update_organization(org_id, {
+        "status": "active",
+        "approved_at": now,
+        "approved_by": str(user["_id"]),
+        "rejection_reason": None,
+    })
+
+    # Notifier le demandeur (owner) que son compte est activé.
+    await create_notification(
+        mongo_db,
+        alert_type="organization_approved",
+        title="Compte entreprise activé",
+        message=(
+            f"L'inscription de « {updated['name']} » a été approuvée. "
+            "Vous pouvez désormais vous connecter."
+        ),
+        details={
+            "target_type": "organization",
+            "organization_id": org_id,
+            "organization_name": updated["name"],
+            "approved_by": str(user["_id"]),
+            "recipient_email": updated.get("requested_by_email"),
+        },
+    )
+
+    count = await auth_service.get_organization_member_count(org_id)
+    return OrganizationOut(**auth_service.serialize_organization(updated, count))
+
+
+@router.post("/organizations/{org_id}/reject", response_model=OrganizationOut)
+async def reject_organization(
+    org_id: str,
+    body: OrganizationRejectRequest,
+    user: dict = Depends(require_role("super_admin")),
+):
+    """Refuse une inscription en attente avec un motif obligatoire."""
+    org = await auth_service.get_organization(org_id)
+    if not org:
+        raise HTTPException(status_code=404, detail="Organisation introuvable.")
+    if org.get("status") != "pending_approval":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Statut actuel : {org.get('status')}. Seules les inscriptions en attente peuvent être refusées.",
+        )
+
+    updated = await auth_service.update_organization(org_id, {
+        "status": "rejected",
+        "rejection_reason": body.reason.strip(),
+    })
+
+    await create_notification(
+        mongo_db,
+        alert_type="organization_rejected",
+        title="Inscription refusée",
+        message=(
+            f"L'inscription de « {updated['name']} » a été refusée. "
+            f"Motif : {body.reason.strip()}"
+        ),
+        details={
+            "target_type": "organization",
+            "organization_id": org_id,
+            "organization_name": updated["name"],
+            "rejected_by": str(user["_id"]),
+            "reason": body.reason.strip(),
+            "recipient_email": updated.get("requested_by_email"),
+        },
+    )
+
+    count = await auth_service.get_organization_member_count(org_id)
+    return OrganizationOut(**auth_service.serialize_organization(updated, count))
 
 
 @router.post("/organizations/{org_id}/renew", response_model=OrganizationOut)
@@ -511,7 +905,12 @@ async def update_user(
     updates = body.model_dump(exclude_unset=True)
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
-    updated = await auth_service.update_user(user_id, updates)
+    if target["role"] == "owner" and "role" in updates and updates["role"] != "owner":
+        raise HTTPException(status_code=400, detail="Cannot change organization owner role")
+    try:
+        updated = await auth_service.update_user(user_id, updates)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
     # Notify super_admin of account modification
     changes_desc = []
@@ -601,14 +1000,18 @@ async def create_invitation(
 
     existing_user = await auth_service.get_user_by_email(body.email)
     if existing_user:
-        if existing_user.get("organization_id") == org_id:
-            detail = "Cette adresse email est deja membre de votre organisation."
-        else:
-            detail = (
-                "Cette adresse email est deja associee a un compte Daleel. "
-                "Utilisez une autre adresse email."
-            )
-        raise HTTPException(status_code=409, detail=detail)
+        # P13: do not leak whether the email exists or belongs to which org.
+        # The detailed reason is logged server-side for the admin to inspect later.
+        logger.info(
+            "auth.invitation_rejected reason=email_exists target=%s same_org=%s by=%s",
+            body.email,
+            existing_user.get("organization_id") == org_id,
+            str(user["_id"]),
+        )
+        raise HTTPException(
+            status_code=409,
+            detail="Invitation impossible pour cette adresse email.",
+        )
 
     org = await auth_service.get_organization(org_id)
     org_name = org["name"] if org else "Organisation"
@@ -658,7 +1061,12 @@ async def list_invitations(user: dict = Depends(get_current_user)):
 
 
 @router.post("/invitations/accept", response_model=TokenResponse, status_code=201)
-async def accept_invitation(body: AcceptInvitationRequest, background_tasks: BackgroundTasks):
+async def accept_invitation(
+    request: Request,
+    response: Response,
+    body: AcceptInvitationRequest,
+    background_tasks: BackgroundTasks,
+):
     inv = await auth_service.get_invitation_by_token(body.token)
     if not inv:
         raise HTTPException(status_code=404, detail="Invalid or expired invitation")
@@ -667,20 +1075,46 @@ async def accept_invitation(body: AcceptInvitationRequest, background_tasks: Bac
 
     existing = await auth_service.get_user_by_email(inv["email"])
     if existing:
+        # P13: avoid revealing account-existence on the public accept endpoint.
+        logger.info(
+            "auth.invitation_accept_rejected reason=email_exists target=%s",
+            inv["email"],
+        )
         raise HTTPException(
             status_code=409,
-            detail="Cette adresse email est deja associee a un compte Daleel.",
+            detail="Cette invitation ne peut plus être utilisée.",
+        )
+
+    # P7: atomically claim the invitation before creating the user. If a
+    # concurrent request already claimed it, fail with 409 — never create
+    # a second user (the unique email index would also block it).
+    claimed = await auth_service.claim_invitation(str(inv["_id"]))
+    if not claimed:
+        raise HTTPException(
+            status_code=409,
+            detail="Cette invitation a déjà été utilisée.",
         )
 
     org_id = inv["organization_id"]
-    user = await auth_service.create_user(
-        email=inv["email"],
-        password_hash=auth_service.hash_password(body.password),
-        full_name=body.full_name,
-        role=inv["role"],
-        organization_id=org_id,
-    )
-    await auth_service.mark_invitation_accepted(str(inv["_id"]))
+    try:
+        password_hash = await asyncio.to_thread(auth_service.hash_password, body.password)
+        user = await auth_service.create_user(
+            email=inv["email"],
+            password_hash=password_hash,
+            full_name=body.full_name,
+            role=inv["role"],
+            organization_id=org_id,
+        )
+    except DuplicateKeyError:
+        # Another flow created the user with this email between our checks.
+        logger.warning(
+            "auth.invitation_accept_race email=%s invitation_id=%s",
+            inv["email"], str(inv["_id"]),
+        )
+        raise HTTPException(
+            status_code=409,
+            detail="Cette adresse email est déjà utilisée.",
+        )
 
     user_id = str(user["_id"])
     background_tasks.add_task(auth_service.update_last_login, user_id)
@@ -708,6 +1142,7 @@ async def accept_invitation(body: AcceptInvitationRequest, background_tasks: Bac
     settings = get_settings()
     access_token = auth_service.create_access_token(user_id, inv["role"], org_id)
     refresh_token = auth_service.create_refresh_token(user_id)
+    _set_refresh_cookie(response, request, refresh_token)
 
     return TokenResponse(
         access_token=access_token,

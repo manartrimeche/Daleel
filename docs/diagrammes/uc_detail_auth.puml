@@ -1,0 +1,122 @@
+@startuml UC_Detail_Auth
+
+skinparam backgroundColor #FEFEFE
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 11
+skinparam packageFontSize 14
+skinparam packageFontStyle bold
+skinparam actorFontSize 12
+skinparam actorFontStyle bold
+skinparam usecaseFontSize 10
+skinparam arrowColor #555555
+skinparam packageBorderColor #AAAAAA
+skinparam usecaseBackgroundColor #FFFFFF
+skinparam usecaseBorderColor #BBBBBB
+skinparam shadowing false
+
+left to right direction
+
+title <b>Diagramme de cas d'utilisation détaillé</b>\n<size:11>Module : Authentification, gestion des comptes & emails transactionnels</size>
+
+' ── ACTEURS ──
+actor "Visiteur" as V
+actor "Membre" as M
+actor "Admin / Owner" as A
+actor "Super Admin" as SA
+actor "Serveur SMTP" as SMTP
+
+V <|-- M
+M <|-- A
+A <|-- SA
+
+' ── SYSTÈME ──
+rectangle "Authentification & Gestion des comptes" {
+
+  usecase "Consulter les statistiques\nde la plateforme" as UC01
+  usecase "S'inscrire\n(créer un compte + organisation)" as UC02
+  usecase "Confirmer l'adresse email" as UC03
+  usecase "Se connecter" as UC04
+  usecase "Réinitialiser le\nmot de passe" as UC05
+  usecase "Gérer son profil\n(nom, mot de passe)" as UC06
+  usecase "Vérifier le numéro\nde téléphone (OTP)" as UC07
+
+  usecase "Inviter un membre\npar email" as UC08
+  usecase "Accepter une invitation" as UC09
+  usecase "Révoquer une invitation" as UC10
+  usecase "Consulter les invitations" as UC11
+
+  usecase "Gérer les utilisateurs\n(rôle, statut, désactivation)" as UC12
+  usecase "Gérer les organisations\n(statut, approbation, rejet)" as UC13
+  usecase "Renouveler un abonnement" as UC14
+
+  usecase "Envoyer un email\nde confirmation" as UC_EM1
+  usecase "Envoyer un email\nd'invitation" as UC_EM2
+  usecase "Envoyer un email\nde réinitialisation" as UC_EM3
+  usecase "Envoyer un code OTP\npar email" as UC_EM4
+  usecase "Envoyer une alerte\nde connexion (sécurité)" as UC_EM5
+}
+
+' ── ASSOCIATIONS ──
+
+' Visiteur
+V -- UC01
+V -- UC02
+V -- UC04
+V -- UC05
+V -- UC09
+
+' Membre
+M -- UC06
+M -- UC07
+
+' Admin
+A -- UC08
+A -- UC10
+A -- UC11
+A -- UC12
+
+' Super Admin
+SA -- UC13
+SA -- UC14
+
+' SMTP
+UC_EM1 -- SMTP
+UC_EM2 -- SMTP
+UC_EM3 -- SMTP
+UC_EM4 -- SMTP
+UC_EM5 -- SMTP
+
+' ── INCLUDE / EXTEND ──
+UC02 ..> UC03 : <<include>>
+UC03 ..> UC_EM1 : <<include>>
+UC04 ..> UC_EM5 : <<extend>>\n[nouvelle connexion]
+UC05 ..> UC_EM3 : <<include>>
+UC07 ..> UC_EM4 : <<include>>
+UC08 ..> UC_EM2 : <<include>>
+UC09 ..> UC02 : <<extend>>\n[nouveau compte]
+
+note right of UC03
+  Expiration : 24h
+  Après confirmation,
+  le compte attend
+  l'approbation du
+  super admin.
+end note
+
+note right of UC_EM5
+  Contient : IP, date/heure,
+  navigateur. Envoyé
+  automatiquement à
+  chaque connexion.
+end note
+
+note right of UC08
+  Lien tokenisé
+  avec expiration 72h.
+  Email HTML responsive
+  + fallback texte.
+end note
+
+footer Daleel — PFE 2025 — UC détaillé : Authentification & Emails transactionnels
+
+@enduml

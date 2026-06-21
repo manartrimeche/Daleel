@@ -5,6 +5,7 @@ Voice assistant service — STT (faster-whisper) + TTS (Piper / Edge-TTS).
 import asyncio
 import io
 import logging
+import os
 import re
 import shutil
 import sys
@@ -27,6 +28,74 @@ class Language(str, Enum):
 _whisper_model = None
 _whisper_lock = threading.Lock()
 
+MIN_TRANSCRIPTION_LANGUAGE_PROBABILITY = 0.35
+MIN_TRANSCRIPTION_AVG_LOGPROB = -1.25
+MAX_TRANSCRIPTION_NO_SPEECH_PROBABILITY = 0.75
+MAX_TRANSCRIPTION_COMPRESSION_RATIO = 2.4
+
+
+def _segment_value(segment, name: str):
+    if isinstance(segment, dict):
+        return segment.get(name)
+    return getattr(segment, name, None)
+
+
+def assess_transcription_confidence(
+    text: str,
+    language_probability: float | None,
+    segments: list[dict],
+) -> dict:
+    """Return a conservative confidence assessment for Whisper output."""
+    clean_text = (text or "").strip()
+    reasons: list[str] = []
+
+    avg_logprobs = [
+        float(v)
+        for segment in segments
+        if (v := _segment_value(segment, "avg_logprob")) is not None
+    ]
+    no_speech_probs = [
+        float(v)
+        for segment in segments
+        if (v := _segment_value(segment, "no_speech_prob")) is not None
+    ]
+    compression_ratios = [
+        float(v)
+        for segment in segments
+        if (v := _segment_value(segment, "compression_ratio")) is not None
+    ]
+
+    avg_logprob = sum(avg_logprobs) / len(avg_logprobs) if avg_logprobs else None
+    no_speech_probability = (
+        sum(no_speech_probs) / len(no_speech_probs) if no_speech_probs else None
+    )
+    compression_ratio = max(compression_ratios) if compression_ratios else None
+
+    if not clean_text:
+        reasons.append("no_text")
+    if language_probability is not None and language_probability < MIN_TRANSCRIPTION_LANGUAGE_PROBABILITY:
+        reasons.append("low_language_probability")
+    if avg_logprob is not None and avg_logprob < MIN_TRANSCRIPTION_AVG_LOGPROB:
+        reasons.append("low_log_probability")
+    if (
+        no_speech_probability is not None
+        and no_speech_probability > MAX_TRANSCRIPTION_NO_SPEECH_PROBABILITY
+    ):
+        reasons.append("likely_silence")
+    if (
+        compression_ratio is not None
+        and compression_ratio > MAX_TRANSCRIPTION_COMPRESSION_RATIO
+    ):
+        reasons.append("repetitive_or_unstable_audio")
+
+    return {
+        "is_confident": not reasons,
+        "confidence_reasons": reasons,
+        "avg_logprob": avg_logprob,
+        "no_speech_probability": no_speech_probability,
+        "compression_ratio": compression_ratio,
+    }
+
 
 def _get_whisper_model():
     global _whisper_model
@@ -47,12 +116,13 @@ def _get_whisper_model():
                 compute = "float16"
         except (ImportError, OSError):
             pass
+        model_name = os.getenv("DALEEL_WHISPER_MODEL", "small")
         _whisper_model = WhisperModel(
-            "small",
+            model_name,
             device=device,
             compute_type=compute,
         )
-        logger.info("faster-whisper model loaded (small, %s/%s)", device, compute)
+        logger.info("faster-whisper model loaded (%s, %s/%s)", model_name, device, compute)
     return _whisper_model
 
 
@@ -72,15 +142,33 @@ async def transcribe_audio(audio_bytes: bytes) -> dict:
                 beam_size=5,
                 language=None,  # auto-detect from audio
                 vad_filter=True,
+                condition_on_previous_text=False,
             )
             text_parts = []
+            segment_metrics = []
             for segment in segments:
                 text_parts.append(segment.text.strip())
+                segment_metrics.append(
+                    {
+                        "avg_logprob": getattr(segment, "avg_logprob", None),
+                        "no_speech_prob": getattr(segment, "no_speech_prob", None),
+                        "compression_ratio": getattr(segment, "compression_ratio", None),
+                    }
+                )
+
+            text = " ".join(text_parts).strip()
+            language_probability = getattr(info, "language_probability", None)
+            confidence = assess_transcription_confidence(
+                text,
+                language_probability,
+                segment_metrics,
+            )
 
             return {
-                "text": " ".join(text_parts),
+                "text": text,
                 "language": info.language,
-                "language_probability": info.language_probability,
+                "language_probability": language_probability,
+                **confidence,
             }
         finally:
             Path(tmp_path).unlink(missing_ok=True)
@@ -96,7 +184,13 @@ EDGE_TTS_VOICES = {
     "en": "en-US-JennyNeural",
 }
 
-PIPER_VOICES_DIR = Path.home()
+PIPER_VOICES_DIR = Path(os.getenv("PIPER_VOICES_DIR", str(Path.home())))
+ONLINE_TTS_ENABLED = os.getenv("DALEEL_TTS_ONLINE_ENABLED", "true").lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 
 PIPER_VOICES = {
     "fr": str(PIPER_VOICES_DIR / "fr_FR-siwis-medium.onnx"),
@@ -152,10 +246,13 @@ async def synthesize_speech(text: str, language: str = "fr") -> bytes:
     lang = language[:2].lower()
     edge_voice = EDGE_TTS_VOICES.get(lang, EDGE_TTS_VOICES["fr"])
 
-    try:
-        return await _tts_edge(text, edge_voice)
-    except Exception:
-        logger.warning("Edge-TTS failed for %s, trying Piper fallback", lang)
+    if ONLINE_TTS_ENABLED:
+        try:
+            return await _tts_edge(text, edge_voice)
+        except Exception:
+            logger.warning("Edge-TTS failed for %s, trying Piper fallback", lang)
+    else:
+        logger.info("Online TTS disabled; using Piper fallback for %s", lang)
 
     if lang in PIPER_VOICES:
         return await _tts_piper(text, PIPER_VOICES[lang])

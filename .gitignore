@@ -3,6 +3,9 @@
 .env.*
 !.env.example
 
+# Dev-only persisted JWT signing secret (auto-generated on first run)
+.daleel_jwt_secret
+
 # Local assistant/tooling state
 .claude/
 .qodo/
@@ -47,7 +50,11 @@ tmp_*.pid
 tmp_video_frames/
 answer_*.txt
 response.json
+response*.json
 test_out.txt
+
+# One-shot dev scripts (PFE convenience)
+backend/_*.py
 task_test.log
 latex_content.txt
 C*Users*latex_content.txt

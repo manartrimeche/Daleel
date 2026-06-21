@@ -22,6 +22,7 @@ export default function Invite() {
     try {
       const res = await fetch('/api/v1/auth/invitations/accept', {
         method: 'POST',
+        credentials: 'include', // receive HttpOnly refresh cookie
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, full_name: name, password }),
       });

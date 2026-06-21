@@ -130,6 +130,14 @@ async def get_optional_current_user(
     user = await auth_service.get_user_by_id(user_id_from_token)
     if not user or not user.get("is_active", True):
         return None
+    # P3: align with get_current_user — reject users whose organization is
+    # not active (expired subscription, suspended, etc.). super_admin bypasses.
+    org_id = user.get("organization_id")
+    if org_id and user.get("role") != "super_admin":
+        org = await auth_service.get_organization(org_id)
+        org = await auth_service.expire_organization_if_needed(org)
+        if org and org.get("status") != "active":
+            return None
     return user
 
 

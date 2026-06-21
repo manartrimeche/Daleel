@@ -2,11 +2,13 @@
 FastAPI application entry point.
 """
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
+from contextlib import suppress
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -46,6 +48,24 @@ def _find_interface_dir() -> Path:
 
 
 STATIC_DIR = _find_interface_dir()
+ASSETS_DIR = STATIC_DIR / "assets"
+INDEX_FILE = STATIC_DIR / "index.html"
+
+
+async def _build_faiss_index() -> None:
+    logger.info("Building FAISS vector index …")
+    await faiss_manager.rebuild()
+    if faiss_manager.blocked_reason is None:
+        logger.info("FAISS index ready (%d vectors)", faiss_manager.size)
+    else:
+        logger.error("FAISS index unavailable — re-embedding required")
+
+    # Lightweight safety check: does the index match the configured model?
+    try:
+        from app.services.index_consistency_service import log_consistency_warning_if_needed
+        await log_consistency_warning_if_needed()
+    except Exception:
+        logger.warning("Index consistency check failed (non-fatal)", exc_info=True)
 
 
 @asynccontextmanager
@@ -53,20 +73,9 @@ async def lifespan(app: FastAPI):
     logger.info("Starting up — initialising database …")
     await init_db()
     logger.info("Database ready")
-    if FAISS_AVAILABLE:
-        logger.info("Building FAISS vector index …")
-        await faiss_manager.rebuild()
-        if FAISS_READY:
-            logger.info("FAISS index ready (%d vectors)", faiss_manager.size)
-        else:
-            logger.error("FAISS index unavailable — re-embedding required")
-
-        # Lightweight safety check: does the index match the configured model?
-        try:
-            from app.services.index_consistency_service import log_consistency_warning_if_needed
-            await log_consistency_warning_if_needed()
-        except Exception:
-            logger.warning("Index consistency check failed (non-fatal)", exc_info=True)
+    settings = get_settings()
+    faiss_task: asyncio.Task | None = None
+    should_build_faiss = FAISS_AVAILABLE and settings.faiss_build_on_startup
 
     # Cleanup orphaned upload files on startup
     try:
@@ -77,7 +86,20 @@ async def lifespan(app: FastAPI):
             logger.info("Startup cleanup: removed %d orphaned upload(s)", removed)
     except Exception:
         logger.warning("Upload cleanup failed (non-fatal)", exc_info=True)
+
+    if should_build_faiss:
+        if settings.faiss_build_in_background:
+            logger.info("Scheduling FAISS vector index build in background …")
+            faiss_task = asyncio.create_task(_build_faiss_index())
+            app.state.faiss_build_task = faiss_task
+        else:
+            await _build_faiss_index()
+
     yield
+    if faiss_task and not faiss_task.done():
+        faiss_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await faiss_task
     logger.info("Shutting down")
     await close_db()
 
@@ -169,42 +191,80 @@ app.include_router(voice_router, prefix="/api/v1")
 
 # ── Serve chatbot frontend ──
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+if ASSETS_DIR.exists():
+    app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
+
+
+def _serve_spa_index(*, no_cache: bool = False) -> FileResponse:
+    headers = None
+    if no_cache:
+        headers = {"Cache-Control": "no-cache, no-store, must-revalidate"}
+    return FileResponse(INDEX_FILE, headers=headers)
+
+
+def _serve_existing_frontend_file(full_path: str) -> FileResponse | None:
+    try:
+        target = (STATIC_DIR / full_path).resolve()
+        target.relative_to(STATIC_DIR.resolve())
+    except ValueError:
+        return None
+    if target.is_file():
+        return FileResponse(target)
+    return None
 
 
 @app.get("/")
 async def serve_frontend():
-    """Serve the chatbot UI at the root URL."""
-    return FileResponse(STATIC_DIR / "index.html")
+    """Serve the React app at the root URL."""
+    return _serve_spa_index()
 
 
 @app.get("/login")
 async def serve_login():
-    """Serve the auth page."""
-    return FileResponse(STATIC_DIR / "auth.html")
+    """Serve the React auth route."""
+    return _serve_spa_index()
 
 
 @app.get("/auth")
 async def serve_auth():
-    """Serve the auth page at the legacy URL."""
-    return FileResponse(STATIC_DIR / "auth.html")
+    """Serve the legacy React auth route."""
+    return _serve_spa_index()
 
 
 @app.get("/register")
 async def serve_register():
-    """Serve the auth page (register tab)."""
-    return FileResponse(STATIC_DIR / "auth.html")
+    """Serve the React register route."""
+    return _serve_spa_index()
 
 
 @app.get("/invite")
 async def serve_invite():
-    """Serve the invitation acceptance page."""
-    return FileResponse(STATIC_DIR / "invite.html")
+    """Serve the React invitation route."""
+    return _serve_spa_index()
 
 
 @app.get("/admin")
 async def serve_admin():
-    """Serve the admin panel UI."""
-    return FileResponse(
-        STATIC_DIR / "admin.html",
-        headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+    """Serve the React admin route."""
+    return _serve_spa_index(no_cache=True)
+
+
+@app.get("/{full_path:path}", include_in_schema=False)
+async def serve_frontend_route(full_path: str):
+    """Serve built frontend files and let React handle browser routes."""
+    api_or_internal = (
+        "api/",
+        "assets/",
+        "static/",
+        "docs",
+        "redoc",
+        "openapi.json",
     )
+    if full_path.startswith(api_or_internal):
+        raise HTTPException(status_code=404, detail="Not found")
+
+    existing_file = _serve_existing_frontend_file(full_path)
+    if existing_file is not None:
+        return existing_file
+
+    return _serve_spa_index(no_cache=full_path.startswith("admin"))

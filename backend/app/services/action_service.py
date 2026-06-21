@@ -17,39 +17,42 @@ from app.services import llm_service
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
-_ACTION_PROMPT = """You are a Tunisian legal compliance expert specializing in transforming legal requirements into concrete compliance actions.
+_ACTION_PROMPT = """Tu es un expert juridique tunisien spécialisé dans la transformation d'exigences réglementaires en actions concrètes de conformité.
 
-**Regulatory Exigence:**
+**Exigence réglementaire à analyser :**
 - Type      : {exigence_type}
 - Article   : {article_reference}
-- Legal text: {exigence_text}
+- Texte     : {exigence_text}
 
-**Your task:**
-Extract one or more concrete compliance actions that a company must implement to satisfy this exigence.
+**Ta mission :**
+Extraire une ou plusieurs actions concrètes qu'une entreprise doit mettre en place pour satisfaire cette exigence. Chaque action doit être directement dérivée du texte juridique fourni.
 
-For each action provide:
-1. **modalite**: one of "obligation" | "interdiction" | "sanction" | "condition"
-2. **action_precise**: the specific, concrete action the company must take or avoid (start with an action verb)
-3. **conditions**: list of conditions / prerequisites that determine applicability (e.g., ["applies to all employers", "if workforce > 10"])
-4. **preuve**: the document or evidence that proves compliance (e.g., "Signed employment contract", "Posted notice")
-5. **confidence**: 0.0 to 1.0
+Pour chaque action, fournis :
+1. **modalite** : "obligation" | "interdiction" | "sanction" | "condition"
+2. **action_precise** : l'action concrète à réaliser (commence par un verbe d'action)
+3. **conditions** : liste des conditions d'applicabilité
+4. **preuve** : le document ou la preuve de conformité
+5. **confidence** : 0.0 à 1.0
 
-**Rules:**
-- Be concrete and actionable — not abstract paraphrases of the law
-- Derive actions ONLY from what is explicitly stated in the legal text
-- If the exigence implies multiple distinct actions, list each separately
-- If the text is too vague to extract a concrete action, return []
+**Règles :**
+- Sois concret et actionnable — pas de paraphrase abstraite
+- Dérive les actions UNIQUEMENT du texte juridique fourni
+- Si l'exigence implique plusieurs actions distinctes, liste-les séparément
+- Le domaine peut être varié : droit du travail, protection des données, fiscal, sociétés, etc.
+- Si le texte est trop vague pour en extraire une action concrète, retourne []
 
-**Response (JSON array only, no markdown, no extra text):**
+**Exemples de format attendu :**
 [
   {{
     "modalite": "obligation",
-    "action_precise": "Remettre un contrat de travail écrit à chaque salarié avant la prise de poste",
-    "conditions": ["s'applique à tout employeur", "dès le premier salarié"],
-    "preuve": "Contrat de travail signé conservé dans le dossier du salarié",
-    "confidence": 0.92
+    "action_precise": "Effectuer la démarche administrative requise dans les délais prescrits",
+    "conditions": ["s'applique à tout responsable concerné"],
+    "preuve": "Récépissé ou accusé de réception de la démarche",
+    "confidence": 0.90
   }}
-]"""
+]
+
+Réponds UNIQUEMENT avec le tableau JSON, sans markdown ni texte supplémentaire."""
 
 
 
@@ -81,9 +84,9 @@ async def _extract_actions_from_exigence(exigence: dict) -> list[dict]:
                 {
                     "role": "system",
                     "content": (
-                        "You are a Tunisian legal compliance expert. "
-                        "Extract concrete compliance actions as a JSON array only. "
-                        "No markdown, no extra text."
+                        "Tu es un expert juridique tunisien en conformité réglementaire. "
+                        "Extrais les actions concrètes de conformité sous forme de tableau JSON uniquement. "
+                        "Pas de markdown, pas de texte supplémentaire."
                     ),
                 },
                 {"role": "user", "content": prompt},

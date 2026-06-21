@@ -204,6 +204,86 @@ async def list_company_profiles(
     return profiles, int(total)
 
 
+def _normalize_name(value: object) -> str:
+    return str(value or "").strip().casefold()
+
+
+def _organization_text(value: object) -> str | None:
+    if isinstance(value, list):
+        text = ", ".join(str(item).strip() for item in value if str(item).strip())
+        return text or None
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _organization_size(value: object) -> str | None:
+    size = str(value or "").strip().lower()
+    return size if size in {"micro", "small", "medium", "large"} else None
+
+
+async def ensure_company_profile_for_organization(
+    db,
+    organization: dict,
+    organization_id: str,
+) -> tuple[dict, bool, bool]:
+    """Return an org-scoped compliance profile, attaching a single legacy profile when safe."""
+    profiles_col = get_collection("company_profiles")
+    existing = await profiles_col.find_one({"organization_id": organization_id})
+    if existing:
+        return _profile_to_dict(existing), False, False
+
+    legacy_query = {
+        "$or": [
+            {"organization_id": {"$exists": False}},
+            {"organization_id": None},
+            {"organization_id": ""},
+        ]
+    }
+    legacy_profiles = await profiles_col.find(legacy_query).sort("created_at", -1).to_list(length=20)
+    profile_to_attach = None
+    if len(legacy_profiles) == 1:
+        profile_to_attach = legacy_profiles[0]
+    else:
+        org_name = _normalize_name(organization.get("name"))
+        matches = [
+            profile
+            for profile in legacy_profiles
+            if org_name and _normalize_name(profile.get("name")) == org_name
+        ]
+        if len(matches) == 1:
+            profile_to_attach = matches[0]
+
+    if profile_to_attach:
+        now = datetime.now(timezone.utc)
+        attached = await profiles_col.find_one_and_update(
+            {"id": profile_to_attach["id"], **legacy_query},
+            {"$set": {"organization_id": organization_id, "updated_at": now}},
+            return_document=ReturnDocument.AFTER,
+        )
+        if attached:
+            return _profile_to_dict(attached), False, True
+
+    jurisdiction = (
+        _organization_text(organization.get("jurisdiction"))
+        or _organization_text(organization.get("country"))
+        or "tunisia"
+    )[:64]
+    profile = await create_company_profile(
+        db,
+        name=_organization_text(organization.get("name")) or "Organisation",
+        sector=_organization_text(organization.get("sector")),
+        size=_organization_size(organization.get("size")),
+        employees=organization.get("employees") if isinstance(organization.get("employees"), int) else None,
+        activities=_organization_text(organization.get("activities")),
+        jurisdiction=jurisdiction,
+        notes="Created from organization profile.",
+        organization_id=organization_id,
+    )
+    return profile, True, False
+
+
 async def update_company_profile(
     db,
     profile_id: str,

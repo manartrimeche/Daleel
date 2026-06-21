@@ -9,7 +9,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from app.api.auth import get_optional_current_user, require_api_key
+from app.api.auth import get_optional_current_user, require_api_key, require_api_key_or_roles
 from app.compliance_schemas import (
     AssessmentCreate,
     AssessmentListOut,
@@ -20,6 +20,7 @@ from app.compliance_schemas import (
     ControlListOut,
     ControlOut,
     ControlUpdate,
+    CoverageSuggestionListOut,
     EvidenceCreate,
     EvidenceListOut,
     EvidenceOut,
@@ -33,16 +34,20 @@ from app.compliance_schemas import (
     ReqControlLinkListOut,
     ReqControlLinkOut,
     ReqControlLinkUpdate,
+    RequirementCoverRequest,
     RequirementGap,
 )
 from app.database import get_db
 from app.services import compliance_service
 
 logger = logging.getLogger(__name__)
+require_compliance_access = require_api_key_or_roles(
+    "super_admin", "owner", "admin", "member"
+)
 router = APIRouter(
     prefix="/compliance",
     tags=["compliance"],
-    dependencies=[Depends(require_api_key)],
+    dependencies=[Depends(require_compliance_access)],
 )
 
 
@@ -493,8 +498,63 @@ async def get_gaps(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# EXCEPTION REGISTER
+# MANUAL COVERAGE
 # ═══════════════════════════════════════════════════════════════════════════════
+
+@router.post(
+    "/posture/{company_profile_id}/suggest-coverage",
+    response_model=CoverageSuggestionListOut,
+)
+async def suggest_coverage(
+    company_profile_id: str,
+    limit: int = Query(8, ge=1, le=20),
+    db: Any = Depends(get_db),
+    _key: str | None = Depends(require_api_key),
+    current_user: dict | None = Depends(get_optional_current_user),
+):
+    """Suggest automatic coverage decisions for current gaps without applying them."""
+    try:
+        return await compliance_service.suggest_coverage(
+            db,
+            company_profile_id,
+            limit=limit,
+            organization_id=_organization_scope(current_user),
+        )
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+
+
+@router.post(
+    "/posture/{company_profile_id}/cover/{exigence_id}",
+    response_model=CompliancePosture,
+)
+async def cover_requirement(
+    company_profile_id: str,
+    exigence_id: str,
+    body: RequirementCoverRequest,
+    db: Any = Depends(get_db),
+    _key: str | None = Depends(require_api_key),
+    current_user: dict | None = Depends(get_optional_current_user),
+):
+    """Mark one applicable requirement as fully covered with a manual control."""
+    try:
+        return await compliance_service.cover_requirement(
+            db,
+            company_profile_id,
+            exigence_id,
+            control_title=body.control_title,
+            justification=body.justification,
+            linked_by=body.linked_by,
+            organization_id=_organization_scope(current_user),
+        )
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+
+
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# EXCEPTION REGISTER
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
 
 @router.post("/exceptions", response_model=ExceptionOut, status_code=201)
 async def create_exception(

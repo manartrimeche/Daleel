@@ -24,6 +24,7 @@ from app.database import get_collection
 from app.processing.article_segmenter import build_page_map, segment_text_into_articles
 from app.processing.chunker import build_records
 from app.processing.extractor import EXTRACTORS
+from app.processing.text_utils import detect_query_language
 from app.services import audit_service, llm_service
 from app.services.embedding_service import embed_texts_async
 from app.services.faiss_index import faiss_manager
@@ -513,7 +514,7 @@ async def upload_document(
             logger.info("Processing: %s", filename)
             with tqdm(total=4, desc=f"  {filename}", unit="step", leave=True, file=sys.stderr) as pbar:
                 pbar.set_postfix_str("extracting")
-                pages = extractor(saved_path, original_filename=filename)
+                pages = await asyncio.to_thread(extractor, saved_path, original_filename=filename)
                 pbar.update(1)
 
                 if not pages:
@@ -543,7 +544,7 @@ async def upload_document(
                     await clean_and_store_pages(db, doc_id, raw_pages)
 
                 cleaned_pages_for_exigence = await get_collection("document_cleaned_texts").find({"document_id": doc_id}).to_list(length=2000)
-                detected_language = llm_service._get_detect_query_language(
+                detected_language = detect_query_language(
                     cleaned_pages_for_exigence[0].get("cleaned_text", "") if cleaned_pages_for_exigence else ""
                 )
                 if cleaned_pages_for_exigence:
@@ -1053,7 +1054,7 @@ async def upload_amendment_document(
         saved_path.unlink(missing_ok=True)
         raise ValueError(f"Unsupported file type: {ext}")
 
-    pages = extractor(saved_path, original_filename=filename)
+    pages = await asyncio.to_thread(extractor, saved_path, original_filename=filename)
     if not pages:
         saved_path.unlink(missing_ok=True)
         raise ValueError("No text extracted from the uploaded file")

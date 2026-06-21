@@ -1,0 +1,113 @@
+@startuml UC_Detail_RAG
+
+skinparam backgroundColor #FEFEFE
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 11
+skinparam packageFontSize 14
+skinparam packageFontStyle bold
+skinparam actorFontSize 12
+skinparam actorFontStyle bold
+skinparam usecaseFontSize 10
+skinparam arrowColor #555555
+skinparam packageBorderColor #AAAAAA
+skinparam usecaseBackgroundColor #FFFFFF
+skinparam usecaseBorderColor #BBBBBB
+skinparam shadowing false
+
+left to right direction
+
+title <b>Diagramme de cas d'utilisation détaillé</b>\n<size:11>Module : Assistant juridique IA (Legal RAG)</size>
+
+' ── ACTEURS ──
+actor "Membre" as M
+actor "Admin / Owner" as A
+actor "Moteur LLM" as LLM
+
+M <|-- A
+
+' ── SYSTÈME ──
+rectangle "Assistant juridique IA (Legal RAG)" {
+
+  usecase "Poser une question\njuridique" as UC01
+  usecase "Poser une question en\nmode agentique (ReAct)" as UC02
+  usecase "Poser une question\navec sélection auto\n(classique / agentique)" as UC03
+  usecase "Poser une question\nsur un document uploadé" as UC04
+  usecase "Poser une question\nen streaming (SSE)" as UC05
+
+  usecase "Rechercher dans le\ncorpus juridique\n(recherche sémantique)" as UC06
+
+  usecase "Interagir par la voix\n(transcription STT)" as UC07
+  usecase "Écouter la réponse\nvocale (synthèse TTS)" as UC08
+
+  usecase "Consulter l'historique\ndes conversations" as UC09
+  usecase "Donner un feedback\n/ corriger une réponse" as UC10
+
+  usecase "Gérer la mémoire\nutilisateur" as UC11
+
+  usecase "Récupérer les sources\npertinentes\n(recherche hybride +\nreranking cross-encoder)" as UC20
+  usecase "Router la requête\npar domaine juridique\n(domain router)" as UC21
+  usecase "Raisonner via l'agent\nautonome ReAct\n(12 outils)" as UC22
+  usecase "Appliquer la garde\nanti-hallucination\n(quality guard)" as UC23
+  usecase "Détecter la langue\net l'intention" as UC24
+}
+
+' ── ASSOCIATIONS ──
+
+M -- UC01
+M -- UC02
+M -- UC03
+M -- UC04
+M -- UC05
+M -- UC06
+M -- UC07
+M -- UC08
+M -- UC09
+M -- UC10
+M -- UC11
+
+UC20 -- LLM
+UC22 -- LLM
+UC23 -- LLM
+UC21 -- LLM
+UC24 -- LLM
+
+' ── INCLUDE / EXTEND ──
+UC01 ..> UC24 : <<include>>
+UC01 ..> UC20 : <<include>>
+UC01 ..> UC23 : <<include>>
+UC01 ..> UC21 : <<extend>>\n[si activé]
+UC02 ..> UC22 : <<include>>
+UC02 ..> UC20 : <<include>>
+UC03 ..> UC01 : <<extend>>\n[requête simple]
+UC03 ..> UC02 : <<extend>>\n[requête complexe]
+UC04 ..> UC02 : <<include>>
+UC05 ..> UC01 : <<include>>
+UC07 ..> UC01 : <<include>>
+
+note right of UC20
+  Pipeline à 6 modules :
+  1. Détection langue/intention
+  2. Recherche hybride (FAISS + BM25)
+  3. Fusion pondérée (RRF)
+  4. Reranking cross-encoder
+  5. Retrieval partitionné
+  6. Génération augmentée
+end note
+
+note right of UC22
+  Agent ReAct à 12 outils :
+  search_legal, get_article,
+  compare_articles, check_amendment,
+  analyze_sanctions, summarize_law...
+end note
+
+note bottom of UC23
+  3 couches de vérification :
+  - Cohérence source/réponse
+  - Détection d'hallucination
+  - Score de confiance
+end note
+
+footer Daleel — PFE 2025 — UC détaillé : Assistant juridique IA (Legal RAG)
+
+@enduml

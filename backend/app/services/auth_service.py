@@ -5,6 +5,7 @@ Authentication service: password hashing, JWT tokens, user/org/invitation CRUD.
 from __future__ import annotations
 
 import logging
+import re
 import secrets
 import uuid
 from calendar import monthrange
@@ -26,6 +27,20 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 _users = mongo_db["users"]
 _organizations = mongo_db["organizations"]
 _invitations = mongo_db["invitations"]
+
+
+def normalize_email(email: str) -> str:
+    return email.lower().strip()
+
+
+def normalize_phone(phone: Optional[str]) -> Optional[str]:
+    if not phone:
+        return None
+    return re.sub(r"[\s\-().]", "", phone.strip())
+
+
+def normalize_organization_name(name: str) -> str:
+    return re.sub(r"\s+", " ", name.strip()).casefold()
 
 
 def _object_id(value: str) -> ObjectId | None:
@@ -126,20 +141,52 @@ async def create_organization(
     size: Optional[str] = None,
     employees: Optional[int] = None,
     activities: Optional[str] = None,
+    country: Optional[str] = None,
     jurisdiction: str = "tunisia",
+    needs: Optional[list[str]] = None,
+    requested_by_email: Optional[str] = None,
+    requested_by_phone: Optional[str] = None,
     logo_url: Optional[str] = None,
     subscription_type: str = "monthly",
     status: str = "active",
 ) -> dict:
+    name = name.strip()
+    name_key = normalize_organization_name(name)
+    normalized_requested_email = normalize_email(requested_by_email) if requested_by_email else None
+    normalized_requested_phone = normalize_phone(requested_by_phone)
+
+    if await get_organization_by_name(name):
+        raise ValueError("Le nom de l'entreprise existe déjà.")
+    if normalized_requested_phone and (
+        await get_organization_by_phone(normalized_requested_phone)
+        or await get_user_by_phone(normalized_requested_phone)
+    ):
+        raise ValueError("Ce numéro de téléphone existe déjà.")
+    if normalized_requested_email and (
+        await get_organization_by_requested_email(normalized_requested_email)
+        or await get_user_by_email(normalized_requested_email)
+    ):
+        raise ValueError("Cette adresse email existe déjà.")
+
     now = datetime.now(timezone.utc)
     normalized_subscription_type = normalize_subscription_type(subscription_type)
     doc = {
         "name": name,
+        "name_key": name_key,
         "sector": sector,
         "size": size,
         "employees": employees,
         "activities": activities,
+        "country": country,
         "jurisdiction": jurisdiction,
+        "needs": needs or [],
+        "requested_by_email": normalized_requested_email,
+        "requested_by_phone": normalized_requested_phone,
+        "contact_email_verified": False,
+        "contact_phone_verified": False,
+        "approved_at": None,
+        "approved_by": None,
+        "rejection_reason": None,
         "logo_url": logo_url,
         "status": status,
         "subscription_type": normalized_subscription_type,
@@ -161,6 +208,25 @@ async def get_organization(org_id: str) -> Optional[dict]:
         return None
     return await _organizations.find_one({"_id": object_id})
 
+async def get_organization_by_name(name: str) -> Optional[dict]:
+    normalized_name = name.strip()
+    name_key = normalize_organization_name(normalized_name)
+    return await _organizations.find_one({
+        "$or": [
+            {"name_key": name_key},
+            {"name": {"$regex": f"^\\s*{re.escape(normalized_name)}\\s*$", "$options": "i"}},
+        ]
+    })
+
+async def get_organization_by_phone(phone: str) -> Optional[dict]:
+    normalized_phone = normalize_phone(phone)
+    if not normalized_phone:
+        return None
+    return await _organizations.find_one({"requested_by_phone": normalized_phone})
+
+async def get_organization_by_requested_email(email: str) -> Optional[dict]:
+    return await _organizations.find_one({"requested_by_email": normalize_email(email)})
+
 async def list_organizations(skip: int = 0, limit: int = 50) -> tuple[list[dict], int]:
     total = await _organizations.count_documents({})
     cursor = _organizations.find().sort("created_at", -1).skip(skip).limit(limit)
@@ -169,6 +235,26 @@ async def list_organizations(skip: int = 0, limit: int = 50) -> tuple[list[dict]
 
 async def update_organization(org_id: str, updates: dict) -> Optional[dict]:
     now = datetime.now(timezone.utc)
+    object_id = _object_id(org_id)
+    if object_id is None:
+        return None
+    if "name" in updates:
+        normalized_name = updates["name"].strip()
+        name_key = normalize_organization_name(normalized_name)
+        existing = await _organizations.find_one(
+            {
+                "$or": [
+                    {"name_key": name_key},
+                    {"name": {"$regex": f"^\\s*{re.escape(normalized_name)}\\s*$", "$options": "i"}},
+                ],
+                "_id": {"$ne": object_id},
+            },
+            {"_id": 1},
+        )
+        if existing:
+            raise ValueError("Le nom de l'entreprise existe déjà.")
+        updates["name"] = normalized_name
+        updates["name_key"] = name_key
     if "subscription_type" in updates:
         org = await get_organization(org_id)
         if not org:
@@ -182,9 +268,6 @@ async def update_organization(org_id: str, updates: dict) -> Optional[dict]:
             subscription_type,
         )
     updates["updated_at"] = now
-    object_id = _object_id(org_id)
-    if object_id is None:
-        return None
     await _organizations.update_one({"_id": object_id}, {"$set": updates})
     return await get_organization(org_id)
 
@@ -253,15 +336,38 @@ async def create_user(
     full_name: str,
     role: str,
     organization_id: Optional[str] = None,
+    phone: Optional[str] = None,
+    email_verified: bool = False,
+    phone_verified: bool = False,
 ) -> dict:
+    normalized_email = normalize_email(email)
+    normalized_phone = normalize_phone(phone)
+    if await get_user_by_email(normalized_email):
+        raise ValueError("Cette adresse email existe déjà.")
+    if normalized_phone and await get_user_by_phone(normalized_phone):
+        raise ValueError("Ce numéro de téléphone existe déjà.")
+
+    if role == "owner":
+        if not organization_id:
+            raise ValueError("Organization owner must belong to an organization")
+        existing_owner = await _users.find_one(
+            {"organization_id": organization_id, "role": "owner"},
+            {"_id": 1},
+        )
+        if existing_owner:
+            raise ValueError("Organization already has an owner")
+
     now = datetime.now(timezone.utc)
     doc = {
-        "email": email.lower().strip(),
+        "email": normalized_email,
+        "phone": normalized_phone,
         "password_hash": password_hash,
         "full_name": full_name,
         "role": role,
         "organization_id": organization_id,
         "is_active": True,
+        "email_verified": email_verified,
+        "phone_verified": phone_verified,
         "last_login": None,
         "created_at": now,
         "updated_at": now,
@@ -271,7 +377,13 @@ async def create_user(
     return doc
 
 async def get_user_by_email(email: str) -> Optional[dict]:
-    return await _users.find_one({"email": email.lower().strip()})
+    return await _users.find_one({"email": normalize_email(email)})
+
+async def get_user_by_phone(phone: str) -> Optional[dict]:
+    normalized_phone = normalize_phone(phone)
+    if not normalized_phone:
+        return None
+    return await _users.find_one({"phone": normalized_phone})
 
 async def get_user_by_id(user_id: str) -> Optional[dict]:
     object_id = _object_id(user_id)
@@ -286,10 +398,41 @@ async def list_users_by_org(org_id: str, skip: int = 0, limit: int = 50) -> tupl
     docs = await cursor.to_list(length=limit)
     return docs, total
 
+async def get_organization_owner(org_id: str) -> Optional[dict]:
+    return await _users.find_one({
+        "organization_id": org_id,
+        "role": "owner",
+        "is_active": {"$ne": False},
+    })
+
 async def update_user(user_id: str, updates: dict) -> Optional[dict]:
     object_id = _object_id(user_id)
     if object_id is None:
         return None
+    target = None
+    if "role" in updates:
+        target = await _users.find_one(
+            {"_id": object_id},
+            {"_id": 1, "organization_id": 1, "role": 1},
+        )
+        if not target:
+            return None
+        if target.get("role") == "owner" and updates["role"] != "owner":
+            raise ValueError("Organization owner role cannot be changed")
+        if updates["role"] == "owner":
+            organization_id = updates.get("organization_id") or target.get("organization_id")
+            if not organization_id:
+                raise ValueError("Organization owner must belong to an organization")
+            existing_owner = await _users.find_one(
+                {
+                    "organization_id": organization_id,
+                    "role": "owner",
+                    "_id": {"$ne": object_id},
+                },
+                {"_id": 1},
+            )
+            if existing_owner:
+                raise ValueError("Organization already has an owner")
     updates["updated_at"] = datetime.now(timezone.utc)
     await _users.update_one({"_id": object_id}, {"$set": updates})
     return await get_user_by_id(user_id)
@@ -343,7 +486,12 @@ async def create_invitation(
     return doc
 
 async def get_invitation_by_token(token: str) -> Optional[dict]:
-    return await _invitations.find_one({"token": token, "status": "pending"})
+    # Defence in depth: enforce the expiry check at the service layer so
+    # any future caller cannot skip it accidentally.
+    now = datetime.now(timezone.utc)
+    return await _invitations.find_one(
+        {"token": token, "status": "pending", "expires_at": {"$gt": now}}
+    )
 
 async def get_invitation_by_id(
     invitation_id: str,
@@ -372,6 +520,22 @@ async def mark_invitation_accepted(invitation_id: str) -> None:
         {"_id": object_id},
         {"$set": {"status": "accepted"}},
     )
+
+
+async def claim_invitation(invitation_id: str) -> bool:
+    """
+    Atomically transition an invitation to ``accepted`` only if it is still
+    ``pending``. Used to serialize concurrent ``/invitations/accept`` calls
+    sharing the same token. Returns True if this caller won the claim.
+    """
+    object_id = _object_id(invitation_id)
+    if object_id is None:
+        return False
+    result = await _invitations.update_one(
+        {"_id": object_id, "status": "pending"},
+        {"$set": {"status": "accepted"}},
+    )
+    return result.modified_count == 1
 
 async def update_invitation_status(invitation_id: str, status: str) -> Optional[dict]:
     object_id = _object_id(invitation_id)
@@ -434,10 +598,13 @@ def serialize_user(user: dict) -> dict:
     return {
         "id": str(user["_id"]),
         "email": user["email"],
+        "phone": user.get("phone"),
         "full_name": user["full_name"],
         "role": user["role"],
         "organization_id": user.get("organization_id"),
         "is_active": user.get("is_active", True),
+        "email_verified": user.get("email_verified", False),
+        "phone_verified": user.get("phone_verified", False),
         "last_login": user.get("last_login"),
         "created_at": user["created_at"],
     }
@@ -459,9 +626,18 @@ def serialize_organization(org: dict, member_count: int = 0) -> dict:
         "size": org.get("size"),
         "employees": org.get("employees"),
         "activities": org.get("activities"),
+        "country": org.get("country"),
         "jurisdiction": org.get("jurisdiction", "tunisia"),
+        "needs": org.get("needs", []),
         "logo_url": org.get("logo_url"),
         "status": org.get("status", "active"),
+        "rejection_reason": org.get("rejection_reason"),
+        "requested_by_email": org.get("requested_by_email"),
+        "requested_by_phone": org.get("requested_by_phone"),
+        "contact_email_verified": org.get("contact_email_verified", False),
+        "contact_phone_verified": org.get("contact_phone_verified", False),
+        "approved_at": org.get("approved_at"),
+        "approved_by": org.get("approved_by"),
         "subscription_type": subscription_type,
         "subscription_started_at": subscription_started_at,
         "subscription_ends_at": subscription_ends_at,

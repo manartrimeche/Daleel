@@ -31,8 +31,15 @@ class _FakeAsyncIter:
         return item
 
 
-def _make_db(qa_rows=None, satisfaction_rows=None, profiles=None, total_exigences=0, applicability_agg=None):
+def _make_db(qa_rows=None, satisfaction_rows=None, profiles=None, total_exigences=0, applicability_agg=None, chat_history_rows=None):
     db = MagicMock()
+
+    # chat_history is the primary source for get_qa_daily_counts;
+    # qa_feedback is only used as a fallback when chat_history is empty.
+    chat_history = MagicMock()
+    chat_history.aggregate.return_value = _FakeAggCursor(
+        chat_history_rows if chat_history_rows is not None else (qa_rows or [])
+    )
 
     qa_feedback = MagicMock()
     qa_feedback.aggregate.return_value = _FakeAggCursor(qa_rows or [])
@@ -50,6 +57,7 @@ def _make_db(qa_rows=None, satisfaction_rows=None, profiles=None, total_exigence
 
     def getitem(self, name):
         return {
+            "chat_history": chat_history,
             "qa_feedback": qa_feedback,
             "company_profiles": company_profiles,
             "exigences": exigences,

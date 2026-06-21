@@ -1,0 +1,3071 @@
+                                              Dédicace
+
+    Je dédie ce travail à mes parents, pour leur amour, leurs sacrifices, leur patience et leur
+confiance qui m'ont accompagnée tout au long de mon parcours.
+
+    À mes frères, pour leur soutien, leur présence et leurs encouragements constants.
+    À ma famille, pour son soutien constant, ses encouragements et sa présence dans les
+moments les plus importants.
+    À mes soeurs de coeur, pour leur affection, leur aide et leur présence précieuse.
+    À mes amis et à toutes les personnes qui m'ont apporté leur aide, leur motivation ou un
+mot d'encouragement durant cette aventure.
+    Je dédie également ce travail à toutes les personnes qui ont cru en moi et qui ont contribué,
+de près ou de loin, à l'aboutissement de ce Projet de Fin d'Études.
+
+                                                                                                                                             i
+                                      Remerciements
+
+    Au terme de ce Projet de Fin d'Études, je tiens à exprimer ma profonde gratitude à
+toutes les personnes qui ont contribué, de près ou de loin, à la réalisation de ce travail.
+
+    Je remercie tout particulièrement mon encadrant académique, Dr Nizar Omheni, pour
+son accompagnement, ses conseils précieux, sa disponibilité et ses orientations tout au long
+de ce projet.
+
+    Je tiens également à remercier mon encadrant professionnel, M. Raouf Bouneb, pour
+son suivi, sa confiance, ses conseils pratiques et son accompagnement tout au long de mon
+expérience au sein de Didax IT.
+
+    J'adresse également mes sincères remerciements à l'entreprise Didax IT pour son accueil, sa
+confiance et l'environnement professionnel stimulant qu'elle m'a offert durant cette expérience.
+Cette immersion m'a permis de consolider mes compétences techniques, de mieux comprendre
+les exigences d'un projet réel et de développer une solution à la fois utile, ambitieuse et
+concrète.
+
+    Je souhaite aussi remercier les enseignants de l'École Polytechnique de Sousse pour la
+qualité de la formation dispensée et pour les connaissances acquises durant mon parcours
+académique.
+
+    Je tiens aussi à remercier les membres du jury pour le temps consacré à l'évaluation de
+mon travail ainsi que pour leurs remarques et conseils constructifs qui contribueront à enrichir
+mon parcours.
+
+    Enfin, j'exprime toute ma reconnaissance à ma famille et à mes proches pour leur soutien
+moral, leur patience, leurs encouragements et leur présence constante. Leur confiance a été
+une source essentielle de motivation.
+
+                                                                                                                                            ii
+                                               Résumé
+
+    Ce Projet de Fin d'Études présente Daleel, une plateforme intégrée d'assistance juridique
+et de gestion de la conformité réglementaire et légale fondée sur l'intelligence artificielle,
+conçue pour une extension internationale et appliquée dans ce travail à un premier périmètre
+tunisien. La plateforme répond à un double besoin : interroger dans un langage naturel (arabe,
+français, anglais) un corpus juridique fragmenté, multilingue et issu de sources hétérogènes
+(PDF natifs, documents numérisés, OCR), et piloter de bout-en-bout le cycle opérationnel de
+la conformité des entreprises. Les exigences réglementaires constituent le lien opérationnel
+entre les textes juridiques indexés et le pilotage concret de la conformité.
+
+    Le volet "Legal RAG" repose sur une architecture de génération augmentée par récupération
+avancée combinant une recherche hybride (signaux vectoriels FAISS et lexicaux fusionnés
+par pondération), un "reranking" par cross-encoder, un "retrieval" partitionné piloté par
+l'intention, un graphe de connaissances léger, une garde anti-hallucination multi-couches
+et un agent autonome ReAct à douze outils. Le "fine-tuning" d'un modèle d'"embeddings"
+multilingue sur le corpus juridique tunisien a produit des gains globaux de +40 % en Recall@1
+et +34 % en MRR@10, mesurés sur 30 requêtes gold couvrant le français et l'arabe.
+
+    Le volet "Compliance Operations" orchestre la gestion des dossiers de non-conformité, des
+constats, des actions correctives et des preuves selon un arbre de décision ASK / CLARIFY /
+ACT / REVIEW. La conduite du projet a suivi la méthodologie CRISP-DM.
+
+    Mots-clés : intelligence artificielle, RAG, agent autonome, LLM, droit tunisien, extension
+internationale, conformité réglementaire, "embeddings" multilingues, "fine-tuning", FAISS,
+LegalTech.
+
+                                                                                                                                            iii
+                                              Abstract
+
+    This graduation project presents Daleel, an integrated AI-powered platform for legal
+and regulatory compliance management, designed for international expansion and initially
+applied to Tunisian law. The platform addresses a twofold need : querying a fragmented,
+multilingual legal corpus (Arabic, French, English) drawn from heterogeneous sources (native
+PDFs, scanned documents, OCR) in natural language, and managing the full operational
+compliance lifecycle of organizations. Regulatory requirements form the operational link
+between indexed legal texts and concrete compliance management.
+
+    The "Legal RAG" component relies on an advanced "Retrieval-Augmented Generation"
+architecture combining hybrid search (vector FAISS and lexical signals merged through
+weighted fusion), cross-encoder "reranking", intent-driven partitioned "retrieval", a lightweight
+knowledge graph, a multi-layer anti-hallucination quality guard, and a twelve-tool autonomous
+ReAct agent. Fine-tuning a multilingual embedding model on the Tunisian legal corpus
+yielded overall gains of +40 % in Recall@1 and +34 % in MRR@10, measured on 30 gold
+queries covering French and Arabic. The "Compliance Operations" component orchestrates
+non-compliance case management, findings, corrective actions and evidence following an
+ASK / CLARIFY / ACT / REVIEW decision tree. The project followed the CRISP-DM
+methodology.
+
+    Keywords : artificial intelligence, RAG, autonomous agent, LLM, Tunisian law, inter-
+national expansion, regulatory compliance, multilingual "embeddings", "fine-tuning", FAISS,
+LegalTech.
+
+                                                                                                                                           iv
+                          Table des matières
+
+Résumé                    iii
+
+Abstract                  iv
+
+Liste des acronymes       xiii
+
+Introduction Générale     1
+
+1 Présentation du projet  3
+
+Introduction . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 3
+
+1.1 Présentation de l'entreprise d'accueil . . . . . . . . . . . . . . . . . . . . . . 3
+
+1.2 Contexte métier et scientifique . . . . . . . . . . . . . . . . . . . . . . . . . . 4
+
+1.2.1 Contexte métier . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 4
+
+1.2.2 Contexte scientifique . . . . . . . . . . . . . . . . . . . . . . . . . . . 5
+
+1.3 Problématique détaillée . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 5
+
+1.3.1 Volume et fragmentation de l'information juridique . . . . . . . . . . 5
+
+1.3.2 Complexité structurelle et juridique . . . . . . . . . . . . . . . . . . . 5
+
+1.3.3 Incohérences terminologiques et multilinguisme . . . . . . . . . . . . 6
+
+1.3.4 Qualité hétérogène des sources officielles . . . . . . . . . . . . . . . . 6
+
+1.3.5 Absence d'un cadre intégré de conformité . . . . . . . . . . . . . . . . 6
+
+1.4 Objectifs du projet . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 6
+
+1.5 Méthodologie de projet . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 7
+
+1.5.1 Méthodologie CRISP-DM . . . . . . . . . . . . . . . . . . . . . . . . 7
+
+1.5.2 Application des phases au projet . . . . . . . . . . . . . . . . . . . . 8
+
+1.6 Spécification des besoins . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 9
+
+1.6.1 Identification des acteurs . . . . . . . . . . . . . . . . . . . . . . . . . 9
+
+1.6.2 Besoins fonctionnels par acteur . . . . . . . . . . . . . . . . . . . . . 9
+
+1.6.3 Besoins non fonctionnels . . . . . . . . . . . . . . . . . . . . . . . . . 10
+
+                          v
+Table des matières
+    Conclusion . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 11
+
+2 État de la technologie  12
+
+Introduction . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 12
+
+2.1 Modèles de langage de grande taille . . . . . . . . . . . . . . . . . . . . . . . 12
+
+2.2 Architectures de génération augmentée par récupération . . . . . . . . . . . . 13
+
+2.3 Recherche hybride et "reranking" . . . . . . . . . . . . . . . . . . . . . . . . 13
+
+2.4 Agents IA et paradigme ReAct . . . . . . . . . . . . . . . . . . . . . . . . . . 14
+
+2.5 Ingénierie de prompts et anti-hallucination . . . . . . . . . . . . . . . . . . . 14
+
+2.6 Modèles d'"embeddings" multilingues et "fine-tuning" . . . . . . . . . . . . . 14
+
+2.7 LegalTech et assistance juridique fondée sur l'IA . . . . . . . . . . . . . . . . 15
+
+2.8 Systèmes de gestion de la conformité réglementaire . . . . . . . . . . . . . . 16
+
+Conclusion . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 17
+
+3 Conception de projet    18
+
+Introduction . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 18
+
+3.1 Architecture globale de la plateforme Daleel . . . . . . . . . . . . . . . . . . 18
+
+3.1.1 Vue d'ensemble et principes architecturaux . . . . . . . . . . . . . . . 18
+
+3.1.2 Vue en couches et flux de bout en bout . . . . . . . . . . . . . . . . . 19
+
+3.2 Conception du pipeline d'ingestion documentaire . . . . . . . . . . . . . . . . 23
+
+3.2.1 Étape 1 ­ Extraction documentaire en trois niveaux . . . . . . . . . . 23
+
+3.2.2 Étape 2 ­ Normalisation et nettoyage . . . . . . . . . . . . . . . . . . 23
+
+3.2.3 Étape 3 ­ Segmentation hiérarchique et découpage . . . . . . . . . . 23
+
+3.2.4 Étape 4 ­ Encodage vectoriel et cache . . . . . . . . . . . . . . . . . 24
+
+3.2.5 Étape 5 ­ Indexation FAISS et persistance . . . . . . . . . . . . . . . 24
+
+3.3 Conception du pipeline RAG avancé à six modules . . . . . . . . . . . . . . 25
+
+3.3.1 Module 1 ­ Recherche hybride vectorielle et lexicale . . . . . . . . . . 25
+
+3.3.2 Module 2 ­ Reranking par cross-encoder . . . . . . . . . . . . . . . . 26
+
+3.3.3 Module 3 ­ Routeur de domaine . . . . . . . . . . . . . . . . . . . . . 26
+
+3.3.4 Module 4 ­ Orchestrateur de récupération partitionnée . . . . . . . . 26
+
+3.3.5 Module 5 ­ Résolveur de graphe de connaissances léger . . . . . . . . 27
+
+3.3.6 Module 6 ­ Garde-qualité . . . . . . . . . . . . . . . . . . . . . . . . 27
+
+                          vi
+Table des matières
+
+           3.3.7 Assemblage du prompt et ingénierie interactive . . . . . . . . . . . . 27
+    3.4 Conception de l'agent autonome ReAct . . . . . . . . . . . . . . . . . . . . . 28
+
+           3.4.1 Boucle d'exécution . . . . . . . . . . . . . . . . . . . . . . . . . . . . 28
+           3.4.2 Traçabilité et garde-fous . . . . . . . . . . . . . . . . . . . . . . . . . 28
+    3.5 Conception du "fine-tuning" des "embeddings" . . . . . . . . . . . . . . . . . 28
+           3.5.1 Constitution du dataset . . . . . . . . . . . . . . . . . . . . . . . . . 29
+           3.5.2 Architecture et fonction de perte . . . . . . . . . . . . . . . . . . . . 29
+           3.5.3 Hyperparamètres et protocole d'évaluation . . . . . . . . . . . . . . . 30
+    3.6 Conception de la garde-qualité anti-hallucination . . . . . . . . . . . . . . . 30
+           3.6.1 Couche 1 ­ Vérification des références . . . . . . . . . . . . . . . . . . 30
+           3.6.2 Couche 2 ­ Détection de citations fabriquées . . . . . . . . . . . . . . 31
+           3.6.3 Couche 3 ­ Cohérence du contenu d'article . . . . . . . . . . . . . . . 31
+           3.6.4 Couche 4 ­ Conformité linguistique . . . . . . . . . . . . . . . . . . . 31
+           3.6.5 Décision finale et statuts . . . . . . . . . . . . . . . . . . . . . . . . . 31
+    3.7 Conception du volet "Compliance Operations" . . . . . . . . . . . . . . . . . 31
+           3.7.1 Modèle métier du cycle de conformité . . . . . . . . . . . . . . . . . . 31
+           3.7.2 Orchestrateur de cas . . . . . . . . . . . . . . . . . . . . . . . . . . . 32
+           3.7.3 Arbre de décision ASK / CLARIFY / ACT / REVIEW . . . . . . . . 32
+           3.7.4 Moteur de criticité déterministe . . . . . . . . . . . . . . . . . . . . . 33
+    3.8 Modélisation conceptuelle des données . . . . . . . . . . . . . . . . . . . . . 34
+           3.8.1 Schéma hiérarchique juridique . . . . . . . . . . . . . . . . . . . . . . 34
+           3.8.2 Schéma du cycle de conformité . . . . . . . . . . . . . . . . . . . . . 35
+           3.8.3 Stratégie d'indexation MongoDB . . . . . . . . . . . . . . . . . . . . 35
+    3.9 Choix technologiques . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 36
+           3.9.1 Critères de sélection . . . . . . . . . . . . . . . . . . . . . . . . . . . 36
+           3.9.2 Comparaison des modèles de langage candidats . . . . . . . . . . . . 36
+           3.9.3 Synthèse des technologies retenues . . . . . . . . . . . . . . . . . . . . 38
+    Conclusion . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 38
+
+4 Réalisation du volet "Legal RAG"  40
+
+Introduction . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 40
+
+4.1 Environnement de développement . . . . . . . . . . . . . . . . . . . . . . . . 41
+
+                                    vii
+Table des matières
+
+           4.1.1 Configuration matérielle . . . . . . . . . . . . . . . . . . . . . . . . . 41
+           4.1.2 Configuration logicielle . . . . . . . . . . . . . . . . . . . . . . . . . . 42
+           4.1.3 Organisation du code source . . . . . . . . . . . . . . . . . . . . . . . 42
+    4.2 Implémentation du pipeline d'ingestion documentaire . . . . . . . . . . . . . 43
+           4.2.1 Extraction en cascade . . . . . . . . . . . . . . . . . . . . . . . . . . 43
+           4.2.2 Pipeline de nettoyage arabe . . . . . . . . . . . . . . . . . . . . . . . 43
+           4.2.3 Segmentation et chunking . . . . . . . . . . . . . . . . . . . . . . . . 44
+           4.2.4 Indexation FAISS et cohérence . . . . . . . . . . . . . . . . . . . . . . 44
+    4.3 Fine-tuning du modèle d'"embeddings" . . . . . . . . . . . . . . . . . . . . . 45
+           4.3.1 Préparation du dataset . . . . . . . . . . . . . . . . . . . . . . . . . . 45
+           4.3.2 Conduite de l'entraînement . . . . . . . . . . . . . . . . . . . . . . . 45
+           4.3.3 Mise en service du modèle fine-tuné . . . . . . . . . . . . . . . . . . . 45
+    4.4 Implémentation du pipeline RAG à six modules . . . . . . . . . . . . . . . . 46
+           4.4.1 Service de recherche hybride . . . . . . . . . . . . . . . . . . . . . . . 46
+           4.4.2 Reranking par cross-encoder . . . . . . . . . . . . . . . . . . . . . . . 46
+           4.4.3 Routeur de domaine et "retrieval" partitionné . . . . . . . . . . . . . 46
+           4.4.4 Graphe de connaissances et garde-qualité . . . . . . . . . . . . . . . . 47
+    4.5 Implémentation de l'agent autonome ReAct . . . . . . . . . . . . . . . . . . 48
+    4.6 Démonstrations qualitatives . . . . . . . . . . . . . . . . . . . . . . . . . . . 48
+           4.6.1 Démonstration 1 ­ Requête simple . . . . . . . . . . . . . . . . . . . 48
+           4.6.2 Démonstration 2 ­ Requête multilingue avec agent ReAct . . . . . . . 49
+           4.6.3 Démonstration 3 ­ Requête en dialecte tunisien (derja) . . . . . . . . 50
+    Conclusion . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 51
+
+5 "Compliance Operations", évaluation et déploiement  52
+
+Introduction . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 52
+
+5.1 Implémentation du cycle de conformité . . . . . . . . . . . . . . . . . . . . . 52
+
+5.1.1 Services métier . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 52
+
+5.1.2 Moteur déterministe de criticité . . . . . . . . . . . . . . . . . . . . . 53
+
+5.1.3 Roadmap et applicabilité . . . . . . . . . . . . . . . . . . . . . . . . . 54
+
+5.2 Orchestrateur LLM ASK / CLARIFY / ACT / REVIEW . . . . . . . . . . 54
+
+5.3 Interfaces utilisateur . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 55
+
+                                                      viii
+Table des matières
+
+           5.3.1 Chatbot conversationnel . . . . . . . . . . . . . . . . . . . . . . . . . 55
+           5.3.2 Panneau d'administration . . . . . . . . . . . . . . . . . . . . . . . . 55
+           5.3.3 Tableau de bord BI et internationalisation . . . . . . . . . . . . . . . 56
+    5.4 Évaluation quantitative . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 57
+           5.4.1 Retrieval avant et après "fine-tuning" . . . . . . . . . . . . . . . . . . 57
+           5.4.2 Apport qualitatif des modules RAG . . . . . . . . . . . . . . . . . . . 58
+           5.4.3 Agent autonome et garde-qualité . . . . . . . . . . . . . . . . . . . . 58
+           5.4.4 Couverture de tests . . . . . . . . . . . . . . . . . . . . . . . . . . . . 59
+    5.5 Déploiement et intégration continue . . . . . . . . . . . . . . . . . . . . . . . 59
+           5.5.1 Architecture Docker Compose . . . . . . . . . . . . . . . . . . . . . . 59
+           5.5.2 CI/CD GitHub Actions . . . . . . . . . . . . . . . . . . . . . . . . . . 60
+    5.6 Discussion critique : limites et perspectives . . . . . . . . . . . . . . . . . . . 60
+           5.6.1 Limites identifiées . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 60
+           5.6.2 Perspectives d'évolution . . . . . . . . . . . . . . . . . . . . . . . . . 61
+    Conclusion . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 61
+
+Conclusion Générale                                         62
+
+Annexes                                                     i
+
+A Cartographie complète de l'API REST                       ii
+
+A.1 Routeur principal ­ Legal RAG, corpus et administration . . . . . . . . . . . ii
+
+A.2 Routeur d'authentification . . . . . . . . . . . . . . . . . . . . . . . . . . . . . vii
+
+A.3 Routeurs Compliance Operations . . . . . . . . . . . . . . . . . . . . . . . . . viii
+
+A.4 Routeur vocal . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . ix
+
+B Spécification des douze outils de l'agent autonome ReAct  xi
+
+B.1 Outils de recherche . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . xii
+
+B.2 Outils de graphe de connaissances . . . . . . . . . . . . . . . . . . . . . . . . xii
+
+B.3 Outils d'exigences et de conformité . . . . . . . . . . . . . . . . . . . . . . . . xiii
+
+Bibliographie                                               xiv
+
+                                                            ix
+                                  Table des figures
+
+1.1 Logo de Didax IT . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 3
+1.2 Cycle CRISP-DM appliqué au projet Daleel . . . . . . . . . . . . . . . . . . 8
+3.1 Architecture globale de la plateforme Daleel : cinq couches et deux volets . . 21
+3.2 Arbre de décision de l'orchestrateur "Compliance Operations" . . . . . . . . . 32
+4.1 Réponse du pipeline RAG classique avec sources numérotées et badge de
+
+      validation qualité . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 49
+4.2 Trace d'exécution de l'agent en mode agentique . . . . . . . . . . . . . . . . 50
+4.3 Détection et normalisation d'une requête en dialecte tunisien . . . . . . . . . 51
+5.1 Interface du "chatbot" conversationnel multilingue . . . . . . . . . . . . . . . 55
+5.2 Panneau d'administration : gestion documentaire et suivi de l'ingestion . . . 56
+5.3 Tableau de bord BI de la posture de conformité . . . . . . . . . . . . . . . . 56
+5.4 Comparaison des métriques de "retrieval" avant et après "fine-tuning" . . . . 58
+5.5 Schéma de déploiement Docker Compose de la plateforme Daleel . . . . . . . 60
+
+                                                                                                                                       x
+                                 Liste des tableaux
+
+1.1 Spécification fonctionnelle de l'acteur Visiteur . . . . . . . . . . . . . . . . . 10
+1.2 Spécification fonctionnelle de l'acteur Membre . . . . . . . . . . . . . . . . . 10
+1.3 Spécification fonctionnelle de l'acteur Owner . . . . . . . . . . . . . . . . . . 10
+1.4 Spécification fonctionnelle de l'acteur Super Admin . . . . . . . . . . . . . . 10
+2.1 Positionnement de Daleel par rapport aux solutions existantes . . . . . . . . 16
+3.1 Couches architecturales de Daleel et composants principaux . . . . . . . . . 20
+3.2 Présentation simplifiée du traitement d'une requête utilisateur dans le pipeline
+
+      RAG Daleel . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 22
+3.3 Paramètres clés du pipeline d'ingestion . . . . . . . . . . . . . . . . . . . . . 25
+3.4 Stratégie de mixing partitionnée par intention . . . . . . . . . . . . . . . . . 27
+3.5 Hyperparamètres du "fine-tuning" du modèle d'"embeddings" . . . . . . . . . 30
+3.6 Composantes du score de criticité . . . . . . . . . . . . . . . . . . . . . . . . 33
+3.7 Cartographie des 38 collections MongoDB par domaine . . . . . . . . . . . . 34
+3.8 Entités et associations de la hiérarchie juridique . . . . . . . . . . . . . . . . 34
+3.9 Entités et associations du cycle de conformité . . . . . . . . . . . . . . . . . 35
+3.10 Comparaison des modèles de langage candidats . . . . . . . . . . . . . . . . 36
+3.11 Synthèse des technologies retenues . . . . . . . . . . . . . . . . . . . . . . . . 38
+4.1 Configuration matérielle de la station de développement . . . . . . . . . . . . 41
+4.2 Composants logiciels et rôle dans la plateforme . . . . . . . . . . . . . . . . . 42
+5.1 Services métier du volet "Compliance Operations" . . . . . . . . . . . . . . . 53
+5.2 Performance globale avant et après "fine-tuning" . . . . . . . . . . . . . . . . 57
+3 Organisation des annexes conservées . . . . . . . . . . . . . . . . . . . . . . i
+A.1 Documents et ingestion documentaire . . . . . . . . . . . . . . . . . . . . . . ii
+A.2 Recherche et questions-réponses . . . . . . . . . . . . . . . . . . . . . . . . . iii
+
+                                                                                                                                      xi
+Liste des tableaux
+    A.3 Profils d'entreprise et applicabilité . . . . . . . . . . . . . . . . . . . . . . . . iv
+    A.4 Hiérarchie juridique : lois, articles, versions et actions . . . . . . . . . . . . . v
+    A.5 Administration, audit et supervision . . . . . . . . . . . . . . . . . . . . . . . vi
+    A.6 Notifications, historique et mémoire . . . . . . . . . . . . . . . . . . . . . . . vi
+    A.7 Endpoints d'authentification et de gouvernance . . . . . . . . . . . . . . . . vii
+    A.8 Endpoints du cycle Compliance Operations . . . . . . . . . . . . . . . . . . . viii
+    A.9 Endpoints vocaux . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . x
+    B.1 Outils de recherche de l'agent autonome . . . . . . . . . . . . . . . . . . . . xii
+    B.2 Outils de graphe de connaissances de l'agent autonome . . . . . . . . . . . . xii
+    B.3 Outils d'exigences et de conformité de l'agent autonome . . . . . . . . . . . . xiii
+
+                                                                                                                   xii
+Liste des acronymes
+
+                     Liste des acronymes
+
+Acronyme             Signification
+AI                   Artificial Intelligence
+API                  Application Programming Interface
+ASGI                 Asynchronous Server Gateway Interface
+BERT                 Bidirectional Encoder Representations from Transformers
+BI                   Business Intelligence
+BM25                 Best Matching 25
+CDI                  Contrat à Durée Indéterminée
+CI/CD                Continuous Integration / Continuous Deployment
+CORS                 Cross-Origin Resource Sharing
+CPU                  Central Processing Unit
+CRISP-DM             Cross-Industry Standard Process for Data Mining
+CRUD                 Create, Read, Update, Delete
+DDR                  Double Data Rate
+DOCX                 Open XML Document Format
+DPO                  Data Protection Officer (délégué à la protection des don-
+                     nées)
+ENV                  Environment
+EPI                  Équipement de Protection Individuelle
+ERP                  Enterprise Resource Planning
+FAISS                Facebook AI Similarity Search
+GDDR                 Graphics Double Data Rate
+GED                  Gestion Électronique de Documents
+GPT                  Generative Pre-trained Transformer
+
+                                                                                xiii
+Liste des acronymes
+
+Acronyme             Signification
+GPU                  Graphics Processing Unit
+GRC                  Governance, Risk & Compliance
+HNSW                 Hierarchical Navigable Small World
+HTTP                 Hypertext Transfer Protocol
+IA                   Intelligence Artificielle
+INPDP                Instance Nationale de Protection des Données Personnelles
+IORT                 Imprimerie Officielle de la République Tunisienne
+IT                   Information Technology
+JORT                 Journal Officiel de la République Tunisienne
+JSON                 JavaScript Object Notation
+JSONL                JSON Lines
+JWT                  JSON Web Token
+KG                   Knowledge Graph
+LLM                  Large Language Model
+LRU                  Least Recently Used
+LTS                  Long-Term Support
+MFA                  Multi-Factor Authentication
+MIME                 Multipurpose Internet Mail Extensions
+MNR                  MultipleNegativesRankingLoss
+MRR                  Mean Reciprocal Rank
+MS-MARCO             Microsoft Machine Reading Comprehension
+nDCG                 Normalized Discounted Cumulative Gain
+NFKC                 Normalization Form KC (Unicode)
+OCR                  Optical Character Recognition
+OTP                  One-Time Password
+PDF                  Portable Document Format
+RAG                  "Retrieval-Augmented Generation"
+
+                                                                                xiv
+Liste des acronymes  Signification
+                     "Reasoning + Acting"
+         Acronyme    Representational State Transfer
+         ReAct       Règlement Général sur la Protection des Données
+         REST        Reciprocal Rank Fusion
+         RGPD        Right-to-Left
+         RRF         Ray Tracing Texel eXtreme
+         RTL         Sentence-BERT
+         RTX         Service-Level Agreement
+         SBERT       Solid-State Drive
+         SLA         Server-Sent Events
+         SSD         Time To Live
+         SSE         Taxe sur la Valeur Ajoutée
+         TTL         Unicode Transformation Format
+         TVA         Windows Subsystem for Linux
+         UTF
+         WSL
+
+                                                                      xv
+                              Introduction Générale
+
+    La numérisation des activités juridiques et de conformité connaît une accélération sous
+l'effet des progrès de l'intelligence artificielle. Dans les secteurs traitant de grands volumes de
+documents, les professionnels doivent analyser quotidiennement des textes réglementaires
+volumineux lois, décrets, amendements, circulaires et procédures internes dans des délais
+limités. Les modèles de langage de grande taille (LLMs) et les architectures de type "Retrieval-
+Augmented Generation" (RAG) ouvrent de nouvelles perspectives pour exploiter ces corpus
+complexes et en évolution continue. Il ne s'agit plus seulement de stocker l'information
+juridique, mais de la rendre interrogeable, contextualisée et exploitable dans un cadre
+professionnel.
+
+    Le contexte tunisien illustre ces enjeux. Le cadre juridique national est riche et dynamique :
+codes, lois organiques, décrets, circulaires et jurisprudences se superposent et se modifient
+régulièrement, en français comme en arabe. Une partie essentielle de ces textes n'est disponible
+qu'en format PDF ou sous forme pixélisée, rendant la recherche et l'analyse automatisées
+difficiles. Les juristes, aussi bien que les responsables juridiques, s'appuient encore largement
+sur des méthodes manuelles : recherches lexicales dans des fichiers PDF, consultation de
+portails juridiques peu interactifs, ou appel systématique à des experts externes.
+
+    L'intelligence artificielle appliquée au domaine juridique ne peut pas se limiter à l'utilisation
+directe de modèles génériques. Sans base documentaire solide, les LLM produisent parfois des
+réponses convaincantes mais fausses, phénomène désigné sous le terme d'hallucination. Dans
+un contexte juridique et de conformité où une erreur peut entraîner des sanctions, des conflits
+ou une perte de confiance, ce risque est inacceptable. À ces enjeux s'ajoutent des contraintes
+structurelles : gestion du versionnement des textes et de leurs amendements, distinction entre
+texte de base et texte modifié, stabilité face aux données issues de l'OCR, et nécessité d'une
+traçabilité complète des traitements.
+
+    La problématique principale identifiée pour ce Projet de Fin d'Études peut être formulée
+comme suit : comment répondre aux besoins d'une variété d'utilisateurs à exigences différentes,
+en terme de veille et de conformité règlementaire et légale, en faisant usage des technologies
+
+                                                                                                                                            1
+Introduction Générale
+et des outils offerts par l'intelligence artificielle, qui soit opérationnellement exploitable dans
+un contexte réglementaire tunisien, et qui puisse fournir des réponses pertinentes, robustes,
+et traçables ?
+
+    Pour répondre à cette problématique, ce travail propose la conception et l'implémentation
+de Daleel (« le guide » en arabe), une plateforme intégrée de "Legal RAG" et de "Compliance
+Operations", appliquée initialement au droit tunisien et extensible à l'international. Le premier
+volet permet d'interroger le corpus juridique en langage naturel arabe, français et anglais, en
+combinant recherche hybride, "reranking", routage sémantique, "retrieval" partitionné, graphe
+de connaissances léger, garde anti-hallucination et agent autonome ReAct. Le second volet
+couvre l'intégralité du cycle opérationnel de conformité selon un chaînage explicite : textes
+juridiques  exigences réglementaires  applicabilité  constats  actions correctives 
+preuves  tableaux de bord.
+
+    Sur le plan technique, la plateforme repose sur plus de 170 points d'accès REST organisés
+en 7 routeurs FastAPI, 38 collections MongoDB, un index vectoriel FAISS HNSW reconstruit
+en mémoire au démarrage, 41 services métier et 70 modules "backend" Python déployés sous
+Docker Compose, ainsi que sur 34 composants React côté "frontend".
+
+    Le présent mémoire est organisé en cinq chapitres. Le premier chapitre introduit le cadre
+général du projet : présentation de l'entreprise d'accueil Didax IT, analyse de la problématique,
+vue d'ensemble de la solution, méthodologie CRISP-DM adoptée et spécification des besoins.
+Le deuxième chapitre présente l'état de l'art des composantes essentielles du projet. Le
+troisième chapitre détaille la conception de la plateforme Daleel. Le quatrième chapitre décrit
+la réalisation du volet "Legal RAG". Le cinquième chapitre traite du volet "Compliance Ope-
+rations", des interfaces utilisateur, de l'évaluation quantitative, du déploiement conteneurisé
+et de l'intégration continue, avant de conclure sur les limites et perspectives.
+
+                                                                                                                     2
+            1
+
+                             Présentation du projet
+
+Introduction
+
+    Ce premier chapitre définit le cadre général du Projet de Fin d'Études. Il présente
+l'entreprise d'accueil Didax IT, le contexte professionnel ayant conduit à la conception de
+Daleel, la problématique traitée, les objectifs du projet, la méthodologie CRISP-DM adoptée
+et les besoins fonctionnels et non fonctionnels de la plateforme.
+
+1.1 Présentation de l'entreprise d'accueil
+
+                                         Figure 1.1:: Logo de Didax IT
+    Didax IT est une entreprise de services informatiques fondée à Dubaï en 2024. Son modèle
+économique repose sur une structure géographique hybride : un bureau commercial implanté
+
+                                                                                                                                            3
+Chapitre 1. Présentation du projet
+
+à Dubaï auprès d'une clientèle internationale, et des équipes techniques localisées dans des
+pays à coût compétitif, notamment la Tunisie et l'Inde.
+
+    Ses activités couvrent quatre domaines :
+    -- la conception et le développement de logiciels sur mesure, incluant des applications
+
+        intégrant l'intelligence artificielle.
+    -- la transformation numérique et le conseil, notamment autour de solutions open source.
+    -- la gestion de projets e-learning, depuis l'analyse des besoins jusqu'à l'accompagnement
+
+        de mise en oeuvre.
+    -- la représentation, l'implémentation, la formation et la maintenance de solutions
+
+        logicielles métier.
+    C'est dans le cadre de sa mission de développement de solutions IA sur mesure que le
+projet Daleel a été initié, avec l'ambition de concevoir une plateforme d'assistance juridique
+et de conformité réglementaire à vocation internationale, expérimentée d'abord sur le marché
+et le droit tunisiens.
+
+1.2 Contexte métier et scientifique
+
+1.2.1 Contexte métier
+
+    La conformité réglementaire devient un défi stratégique majeur pour les entreprises de par
+le monde, et notamment les entreprises tunisiennes. Soumises à un cadre juridique dense et
+évolutif, les directions juridiques, les cabinets d'avocats et les équipes de conformité doivent
+maîtriser plusieurs corpus législatifs : Conventions internationales, conventions bilatérales,
+codes, lois, décrets, textes d'applications et autres.
+
+    Les sites juridiques existants, tels que ceux de l'IORT ou du JORT, permettent surtout
+la consultation statique des textes, sans recherche sémantique, analyse d'applicabilité ou
+pilotage opérationnel de la conformité. Ce besoin crée une opportunité métier : concevoir un
+assistant intelligent fondé sur les textes officiels, capable d'assister les professionnels dans leurs
+recherches juridiques et dans la gestion de leurs obligations de conformité tout en assurant
+un certain niveau de qualité digne de confiance.
+
+                                                                                                                     4
+Chapitre 1. Présentation du projet
+
+1.2.2 Contexte scientifique
+
+    Sur le plan scientifique, le projet s'inscrit dans le champ de la LegalTech fondée sur
+l'intelligence artificielle. Les LLMs permettent de comprendre et de générer du texte spécialisé,
+mais utilisés seuls ils souffrent d'hallucinations et ne disposent pas d'une connaissance
+actualisée des corpus juridiques locaux. Les architectures RAG limitent les réponses du
+modèle à des sources documentaires vérifiables, récupérées dynamiquement au moment de la
+requête.
+
+    Les modèles d'"embeddings" multilingues rendent possible la recherche sémantique trans-
+lingue entre des documents en arabe et des requêtes en français, ou inversement. Leur
+"fine-tuning" sur un corpus juridique tunisien améliore la pertinence de la récupération do-
+cumentaire. Enfin, les agents IA autonomes fondés sur le paradigme ReAct permettent de
+raisonner, d'appeler des outils spécialisés, d'observer les résultats et d'itérer jusqu'à construire
+une réponse complète.
+
+1.3 Problématique détaillée
+
+1.3.1 Volume et fragmentation de l'information juridique
+
+    Le corpus juridique tunisien applicable aux entreprises est volumineux et fragmenté. Il
+réunit codes, lois organiques, décrets, arrêtés ministériels, circulaires et notes sectorielles,
+disponibles sous des formats hétérogènes : PDF natifs, documents pixélisés et fichiers DOCX.
+Cette fragmentation complique le regroupement des sources, la cohérence entre versions et la
+gestion des amendements.
+
+1.3.2 Complexité structurelle et juridique
+
+    Les textes juridiques présentent une structure hiérarchique dense : livres, titres, chapitres,
+sections, articles et alinéas. Cette variabilité complique la segmentation automatique. À cela
+s'ajoute une complexité sémantique : obligations, interdictions, conditions et sanctions sont
+exprimées avec des nuances modales précises qu'un modèle générique peut confondre.
+
+                                                                                                                     5
+Chapitre 1. Présentation du projet
+
+1.3.3 Incohérences terminologiques et multilinguisme
+
+    Le corpus est rédigé en français et en arabe, sans correspondance toujours directe entre
+les versions. Certains textes existent dans une seule langue, d'autres dans les deux avec des
+formulations divergentes. L'arabe juridique tunisien présente aussi des particularités d'écriture
+et de normalisation Unicode, ce qui impacte les "embeddings" et la recherche translingue.
+
+1.3.4 Qualité hétérogène des sources officielles
+
+    Les documents issus de l'IORT et du JORT font autorité juridiquement, mais posent
+des défis de traitement automatique : encodages hétérogènes des textes arabes, documents
+numérisés sans couche textuelle, artefacts OCR, bruit éditorial et mise en forme variable
+selon les époques de publication.
+
+1.3.5 Absence d'un cadre intégré de conformité
+
+    Au-delà de la recherche juridique, les organisations tunisiennes ne disposent pas d'un
+outil connectant directement les textes applicables à la gestion opérationnelle des dossiers de
+non-conformité, des actions correctives, des contrôles internes, des exceptions et des preuves.
+Le problème n'est donc pas seulement de retrouver un article de loi, mais de transformer les
+obligations juridiques en exigences réglementaires exploitables par l'entreprise, reliées aux
+profils, aux constats, aux actions et aux preuves. Cette absence d'intégration représente un
+manque fonctionnel majeur.
+
+1.4 Objectifs du projet
+
+    Les objectifs du projet sont les suivants :
+    -- traiter la complexité structurelle, linguistique et documentaire des textes juridiques.
+    -- gérer la dimension temporelle du droit : versions en vigueur, amendements, historique
+
+        et traçabilité.
+    -- extraire, structurer et gérer les exigences réglementaires issues des textes juridiques
+
+        afin de les relier aux profils d'entreprises, aux constats de non-conformité et aux actions
+        correctives.
+
+                                                                                                                     6
+Chapitre 1. Présentation du projet
+    -- proposer une architecture modulaire, intégrable, multi-tenant et déployable sous
+        Docker.
+    -- offrir un pilotage complet du cycle de conformité, depuis les exigences et constats
+        jusqu'aux actions correctives, preuves et tableaux de bord.
+    -- améliorer la pertinence du "retrieval" par "fine-tuning" d'"embeddings" multilingues
+        spécialisés.
+
+1.5 Méthodologie de projet
+
+1.5.1 Méthodologie CRISP-DM
+
+    La méthodologie choisie est CRISP-DM (Cross-Industry Standard Process for Data
+Mining), approche itérative adapté aux projets d'intelligence artificielle. Elle décompose le
+cycle de vie en six phases : compréhension du problème métier, compréhension des données,
+préparation des données, modélisation, évaluation et déploiement.
+
+    Dans Daleel, cette démarche a été appliquée de manière itérative. L'évaluation du modèle
+d'"embeddings" de base a mis en évidence un déficit de pertinence, ce qui a déclenché une
+phase de "fine-tuning". De même, les difficultés OCR observées sur les textes arabes ont
+conduit à renforcer le pipeline de nettoyage.
+
+                                                                                                                     7
+Chapitre 1. Présentation du projet
+
+                        Figure 1.2:: Cycle CRISP-DM appliqué au projet Daleel
+
+1.5.2 Application des phases au projet
+
+    Compréhension métier : analyse des besoins des juristes, services juridiques et admi-
+        nistrateurs de plateforme.
+
+    Compréhension des données : exploration du corpus JORT/IORT, des langues, des
+        structures et de la qualité OCR.
+
+    Préparation des données : extraction multi-moteurs, nettoyage arabe, segmentation
+        en articles et "chunks", préparation des paires d'entraînement.
+
+    Modélisation : "fine-tuning" du modèle d'"embeddings", conception du pipeline RAG,
+        de l'agent ReAct et du volet "Compliance Operations".
+                                                                                                                     8
+Chapitre 1. Présentation du projet
+    Évaluation : mesure de Recall@k, MRR@k, nDCG@k, tests unitaires et tests d'intégra-
+        tion.
+    Déploiement : conteneurisation Docker Compose, service Ollama, MongoDB, FastAPI,
+        "frontend" React et pipeline CI/CD.
+
+1.6 Spécification des besoins
+
+1.6.1 Identification des acteurs
+
+    La plateforme distingue quatre acteurs :
+    Visiteur : consulte la page d'accueil, s'inscrit ou se connecte.
+    Membre : interroge le système, consulte ses conversations et accède aux informations
+
+        de conformité de son organisation. Peut se voir déléguer un rôle de gestion de la
+        conformité par le Owner.
+     l'administrateur fonctionnel (Owner) : administre son organisation, invite des
+        membres, téléverse des documents, gère les exigences réglementaires applicables à
+        son entreprise, crée des dossiers de non-conformité, pilote les actions correctives et
+        peut déléguer la gestion de la conformité à un membre de son organisation. Il peut
+        modifier les informations de son organisation et demander le renouvellement de son
+        abonnement au Super Admin.
+    Super Admin : gouverne la plateforme, gère les organisations et leurs utilisateurs,
+        approuve ou rejette les inscriptions, gère les adhésions et les paiements, renouvelle
+        les abonnements, administre le corpus juridique global (lois, articles, amendements,
+        affectation aux entreprises), consulte les statistiques agrégées et le tableau de bord BI,
+        sans accès aux données métier de conformité des organisations.
+
+1.6.2 Besoins fonctionnels par acteur
+
+    La spécification fonctionnelle est présentée ci-dessous par acteur. Les tableaux synthétisent,
+pour chaque profil, les modules accessibles et les principales fonctionnalités associées.
+
+                                                                                                                     9
+Chapitre 1. Présentation du projet
+
+Module                  Table 1.1:: Spécification fonctionnelle de l'acteur Visiteur
+Inscription
+                                    Fonctionnalités
+                                    S'inscrire (compte et organisation), vérifier l'email par jeton, vérifier le téléphone par OTP
+                                    et consulter en mode gratuit.
+
+                        Table 1.2:: Spécification fonctionnelle de l'acteur Membre
+
+Module                  Fonctionnalités
+
+Authentification        Se connecter, se déconnecter et réinitialiser son mot de passe.
+
+Consultation juridique  Poser une question juridique, interroger un document téléversé, communiquer en voix vive
+                        et activer l'agent autonome ReAct.
+
+Conformité déléguée     Consulter les exigences applicables, vérifier la conformité, fournir les dispositions et preuves,
+                        proposer des actions correctives et gérer un dossier de non-conformité.
+
+Historique              Consulter l'historique des conversations et donner un feedback.
+
+                        Table 1.3:: Spécification fonctionnelle de l'acteur Owner
+
+Module                  Fonctionnalités
+
+Gestion des membres     Créer et inviter un membre, faire valider l'inscription par le Super Admin, déléguer la
+                        conformité à un membre et déléguer d'autres tâches.
+
+Pilotage de conformité  Approuver les actions correctives, surveiller la clôture des actions et consulter le tableau de
+                        bord BI.
+
+Orchestration           Lancer l'orchestration ASK / CLARIFY / ACT / REVIEW et consulter le statut d'orches-
+                        tration.
+
+Organisation            Modifier les informations de son organisation et demander le renouvellement de l'abonnement.
+
+                  Table 1.4:: Spécification fonctionnelle de l'acteur Super Admin
+
+Module                  Fonctionnalités
+
+Veille réglementaire et légale Chercher et mettre à jour les textes, puis les classer par catégorie ou type.
+
+Gestion des exigences   Extraire et mettre à jour les exigences, puis affecter les mises à jour aux organisations.
+
+Utilisateurs et organisations Gérer les organisations, les utilisateurs, les adhésions et les paiements.
+
+Supervision             Consulter le tableau de bord global de la plateforme.
+
+1.6.3 Besoins non fonctionnels
+
+    Les contraintes communes sont le multilinguisme, la précision, la traçabilité, la performance,
+la sécurité JWT/MFA, l'isolation multi-tenant, la confidentialité "on-premise", la scalabilité,
+la disponibilité par health checks Docker et la maintenabilité par tests automatisés et
+journalisation structurée.
+
+                                                                                                                   10
+Chapitre 1. Présentation du projet
+
+Conclusion
+
+    Ce premier chapitre a établi le cadre complet du projet Daleel. Il a présenté l'entreprise
+d'accueil, le contexte métier et scientifique, les limites des pratiques actuelles, la problématique,
+les objectifs, la méthodologie CRISP-DM et les besoins fonctionnels et non fonctionnels, en
+positionnant les exigences réglementaires comme brique centrale entre les textes juridiques
+et la conformité opérationnelle. Le chapitre suivant présentera l'état de l'art des briques
+techniques mobilisées par la plateforme.
+
+                                                                                                                   11
+            2
+
+                              État de la technologie
+
+Introduction
+
+    Ce chapitre positionne la plateforme Daleel dans son contexte technique et scientifique.
+Dans le cycle CRISP-DM, il valide les fondations théoriques des briques mobilisées : modèles
+de langage de grande taille, architectures RAG, recherche hybride, "reranking", agents IA,
+ingénierie de prompts, "embeddings" multilingues, LegalTech et systèmes de gestion de la
+conformité réglementaire et légale.
+
+2.1 Modèles de langage de grande taille
+
+    Les modèles de langage de grande taille ("Large Language Models", LLM) constituent
+le coeur génératif du système. Apparus avec l'architecture Transformer, ils ont connu une
+progression importante depuis BERT et les modèles GPT, jusqu'aux familles récentes Llama,
+Mistral, Qwen, Phi et Gemma.
+
+    Pour un usage local sans API externe, les modèles Qwen2.5 représentent un choix pertinent.
+Le variant retenu, qwen2.5 :7b-instruct, est un modèle Transformer décodeur de 7,6 milliards
+de paramètres, doté d'une fenêtre de contexte étendue et de compétences multilingues en
+arabe, français et anglais. Son support de l'appel d'outils natif via Ollama permet au modèle de
+
+                                                                                                                                           12
+Chapitre 2. État de la technologie
+
+produire des appels structurés au lieu du texte libre à parser, ce qui facilite l'implémentation
+d'un agent ReAct fiable.
+
+    L'utilisation directe d'un LLM reste insuffisante en contexte juridique. Deux limites
+majeures justifient l'architecture adoptée : le risque d'hallucination et l'absence de connaissance
+actualisée des corpus normatifs locaux. Ces limites rendent nécessaire l'ancrage documentaire
+par RAG.
+
+2.2 Architectures de génération augmentée par récupéra-
+
+       tion
+
+    La génération augmentée par récupération ("Retrieval-Augmented Generation", RAG)
+consiste à récupérer dynamiquement des documents pertinents dans une base de connaissances
+et à les injecter dans le contexte du modèle avant génération. Cette approche améliore la
+factualité, la traçabilité et la mise à jour du système sans réentraînement complet.
+
+    La littérature distingue plusieurs niveaux : RAG naïf, RAG avancé, RAG agentique
+et RAG modulaire. Daleel s'inscrit dans une architecture modulaire et partiellement agen-
+tique, combinant recherche hybride, "reranking", routage par domaine juridique, "retrieval"
+partitionné, graphe de connaissances léger et garde-qualité.
+
+    La qualité d'une chaîne RAG dépend notamment de la stratégie de chunking, de la qualité
+des "embeddings", de la fusion entre recherche dense et recherche lexicale, et de la robustesse
+du prompt de génération. Dans un contexte juridique, ces facteurs conditionnent directement
+la précision des réponses et la fiabilité des citations.
+
+2.3 Recherche hybride et "reranking"
+
+    La recherche hybride combine la recherche dense, fondée sur des "embeddings" vectoriels, et
+la recherche sparse ou lexicale, typiquement BM25. La recherche dense capture les proximités
+sémantiques, tandis que la recherche lexicale reste efficace pour les termes exacts, les numéros
+d'articles et les références de codes.
+
+    Daleel met en oeuvre une synthèse équilibrée des signaux vectoriels FAISS et lexicaux,
+ce qui permet de combiner pertinence sémantique et correspondances exactes. Après cette
+
+                                                                                                                   13
+Chapitre 2. État de la technologie
+
+première récupération, un "reranking" par cross-encoder réévalue les paires requête-document
+sur le top-k candidat. Cette étape améliore la finesse du classement, au prix d'un coût
+calculatoire acceptable puisqu'elle s'applique uniquement à un sous-ensemble restreint.
+
+2.4 Agents IA et paradigme ReAct
+
+    Le paradigme ReAct ("Reasoning + Acting") propose une boucle où un LLM alterne
+raisonnement, action, observation et nouvelle décision. Contrairement à une chaîne RAG
+déterministe, l'agent décide dynamiquement des outils à invoquer selon les résultats intermé-
+diaires.
+
+    Dans Daleel, l'agent autonome exploite douze outils spécialisés : recherche juridique, récu-
+pération d'articles, exploration du graphe de connaissances, analyse de conformité, synthèse,
+vérification de citations et autres services métier. L'appel d'outils natif d'Ollama permet de
+produire des appels structurés contrôlables par le "backend". Des garde-fous encadrent l'agent :
+budget d'itérations, timeout global, journalisation systématique et restitution transparente
+des sources utilisées.
+
+2.5 Ingénierie de prompts et anti-hallucination
+
+    La qualité d'un système RAG dépend fortement du prompt. Les techniques mobili-
+sées incluent la persona d'expert juridique, le few-shot prompting trilingue, les consignes
+disciplinaires explicites, une température faible et la vérification post-génération.
+
+    La garde anti-hallucination de Daleel applique plusieurs contrôles : vérification des
+citations contre les "chunks" récupérés, détection des références d'articles inventées, contrôle
+de cohérence entre réponse et sources, et neutralisation des réponses insuffisamment indexées.
+L'objectif n'est pas seulement de produire une réponse fluide, mais de garantir qu'elle reste
+fondée sur les sources juridiques disponibles.
+
+2.6 Modèles d'"embeddings" multilingues et "fine-tuning"
+
+    Les "embeddings" permettent d'encoder des textes en vecteurs denses comparables par
+similarité. Pour un corpus multilingue, paraphrase-multilingual-mpnet-base-v2 constitue une
+
+                                                                                                                   14
+Chapitre 2. État de la technologie
+base robuste grâce à son alignement interlingue.
+
+    Cependant, les modèles généralistes capturent imparfaitement les nuances du langage
+juridique tunisien. Le "fine-tuning" sur des paires positives issues du corpus permet d'adapter
+l'espace vectoriel aux concepts du domaine. Dans Daleel, cette adaptation a amélioré les
+performances de récupération : +40 % en Recall@1 et +34 % en MRR@10 globalement, avec
+des gains particulièrement marqués sur le sous-corpus francophone et le rappel arabe en
+top-5.
+
+2.7 LegalTech et assistance juridique fondée sur l'IA
+
+    La LegalTech basée sur l'IA regroupe les systèmes capables d'assister la recherche, l'analyse,
+la rédaction et la conformité juridique. Des ressources telles que LEGAL-BERT, LexGLUE,
+LegalBench, AraBERT ou MARBERT montrent l'intérêt des modèles spécialisés, mais aussi
+la difficulté de transposer directement des modèles juridiques d'une juridiction à une autre.
+
+    Les solutions commerciales comme Harvey AI, Ketrone, realLaw AI ou Qanoony couvrent
+certains besoins d'assistance ou d'annuaire, mais elles restent souvent cloud, propriétaires,
+centrées sur d'autres juridictions ou dépourvues de pilotage complet de la conformité. Daleel
+se distingue en combinant RAG juridique multilingue, agent autonome, corpus tunisien,
+conformité opérationnelle et déploiement "on-premise".
+
+                                                                                                                   15
+Chapitre 2. État de la technologie
+
+           Table 2.1:: Positionnement de Daleel par rapport aux solutions existantes
+
+Critère      Daleel (ce pro- Harvey AI               Ketrone  realLaw AI  Qanoony
+             jet)
+
+Périmètre    juri- International, avec États-Unis    et Multi-juridictions Émirats arabes unis Monde arabe
+dique                premier corpus tu- Royaume-Uni
+                     nisien
+
+Ancrage documen-  RAG hybride,  Propriétaire          Selon configura-  Législation UAE × Non documenté
+                                                     tion
+taire / RAG  sources citées et
+
+             garde-qualité
+
+Gestion des exi-  Extraction, clas- Non documenté    Partiel  Non documenté × Non couvert
+
+gences       sification, applicabi-
+
+             lité et liaison aux
+
+             actions
+
+Pilotage de confor-      Dossiers, × Hors périmètre Partiel   × Hors périmètre × Hors périmètre
+
+mité         constats, actions, principal                     principal   principal
+
+             preuves, contrôles
+
+             et tableaux de bord
+
+Déploiement  On-premise, Do- Cloud propriétaire Cloud         Cloud       Cloud
+
+             cker,       données
+
+             maîtrisées      par
+
+             l'organisation
+
+Spécificité tuni-  2 565 articles in- ×              ×        ×           ×
+
+sienne       dexés et exploités
+
+2.8 Systèmes de gestion de la conformité réglementaire
+
+    Les solutions GRC traditionnelles, telles qu'IBM OpenPages, RSA Archer, MetricStream
+ou ServiceNow GRC, modélisent des référentiels d'exigences, des contrôles et des actions
+correctives. Elles restent toutefois coûteuses, souvent orientées vers des normes internationales,
+et peu adaptées au contexte règlementaire et légal tunisien.
+
+    Les approches RegTech récentes utilisent le traitement automatique du langage naturel
+pour analyser des textes réglementaires, extraire des obligations et évaluer leur applicabilité.
+Daleel s'inscrit dans cette tendance en intégrant le moteur "Legal RAG" au cycle "Compliance
+Operations" : dossiers, constats, scoring déterministe, actions correctives, preuves, contrôles
+et exceptions.
+
+                                                                                                            16
+Chapitre 2. État de la technologie
+
+Conclusion
+
+    Ce chapitre a présenté les fondements théoriques de Daleel : LLM, RAG, recherche hybride,
+"reranking", agents ReAct, prompts, garde anti-hallucination, "embeddings" multilingues,
+LegalTech et GRC. Il met en évidence la maturité des briques techniques disponibles et
+l'absence d'une solution combinant ces briques pour considérer convenablement le contexte
+juridique tunisien et le pilotage opérationnel de la conformité. Le chapitre suivant détaille la
+conception de l'architecture proposée.
+
+                                                                                                                   17
+            3
+
+                               Conception de projet
+
+Introduction
+
+    Ce chapitre présente la conception détaillée de la plateforme Daleel telle que synthétisée
+par la spécification du chapitre 1 et éclairée par l'état de l'art au chapitre 2. Dans le cycle
+CRISP-DM, il matérialise la phase de modélisation : il formalise l'architecture globale, puis
+spécifie chacun des modules clés pipeline d'ingestion, pipeline RAG à six modules, agent
+autonome ReAct, "fine-tuning" du modèle d'"embeddings", garde-qualité anti-hallucination et
+volet "Compliance Operations". Il présente enfin la modélisation conceptuelle des données et
+les choix technologiques retenus, dont la justification comparative des modèles de langage
+candidats. La réalisation effective de ces conceptions fera l'objet des chapitres 4 et 5.
+
+3.1 Architecture globale de la plateforme Daleel
+
+3.1.1 Vue d'ensemble et principes architecturaux
+
+    L'architecture de Daleel repose sur six principes directeurs :
+     1. Asynchronisme : toute la couche applicative exploite le modèle async/await de
+
+        Python, le pilote MongoDB asynchrone Motor et le serveur ASGI Uvicorn.
+
+                                                                                                                                           18
+Chapitre 3. Conception de projet
+     2. Modularité : les 41 services métier sont indépendants et faiblement couplés, organisés
+        autour d'interfaces stables. Le code source compte 70 modules "backend" regroupés en
+        couches api, services et processing.
+     3. Traçabilité : toute opération sur le corpus est consignée dans des journaux auditables ;
+        les appels d'outils de l'agent autonome sont journalisés dans tool_calls_log.
+     4. Séparation des préoccupations : la présentation, l'API, la logique métier et la
+        persistance sont strictement distinctes.
+     5. Multi-tenant et sécurité : isolement des données par organization_id, authen-
+        tification JWT, liste de révocation, MFA optionnel, validation stricte des entrées et
+        limitation de débit.
+     6. Conteneurisation : la plateforme est déployable via Docker Compose, avec build
+        multi-stage et orchestration de trois services : FastAPI, MongoDB 7.0 et Ollama.
+
+3.1.2 Vue en couches et flux de bout en bout
+
+    La plateforme s'organise en cinq couches successives, synthétisées dans le tableau 3.1.
+
+                                                                                                                   19
+Chapitre 3. Conception de projet
+
+          Table 3.1:: Couches architecturales de Daleel et composants principaux
+
+Couche           Composants principaux                Rôle
+
+Présentation     34 composants React, "chatbot", pan- Interaction utilisateur
+                 neau admin, "dashboard" BI, assistant
+                 vocal
+
+API REST         7 routeurs FastAPI, plus de 170 end- Validation, sécurité, routage
+                 points, schémas Pydantic, JWT, rate
+                 limiting
+
+Services métier  41 services : RAG, agent, compliance, Logique métier
+                 criticité, "embeddings", LLM, audit
+
+Traitement docu- 8 modules de processing : extraction, Préparation des données
+
+mentaire         OCR, nettoyage arabe, segmentation,
+
+                 chunking, normalisation derja
+
+Persistance      MongoDB 7.0, 38 collections, index Stockage et indexation
+                 FAISS HNSW, cache LLM, cache "em-
+                 beddings" LRU
+
+                                                                                     20
+Chapitre 3. Conception de projet
+
+     Figure 3.1:: Architecture globale de la plateforme Daleel : cinq couches et deux volets
+    Afin de présenter le fonctionnement du pipeline RAG de manière synthétique, le traitement
+d'une requête utilisateur est résumé en sept étapes principales. Cette représentation met
+l'accent sur le rôle de chaque étape et sur son objectif dans la production d'une réponse
+fiable, sourcée et exploitable.
+
+                                                                                                                   21
+Chapitre 3. Conception de projet
+
+   Table 3.2:: Présentation simplifiée du traitement d'une requête utilisateur dans le pipeline
+RAG Daleel
+
+Étape          Traitement effectué         Objectif
+
+1. Réception de la L'utilisateur formule une question juri- Identifier le besoin exprimé par
+
+question       dique en langage naturel.   l'utilisateur.
+
+2. Prétraitement Le système détecte la langue, l'intention Orienter correctement le traite-
+
+de la requête  et prépare la requête pour la recherche. ment.
+
+3. Recherche des Le pipeline récupère les passages perti- Sélectionner les textes juridiques
+
+sources        nents dans le corpus juridique indexé. utiles à la réponse.
+
+4. Classement des Les résultats récupérés sont filtrés, fusion- Retenir les sources les plus fiables
+
+résultats      nés et réordonnés selon leur pertinence. et les plus adaptées.
+
+5. Génération de Le modèle génère une réponse à partir Produire une réponse claire et
+
+la réponse     des sources sélectionnées.  contextualisée.
+
+6. Vérification La réponse est contrôlée afin de vérifier Réduire les hallucinations et ren-
+
+qualité        les références, les citations et la cohérence forcer la fiabilité.
+
+               linguistique.
+
+7. Restitution à La réponse finale est renvoyée avec les Garantir une réponse traçable et
+
+l'utilisateur  sources utilisées.          exploitable.
+
+    Une requête utilisateur traverse ces couches comme suit : la requête HTTP arrive
+sur l'API, est authentifiée par JWT et validée par Pydantic ; le service search_service
+ou legal_retrieval_orchestrator est invoqué ; la question est encodée par le modèle
+d'"embeddings" fine-tuné ; la recherche vectorielle FAISS récupère les candidats ; ces candidats
+sont reclassés par fusion pondérée ; le cross-encoder réordonne les meilleurs résultats ; le
+module KG Light enrichit le contexte ; le service LLM ou l'agent ReAct génère la réponse
+via Ollama ; enfin, la garde-qualité audite la réponse avant restitution à l'utilisateur avec les
+sources et le journal de raisonnement.
+
+                                                                                   22
+Chapitre 3. Conception de projet
+
+3.2 Conception du pipeline d'ingestion documentaire
+
+    Le pipeline d'ingestion transforme des documents bruts en vecteurs indexables. Il est conçu
+comme une succession de cinq étapes idempotentes, chacune produisant un état persistant en
+base et déclenchant la suivante.
+
+3.2.1 Étape 1 ­ Extraction documentaire en trois niveaux
+
+    L'extraction repose sur une stratégie en cascade. Un premier niveau extrait le texte
+des PDF natifs disposant d'une couche textuelle exploitable. Un deuxième niveau prend en
+charge les PDF utilisant des polices non standard ou des CMap arabes mal mappées. Un
+troisième niveau active une chaîne OCR, fondée sur Tesseract complété par EasyOCR, pour
+les documents entièrement numérisés. Une détection automatique de texte dégradé décide du
+passage d'un niveau au suivant. Pour les textes arabes, une chaîne de décodage successive
+teste les encodages UTF-8, Windows-1256, CP1256, ISO-8859-6 et Latin-1. La couche d'entrée
+applique aussi des contraintes de taille maximale, extensions admises et vérification croisée
+extension/MIME.
+
+3.2.2 Étape 2 ­ Normalisation et nettoyage
+
+    Le texte extrait est normalisé via une chaîne spécialisée pour l'arabe, combinant onze
+opérations : homogénéisation Unicode, uniformisation graphémique, réparation des artefacts
+OCR et finalisation typographique. Un module de nettoyage juridique retire le bruit éditorial
+propre aux publications du JORT tout en préservant les références légales, les titres d'articles
+et les marqueurs d'amendement. Un troisième module détecte les questions formulées en
+dialecte tunisien, ou derja, et les normalise vers le français standard avant soumission au
+pipeline RAG.
+
+3.2.3 Étape 3 ­ Segmentation hiérarchique et découpage
+
+    La segmentation extrait la structure hiérarchique des textes selon le schéma Titre ­
+Chapitre ­ Section ­ Article au moyen de motifs lexicaux bilingues. Les textes nettoyés
+sont ensuite découpés en unités d'indexation de 1 500 caractères avec chevauchement de 200
+caractères, en respectant les frontières structurelles détectées. Chaque chunk est associé à sa
+
+                                                                                                                   23
+Chapitre 3. Conception de projet
+langue, à son identifiant de section, à son indice séquentiel et à un hash du texte permettant
+la déduplication.
+
+3.2.4 Étape 4 ­ Encodage vectoriel et cache
+
+    Chaque chunk est transformé en vecteur de 768 dimensions par le modèle d'"embeddings"
+fine-tuné sur le corpus juridique tunisien. Deux mécanismes réduisent le coût d'inférence :
+un cache LRU au niveau des requêtes, indexé par empreinte du texte, et un mécanisme de
+compatibilité descendante chargeant un modèle de dimension 384 lorsqu'une requête cible un
+index hérité. Les vecteurs sont normalisés L2 afin d'exploiter une similarité cosinus exacte à
+partir d'un index HNSW euclidien.
+
+3.2.5 Étape 5 ­ Indexation FAISS et persistance
+
+    Les vecteurs sont stockés dans un index FAISS HNSW dont les hyperparamètres offrent
+un compromis rappel/latence adapté aux corpus de l'ordre de 104 à 106 vecteurs. L'index
+est reconstruit en mémoire à chaque démarrage de l'application, tandis que les métadon-
+nées associées sont conservées dans une structure parallèle. Un service de vérification de
+cohérence valide au démarrage que la dimension des vecteurs stockés correspond au modèle
+d'"embeddings" configuré.
+
+                                                                                                                   24
+Chapitre 3. Conception de projet
+
+                      Table 3.3:: Paramètres clés du pipeline d'ingestion
+
+Paramètre             Valeur          Justification
+
+Taille max fichier    50 Mo           Couvre les PDF volumineux sans risque DoS
+
+Extensions admises    pdf, docx, doc, txt, Vérification extension et MIME
+                      png, jpg, jpeg, webp
+
+Seuil texte dégradé   > 3 % caractères de Déclenche le passage OCR
+                      contrôle
+
+Seuil arabe attendu   < 15 % caractères Indique une extraction défaillante
+                      arabes
+
+Chunk size / overlap  1 500 / 200 carac- Compromis granularité et contexte
+                      tères
+
+Min chunk size        300 caractères  Évite les fragments non informatifs
+
+Embedding dim         768             Modèle MPNet fine-tuné
+
+Cache LRU "embed- 512 entrées         Réduction du coût d'inférence
+dings"
+
+FAISS index type      IndexHNSWFlat Compromis rappel/latence
+
+HNSW M / efConstruc- 32 / 200 / 64    Qualité d'insertion et recherche rapide
+tion / efSearch
+
+3.3 Conception du pipeline RAG avancé à six modules
+
+    Le pipeline de réponse orchestre une question utilisateur à travers six modules spécialisés ac-
+tivables indépendamment. Cette modularité, formalisée par le protocole RetrieverStrategy
+et la classe RetrievalMix, permet de basculer entre un mode RAG classique et un mode
+partitionné piloté par l'intention.
+
+3.3.1 Module 1 ­ Recherche hybride vectorielle et lexicale
+
+    La recherche combine des signaux complémentaires. La recherche vectorielle interroge
+l'index FAISS via faiss_manager.search, en récupérant initialement 4 × top_k candidats
+
+                                                                                 25
+Chapitre 3. Conception de projet
+avant filtrage. Les candidats sont ensuite reclassés par une fonction de fusion pondérée :
+
+score(c) = wvsvec(c) + wlolex(c) + wkskw(c) + waoanc(c) + b(c) - p(c)  (3.1)
+
+avec svec le score vectoriel, olex le recouvrement lexical, skw le score de mots-clés, oanc le
+recouvrement d'ancrage, b(c) les bonus et p(c) les pénalités. Les pondérations par défaut sont
+(wv, wl, wk, wa) = (0,56; 0,20; 0,14; 0,10).
+
+    Ce choix d'une fusion linéaire pondérée directe, plutôt qu'une fusion par rang RRF
+nécessitant un second index lexical BM25, privilégie la simplicité opérationnelle tout en
+conservant l'apport complémentaire des signaux denses et lexicaux.
+
+3.3.2 Module 2 ­ Reranking par cross-encoder
+
+    Les "chunks" issus de la recherche hybride sont reclassés par cross-encoder/ms-marco-
+MiniLM-L-6-v2. Ce modèle évalue chaque paire question­chunk de façon croisée. Un seuil de
+rejet MIN_RERANK_SCORE = -2.0 élimine les "chunks" manifestement non pertinents avant la
+génération.
+
+3.3.3 Module 3 ­ Routeur de domaine
+
+    Le module services/domain_router.py identifie le domaine juridique d'une question
+parmi cinq domaines prioritaires : travail, sociétés, données personnelles, fiscalité et sécurité
+au travail, et reste extensible vers d'autres domaines. Il adapte ensuite les paramètres de
+recherche : top_k, filtre de langue et orientation vers des collections spécifiques. Un repli
+LLM est activé lorsque la classification par mots-clés est ambiguë.
+
+3.3.4 Module 4 ­ Orchestrateur de récupération partitionnée
+
+    Le module services/legal_retrieval_orchestrator.py distingue les "chunks" issus
+des textes de base de ceux issus des amendements, afin d'éviter le mélange de sources
+contradictoires lorsqu'un amendement remplace une disposition antérieure.
+
+                                                                                            26
+Chapitre 3. Conception de projet
+
+             Table 3.4:: Stratégie de mixing partitionnée par intention
+
+Intention détec- Sources                                  Pondération top_k
+
+tée
+
+current_state amendement, base                            0,70 / 0,30                 12, 6
+
+historical   base, amendement                             0,85 / 0,15                 12, 4
+
+compare      base, amendement                             0,50 / 0,50                 8, 8
+
+compliance_  base, amendement, exigence, action           0,40 / 0,40 / 0,10 8, 8, 4, 4
+audit                                                     / 0,10
+
+Les "chunks" récupérés depuis chaque partition sont fusionnés par un score pondéré :
+
+             scoremerge(c) =  scorebase(c)  +  1  +  0,1  1          · wpartition(c)         (3.2)
+                                                          · rang(c)
+
+La liste finale est dédupliquée par identifiant ou hash de texte et tronquée à top_k = 14 par
+défaut.
+
+3.3.5 Module 5 ­ Résolveur de graphe de connaissances léger
+
+    Le module services/graph_resolver.py traverse les collections MongoDB selon la
+hiérarchie Loi ­ Article ­ Version ­ Exigence ­ Action ­ Criticité. Il reconstitue un sous-
+graphe de connaissances pour les articles cités dans les "chunks" récupérés. Le paramètre
+kg_light_max_entities = 6 limite l'enrichissement pour préserver la fenêtre de contexte
+du LLM.
+
+3.3.6 Module 6 ­ Garde-qualité
+
+    Avant présentation, la réponse est soumise à une validation multi-couches : contrôle des
+références citées, détection de citations fabriquées par fenêtre glissante, fidélité sémantique et
+conformité linguistique.
+
+3.3.7 Assemblage du prompt et ingénierie interactive
+
+    Le prompt final combine le persona de "Conseiller Juridique Interactif", un exemple
+few-shot trilingue, l'historique récent de conversation, les "chunks" numérotés, le sous-graphe
+
+                                                                                                                   27
+Chapitre 3. Conception de projet
+KG Light, un rappel d'ancrage disciplinaire, la question utilisateur et un rappel de langue
+explicite. Le format de réponse imposé comprend quatre blocs maximum : diagnostic, ce que
+dit la loi, risques et conséquences, actions à prendre. Le système impose un maximum de 400
+mots, interdit les répétitions et proscrit les phrases de remplissage.
+
+3.4 Conception de l'agent autonome ReAct
+
+    Au-delà du pipeline RAG séquentiel, Daleel propose un agent autonome fondé sur le
+paradigme ReAct, exposé via l'endpoint POST /api/v1/ask-agent. L'agent décide dynami-
+quement quelles actions entreprendre selon la question et les résultats intermédiaires.
+
+3.4.1 Boucle d'exécution
+
+    L'agent construit le contexte initial, puis itère selon cinq étapes : (i) construction du
+contexte, (ii)appel Ollama avec schéma d'outils, (iii)exécution des appels d'outils, (iv)itération
+ou réponse finale, (v)puis application d'un garde-fou de budget. Les appels au modèle utilisent
+une température de 0,15, un top-p de 0,9 et un contexte de 8 192 tokens. Chaque résultat
+d'outil est tronqué à 4 000 caractères avant réinjection comme observation.
+
+3.4.2 Traçabilité et garde-fous
+
+    Chaque itération est enregistrée dans un ToolCallRecord contenant l'itération, le nom
+de l'outil, les arguments, un résumé du résultat, la durée d'exécution et l'éventuelle erreur.
+Cette trace est exposée dans tool_calls_log. En sortie de boucle, trois validations sont
+appliquées : format de réponse, vérification de langue et audit qualité.
+
+3.5 Conception du "fine-tuning" des "embeddings"
+
+    Le "fine-tuning" du modèle d'"embeddings" constitue la contribution scientifique la plus
+mesurable du projet. Sa conception suit quatre étapes.
+
+                                                                                                                   28
+Chapitre 3. Conception de projet
+
+3.5.1 Constitution du dataset
+
+    À partir des 2 344 articles juridiques extraits, un jeu d'entraînement est construit selon
+deux familles de paires positives : des paires question­article générées synthétiquement par
+LLM, puis filtrées par vérification de cohérence ; et des paires inter-langues pour les articles
+disposant d'une version arabe et française. Les négatifs hard sont sélectionnés par mining :
+pour chaque ancre, les articles proches mais non cibles sont retenus afin d'exposer le modèle
+aux confusions sémantiques du domaine.
+
+3.5.2 Architecture et fonction de perte
+
+     Le modèle de départ est sentence-transformers/ paraphrase-multilingual
+-mpnet-base-v2, avec "embeddings" de 768 dimensions. La fonction de perte retenue est
+MultipleNegativesRankingLoss. Dans un batch de taille B, chaque paire positive utilise les
+B - 1 autres positifs du batch comme négatifs implicites :
+
+L=-  1B      log                       exp(sim(ai, pi)/ )           (3.3)
+
+     B  i=1                            B    exp(sim(ai,  pj  )/  )
+                                       j=1
+
+avec  une température de calibration.
+
+                                                                    29
+Chapitre 3. Conception de projet
+
+3.5.3 Hyperparamètres et protocole d'évaluation
+
+            Table 3.5:: Hyperparamètres du "fine-tuning" du modèle d'"embeddings"
+
+Hyperparamètre         Valeur
+
+Modèle de base         paraphrase-multilingual-mpnet-base-v2
+
+Dimension d'embedding  768
+
+Fonction de perte      MultipleNegativesRankingLoss
+
+Batch size             32
+
+Learning rate          2 × 10-5
+
+Optimiseur             AdamW
+
+Warmup steps           10 % du total
+
+Epochs                 3
+
+Max sequence length    256 tokens
+
+Normalisation          L2
+
+    Le protocole d'évaluation repose sur 30 requêtes gold, 20 en français et 10 en arabe,
+distinctes du jeu d'entraînement. Les métriques calculées sont Recall@1, Recall@5,
+Recall@10, MRR@10 et nDCG@5. Le modèle résultant est sauvegardé sous le nom
+daleel-embedding-finetuned.
+
+3.6 Conception de la garde-qualité anti-hallucination
+
+    Le module services/quality_guard_service.py constitue la dernière ligne de défense
+contre les hallucinations. Il intervient en post-génération et fonctionne en plusieurs couches.
+
+3.6.1 Couche 1 ­ Vérification des références
+
+    Les références d'articles et de lois mentionnées dans la réponse sont extraites par ex-
+pressions régulières et confrontées aux références effectivement présentes dans les "chunks"
+récupérés. Toute référence citée non supportée est signalée comme suspecte.
+
+                                                                                   30
+Chapitre 3. Conception de projet
+
+3.6.2 Couche 2 ­ Détection de citations fabriquées
+
+    Les citations textuelles entre guillemets sont extraites, puis chacune est recherchée dans
+le texte concaténé des "chunks" selon une fenêtre glissante. On cherche d'abord la citation
+entière, puis des fenêtres décroissantes de 8 à 4 mots consécutifs. Toute citation non vérifiée
+est remplacée par le marqueur [citation non vérifiée].
+
+3.6.3 Couche 3 ­ Cohérence du contenu d'article
+
+    Le module _verify_article_content_match détecte les cas où la réponse attribue à un
+article un contenu qui ne figure pas réellement dans le chunk correspondant. Cette vérification
+capture les hallucinations subtiles portant sur le contenu exact d'une disposition.
+
+3.6.4 Couche 4 ­ Conformité linguistique
+
+    La langue effective de la réponse est comparée à la langue détectée de la question via un
+ratio de caractères et un comptage de mots-marqueurs. Si la réponse n'est pas dans la bonne
+langue, une requête de traduction est automatiquement émise au LLM.
+
+3.6.5 Décision finale et statuts
+
+    Le service produit un statut final parmi accepted, rewritten ou rejected. La dé-
+cision et la liste des problèmes détectés sont injectées dans la réponse de l'API sous
+quality_guard_status et quality_guard_issues.
+
+3.7 Conception du volet "Compliance Operations"
+
+    Le volet "Compliance Operations" transforme la plateforme d'un système de question-
+réponse vers un outil de pilotage opérationnel. Sa conception repose sur l'orchestration d'un
+cycle complet allant du dossier de non-conformité aux preuves de mise en conformité.
+
+3.7.1 Modèle métier du cycle de conformité
+
+    Le cycle de conformité s'articule autour de huit entités : compliance_cases, case_messa
+ges, case_documents, case_findings, case_actions, controls, control_evidences et
+
+                                                                                                                   31
+Chapitre 3. Conception de projet
+exception_register. Une table de liaison requirement_control_links relie les exigences
+réglementaires aux contrôles, et compliance_assessments matérialise les évaluations
+périodiques de posture.
+
+3.7.2 Orchestrateur de cas
+
+    L'orchestrateur services/compliance_case_orchestrator.py séquence sept phases :
+(i) collecte de contexte, (ii) analyse d'écarts, (iii) vérification d'applicabilité, (iv) génération
+de constats, (v) scoring de criticité, (vi) priorisation des actions et (vii) mappage des preuves.
+
+3.7.3 Arbre de décision ASK / CLARIFY / ACT / REVIEW
+
+    L'orchestrateur conclut chaque cycle par une décision selon un arbre à quatre branches.
+ASK collecte les faits manquants, CLARIFY lève les ambiguïtés, ACT propose un plan
+d'action lorsque le contexte est suffisant, et REVIEW demande une validation experte pour
+les cas critiques ou incertains.
+
+             Figure 3.2:: Arbre de décision de l'orchestrateur "Compliance Operations"
+    Les seuils principaux sont MIN_FACTS_FOR_ANALYSIS=3, MAX_MISSING_FACTS_TOLERA
+NCE=2, MIN_CONFIDENCE_FOR_AUTO_ACT=0.70 et MIN_CONFIDENCE_FOR_FINDING=0.60. La
+
+                                                                                                                   32
+Chapitre 3. Conception de projet
+décision est exposée au "frontend", qui adapte l'interface en conséquence.
+
+3.7.4 Moteur de criticité déterministe
+
+    Le service criticality_service.py attribue à chaque action un niveau critique, impor-
+tant ou secondaire. Le score est calculé selon un modèle additif déterministe afin de garantir
+auditabilité et reproductibilité.
+
+Composante            Table 3.6:: Composantes du score de criticité
+
+                       Valeur Description
+
+Score de base ­ sanction 0,85   Modalité sanction
+
+Score de base ­ interdic- 0,70  Modalité interdiction
+tion
+
+Score de base ­ obliga- 0,65    Modalité obligation
+tion
+
+Score de base ­ condi- 0,35     Modalité condition
+tion
+
+Boost sanctions tex- +0,10      Mots-clés : amende, peine, emprisonnement
+tuelles
+
+Boost montant pécu- +0,05       Présence d'un montant
+niaire
+
+Boost données person- +0,15     Loi n° 2004-63, cadre INPDP, données personnelles
+nelles
+
+Boost santé/sécurité  +0,12     Accident du travail, EPI, sécurité professionnelle
+
+Boost fiscal          +0,08     TVA, impôt, douane
+
+Pénalité langage condi- -0,15   Formulations conditionnelles
+tionnel
+
+Boost sanction héritée +0,07    Article parent portant une sanction distincte
+
+    Chaque composante appliquée est journalisée dans criticality_reasons, permettant à
+l'utilisateur de comprendre pourquoi une action est classée critique.
+
+                                                                                    33
+Chapitre 3. Conception de projet
+
+3.8 Modélisation conceptuelle des données
+
+    La persistance Daleel s'appuie sur MongoDB 7.0 avec 38 collections regroupées en sept
+domaines fonctionnels.
+
+                Table 3.7:: Cartographie des 38 collections MongoDB par domaine
+
+Domaine                   Collections
+
+Gestion documentaire      documents, document_sources, document_raw_pages, document_cleaned_texts, chunks
+
+Hiérarchie juridique      lois, articles, article_versions, amendment_operations
+
+Exigences et actions      exigences, actions, action_criticalities, action_dependencies
+
+Profils et applicabilité  company_profiles, exigence_applicabilities
+
+Dossiers de conformité    compliance_cases, case_messages, case_documents, case_document_analyses, case_findings,
+                          case_actions, compliance_assessments
+
+Contrôles et preuves      controls, control_evidences, requirement_control_links, exception_register,
+                          contract_analyses
+
+Identité, audit et système users, organizations, invitations, password_reset_tokens, token_blacklist, audit_logs,
+                                        qa_feedback, chat_history, notifications, user_memory, conversation_summaries
+
+3.8.1 Schéma hiérarchique juridique
+
+    Le coeur du modèle juridique est constitué de la chaîne Loi ­ Article ­ ArticleVersion ­
+Exigence ­ Action ­ ActionCriticality ­ AmendmentOperation. Le tableau suivant synthétise
+les principales entités et associations de cette hiérarchie.
+
+    Cette hiérarchie suit le modèle standard des cadres de gouvernance, risque et conformité
+(GRC) : un texte de loi se décompose en articles, chaque article peut connaître plusieurs
+versions (amendements), chaque version fait naître des exigences réglementaires, chaque
+exigence appelle des actions correctives, et chaque action reçoit un scoring de criticité.
+
+                          Table 3.8:: Entités et associations de la hiérarchie juridique
+
+Entité source             Association  Entité cible (cardinalité)
+
+Loi                       contenir     Article (1,N)
+
+Article                   posséder     ArticleVersion (1,N)
+
+ArticleVersion            engendrer    Exigence (0,N)
+
+Exigence                  nécessiter   Action (0,N)
+
+Action                    recevoir     ActionCriticality (0,1)
+
+Action                    dépendre de  Action (0,N, via ActionDependency)
+
+AmendmentOperation        modifier     ArticleVersion (0,N)
+
+                                                                                                           34
+Chapitre 3. Conception de projet
+
+    Chaque ArticleVersion porte un booléen is_base_version, un numéro
+version_number et un booléen is_current. Les AmendmentOperation lient la version
+précédente à la version résultante, et leur type permet la traçabilité fine des modifications.
+
+3.8.2 Schéma du cycle de conformité
+
+    Le cycle de conformité opérationnel s'articule autour de ComplianceCase, CaseMessage,
+CaseDocument, CaseFinding, CaseAction, ComplianceAssessment et ControlEvidence. Le
+tableau suivant présente les entités et associations structurantes de ce cycle.
+
+                Table 3.9:: Entités et associations du cycle de conformité
+
+Entité source   Association   Entité cible (cardinalité)
+ComplianceCase
+ComplianceCase  contenir      CaseMessage (0,N)
+ComplianceCase
+CaseFinding     joindre       CaseDocument (0,N)
+ComplianceCase
+Control         produire      CaseFinding (0,N)
+Control
+Control         déclencher    CaseAction (0,N)
+
+                évaluer par   ComplianceAssessment (0,N)
+
+                attester par  ControlEvidence (0,N)
+
+                couvrir       Exigence (0,N, via RequirementControlLink)
+
+                enregistrer   ExceptionRegister (0,N)
+
+    Les CaseFindings portent une sévérité, un score de confiance et un lien optionnel vers
+les exigences réglementaires contrevenues. Les CaseActions héritent du modèle des actions
+réglementaires mais s'ancrent dans le contexte du cas.
+
+3.8.3 Stratégie d'indexation MongoDB
+
+    Les index constituent un mécanisme essentiel de performance dans les bases de données
+documentaires. Sans index, MongoDB effectue un parcours complet de la collection (collection
+scan) pour chaque requête, ce qui entraîne une complexité linéaire en O(n). Un index B-tree
+réduit cette complexité à O(log n), accélérant significativement les lectures sur les collections
+volumineuses. Dans Daleel, où certaines collections atteignent plusieurs milliers de documents
+(2 565 articles, plus de 10 000 chunks), cette optimisation est déterminante pour la latence
+des requêtes en production.
+
+    Les index composites permettent en outre de couvrir les requêtes multi-critères fréquentes
+
+                                                                            35
+Chapitre 3. Conception de projet
+
+(filtrage par organisation, statut et date) en un seul parcours d'arbre. Les index uniques garan-
+tissent l'intégrité des données, notamment l'unicité du hash de fichier dans document_sources
+et l'unicité du couple (article, numéro de version) dans article_versions.
+
+    Pour garantir la performance des requêtes, des index composites sont définis dans
+database.py. Les index notables incluent : chunks sur document, langue et version d'article ;
+document_sources avec un index unique sur file_hash ; article_versions sur article
+courant et numéro de version ; exigences sur document et type ; compliance_cases sur
+organisation et statut ; et audit_logs sur date, utilisateur et action.
+
+3.9 Choix technologiques
+
+3.9.1 Critères de sélection
+
+    Les choix technologiques ont été guidés par cinq contraintes : asynchronisme, support
+multilingue, déploiement local sans API externe, confidentialité des données juridiques et
+reproductibilité du déploiement.
+
+3.9.2 Comparaison des modèles de langage candidats
+
+    Le choix du LLM central conditionne la qualité des réponses, la couverture linguistique,
+la capacité à intégrer des outils et la viabilité d'un déploiement "on-premise".
+
+                  Table 3.10:: Comparaison des modèles de langage candidats
+
+Critère           Qwen2.5 7B      Mistral 7B          Llama 3.2 3B        GPT-4 API
+Paramètres
+Multilingue       7,6 G           7,2 G               3,2 G               non communiqué
+
+Qualité arabe     29 langues      dont surtout en/fr  arabe non officiel  très large
+Contexte          ar/fr/en
+Function calling
+On-premise        bonne           faible à moyenne    faible              excellente
+Licence
+                  32 768 tokens   32 768 tokens       128 000 tokens      128 000 tokens
+Coût
+Empreinte Q4      natif           partiel             partiel             natif
+
+                  oui             oui                 oui                 non
+
+                  Apache 2.0      Apache 2.0          Llama Community Li- propriétaire
+                                                      cense
+
+                  open weights    open weights        open weights        facturation API
+
+                  environ 4,7 Go  environ 4,4 Go      environ 2 Go        n/a
+
+                                                                                           36
+Chapitre 3. Conception de projet
+    GPT-4 est écarté malgré sa qualité brute en raison des contraintes de confidentialité et de
+
+coût. Llama 3.2 3B présente une empreinte faible, mais sa couverture arabe et sa licence sont
+moins adaptées. Mistral 7B est satisfaisant pour le déploiement local, mais son support de
+"function calling" reste moins robuste. Qwen2.5 7B réunit les critères décisifs : arabe, français
+et anglais, appel d'outils natif, licence Apache 2.0, déploiement local via Ollama et empreinte
+mémoire compatible avec un serveur moyen.
+
+                                                                                                                   37
+Chapitre 3. Conception de projet
+
+3.9.3 Synthèse des technologies retenues
+
+               Table 3.11:: Synthèse des technologies retenues
+
+Composant      Technologie                        Justification
+
+Framework API FastAPI                             Async natif, Pydantic, OpenAPI
+
+Serveur ASGI   Uvicorn                            Performance et compatibilité Fas-
+                                                  tAPI
+
+Base de données MongoDB 7.0 + Motor               Schéma flexible et pilote async
+
+Recherche vecto- FAISS HNSW                       Local, rapide, scalable
+rielle
+
+Fusion des signaux Combinaison linéaire pondérée  Simple et ajustable
+
+Reranking      Cross-encoder MiniLM               Précision sur le top-k
+
+LLM            qwen2.5 :7b via Ollama             Local, multilingue, tool calling na-
+                                                  tif
+
+Embeddings     MPNet fine-tuné                    Gains mesurés en Recall et MRR
+
+Agent autonome ReAct + Ollama tools               Raisonnement itératif traçable
+
+OCR            Tesseract + EasyOCR                Couverture multilingue et fallback
+
+Extraction PDF PyMuPDF + pdfminer.six             Cascade qualité/performance
+
+Authentification JWT                              Stateless et multi-tenant compa-
+                                                  tible
+
+Frontend       React + Vite                       Écosystème mature et producti-
+                                                  vité
+
+Rate limiting  SlowAPI                            Protection DoS API
+
+Conteneurisation Docker Compose                   Déploiement reproductible
+
+CI/CD          GitHub Actions                     Ruff, pytest, matrice Python
+
+Conclusion
+
+    Ce chapitre a présenté la conception détaillée de Daleel : architecture globale, pipeline
+d'ingestion à cinq étapes, pipeline RAG à six modules, agent autonome ReAct, protocole
+
+                                                                                   38
+Chapitre 3. Conception de projet
+de "fine-tuning" des "embeddings", garde-qualité anti-hallucination, volet "Compliance Ope-
+rations", modélisation MongoDB et choix technologiques. Les choix retenus ­ FastAPI,
+MongoDB, FAISS, cross-encoder, Ollama avec qwen2.5:7b, MPNet fine-tuné, Docker et
+GitHub Actions ­ répondent aux contraintes d'asynchronisme, de multilinguisme, de déploie-
+ment local, de confidentialité et de reproductibilité. Le chapitre suivant présente la réalisation
+concrète du volet "Legal RAG".
+
+                                                                                                                   39
+            4
+
+                Réalisation du volet "Legal RAG"
+
+Introduction
+
+    Ce chapitre décrit la réalisation effective du volet "Legal RAG" de la plateforme Daleel,
+en suivant la conception présentée au chapitre 3. Dans le cycle CRISP-DM, il matérialise
+l'exécution conjointe des phases 3, préparation des données, et 4, modélisation. Le pipeline
+d'ingestion documentaire transforme le corpus brut JORT en "chunks" indexables, le "fine-
+tuning" spécialise le modèle d'"embeddings" sur le corpus juridique tunisien, et l'orchestration
+RAG avec agent autonome construit la chaîne de réponse.
+
+    Plusieurs itérations entre ces deux phases ont été nécessaires : la première campagne
+d'évaluation a révélé un taux de citations fabriquées élevé, conduisant à un retour à la
+modélisation pour ajouter la garde-qualité par fenêtre glissante ; un audit qualitatif des
+réponses arabes a déclenché un retour à la préparation des données pour ajouter trois
+sous-étapes de nettoyage.
+
+                                                                                                                                           40
+Chapitre 4. Réalisation du volet "Legal RAG"
+
+4.1 Environnement de développement
+
+4.1.1 Configuration matérielle
+
+    Le développement et les expérimentations ont été conduits sur un poste de travail dédié
+dont la configuration est récapitulée dans le tableau 4.1.
+
+Table 4.1:: Configuration matérielle de la station de développement
+
+Composant        Caractéristiques
+
+Processeur       Intel Core i7, 8 coeurs / 16 threads, 2,5 GHz
+                 base, 4,8 GHz boost
+
+Mémoire vive     32 Go DDR5
+
+Stockage         SSD NVMe 1 To
+
+Carte graphique  NVIDIA RTX 3060, 12 Go GDDR6, utilisée
+                 pour le "fine-tuning"
+
+Système d'exploitation Windows 11 Pro 64 bits, WSL2 Ubuntu 22.04
+                               pour les charges Linux
+
+    La carte graphique a été exploitée pour accélérer l'entraînement du modèle "d'embeddings" ;
+l'inférence en production reste sur CPU afin de respecter la contrainte de déploiement sur
+des environnements client standard.
+
+                                                                     41
+Chapitre 4. Réalisation du volet "Legal RAG"
+
+4.1.2 Configuration logicielle
+
+          Table 4.2:: Composants logiciels et rôle dans la plateforme
+
+Composant              Version      Rôle
+
+Python                 3.12         Langage "backend"
+
+FastAPI                 0.115       Framework web ASGI
+
+Uvicorn                 0.30        Serveur ASGI
+
+Pydantic               v2           Validation et schémas
+
+Motor                   3.4         Pilote MongoDB asynchrone
+
+MongoDB                7.0          Base documentaire
+
+sentence-transformers   3.0         Embeddings et cross-encoder
+
+FAISS                   1.7         Index vectoriel HNSW
+
+Ollama                  0.4         Serveur LLM local
+
+qwen2.5 :7b            ­            Modèle générateur
+
+PyMuPDF / pdfmi-  1.24              / Extraction PDF native et repli
+
+ner.six                20231228
+
+Tesseract / EasyOCR     5.3 / 1.7   OCR multilingue
+
+Docker / Compose       24+ / 2.20+  Conteneurisation
+
+Ruff / pytest           0.6 /  8    Lint et tests
+
+Node.js / React / Vite 20 LTS / 19 / 8 Frontend
+
+    Le fichier requirements.txt formalise les dépendances Python avec versions épinglées,
+garantissant la reproductibilité du build.
+
+4.1.3 Organisation du code source
+
+    Le dépôt est organisé autour d'un "backend" FastAPI, d'un "frontend" React/Vite,
+d'une configuration Docker et d'une chaîne CI. Le "backend" regroupe les routeurs dans
+backend/app/api/, les 41 services métier dans backend/app/services/, les modules de
+traitement documentaire dans backend/app/processing/, les schémas Pydantic et l'entrée
+applicative main.py. Le "frontend" contient 18 pages React, les composants réutilisables et
+les fichiers de traduction ar.json, fr.json et en.json.
+
+                                                                       42
+Chapitre 4. Réalisation du volet "Legal RAG"
+
+4.2 Implémentation du pipeline d'ingestion documentaire
+
+4.2.1 Extraction en cascade
+
+    Le module backend/app/processing/extractor.py implémente une cascade à trois
+niveaux. PyMuPDF extrait d'abord le texte et les positions de blocs des PDF natifs. Le repli
+sur pdfminer.six est déclenché lorsque PyMuPDF retourne un texte vide ou anormalement
+court. Enfin, backend/app/processing/ocr.py orchestre l'OCR : les pages sont converties
+en images via poppler-utils, Tesseract est invoqué avec les langues ara+fra+eng, puis
+EasyOCR intervient si le score moyen de confiance est insuffisant.
+
+    L'enveloppe file_extract.py expose la fonction d'extraction utilisée par les endpoints
+API. Elle valide les extensions, croise le type MIME, contrôle la taille maximale de 50 Mo
+et nettoie le nom de fichier pour supprimer les caractères de contrôle et les tentatives de
+traversal.
+
+4.2.2 Pipeline de nettoyage arabe
+
+    Le module text_utils.py implémente le pipeline arabe en onze étapes. La détection
+de langue exploite la proportion de caractères arabes et des mots-marqueurs trilingues.
+Le pipeline assure l'homogénéisation Unicode, l'uniformisation graphémique, la réparation
+des artefacts OCR et la finalisation typographique avant les étapes de segmentation et
+d'indexation.
+
+4.2.2.1 Filtrage des contenus non réglementaires
+
+    Le JORT publie, outre les textes législatifs et réglementaires, des contenus administratifs
+non normatifs : annonces de nominations, publications d'organismes d'État, avis de mar-
+chés publics, communiqués, rectificatifs éditoriaux et colophons d'impression. Le module
+legal_cleaner.py applique un filtrage en deux temps. Premièrement, une liste blanche
+préserve systématiquement tout contenu juridique : marqueurs d'amendement (« Modifié
+par », « Ajouté par »), références légales (« Loi n° », « Décret n° »), intitulés d'articles
+et dates d'entrée en vigueur, ainsi que leurs équivalents arabes. Deuxièmement, une liste
+noire supprime les lignes correspondant à des motifs éditoriaux : mentions « Paru au JORT
+», « Journal Officiel », « Rectificatif », « Erratum », colophons d'impression (SODIPER,
+
+                                                                                                                   43
+Chapitre 4. Réalisation du volet "Legal RAG"
+
+Imprimerie Officielle). Une analyse fréquentielle inter-pages détecte en complément les en-têtes
+et pieds de page répétitifs, supprimés s'ils apparaissent dans plus de 30 % des pages sans
+correspondre à la liste blanche. En amont, l'endpoint PATCH /documents/{id}/classify
+permet au Super Admin de classifier manuellement un document comme base, modificatif ou
+autre, excluant ainsi les documents non réglementaires du pipeline d'indexation.
+
+4.2.3 Segmentation et chunking
+
+    Le module article_segmenter.py produit une liste structurée de sections, chacune
+composée d'un en-tête et d'un corps. Cette structuration prépare l'extraction des exigences
+réglementaires : chaque exigence peut être rattachée à son article source, stockée, recherchée
+puis reliée aux profils, constats et actions de conformité. Le service expose aussi l'endpoint POST
+/api/v1/segment, permettant de re-segmenter un document avec des motifs personnalisés.
+
+    Le ChunkingService construit les "chunks" en deux passes : découpage par section, puis
+découpage glissant à l'intérieur de chaque section avec une taille cible de 1 500 caractères et un
+chevauchement de 200 caractères. La fonction _merge_short_chunks recombine les fragments
+inférieurs à 300 caractères, et _is_low_quality rejette les "chunks" dont la diversité lexicale
+ou le ratio alphanumérique sont insuffisants.
+
+4.2.4 Indexation FAISS et cohérence
+
+    Le FaissIndexManager est un singleton global. Au démarrage, le lifespan FastAPI in-
+voque faiss_manager.rebuild(). La construction parcourt la collection chunks, accu-
+mule les vecteurs dans un tableau NumPy, applique faiss.normalize_L2, puis construit
+IndexHNSWFlat(dim, M=32) avec efConstruction=200 et efSearch=64. Les métadonnées
+sont conservées dans une liste parallèle pour la résolution rapide des résultats.
+
+    Le service index_consistency_service.py persiste les métadonnées de l'index : modèle
+d'embedding, dimension, nombre de vecteurs et date de construction. En cas de désaccord
+dimensionnel, l'index est marqué indisponible et l'endpoint administratif /admin/reindex
+permet de relancer le ré-encodage.
+
+                                                                                                                   44
+Chapitre 4. Réalisation du volet "Legal RAG"
+
+4.3 Fine-tuning du modèle d'"embeddings"
+
+4.3.1 Préparation du dataset
+
+    Le script backend/training/build_dataset.py génère le jeu d'entraînement à partir
+des versions d'articles en vigueur. Pour chaque article, llm_service.generate_questions
+sollicite qwen2.5:7b afin de formuler trois à cinq questions juridiques. Les questions sont
+produites en français pour les articles français et en arabe pour les articles arabes ; une
+fraction est traduite vers la langue opposée pour créer des paires translingues.
+
+    Les négatifs hard sont sélectionnés par mining : pour chaque paire question­article positif,
+une recherche FAISS avec le modèle de base retient les trois articles les plus proches qui ne
+sont pas la cible et dont la similarité dépasse 0,55. Le dataset final est exporté en JSONL
+avec les champs anchor, positive et negatives.
+
+4.3.2 Conduite de l'entraînement
+
+    Le script train_embeddings.py utilise sentence-transformers. Il charge le modèle de
+base, prépare un DataLoader PyTorch, instancie MultipleNegativesRankingLoss et lance
+model.fit. L'entraînement complet a duré environ 45 minutes sur RTX 3060, sur trois epochs
+avec un batch de 32. Les checkpoints sont sauvegardés à chaque epoch, puis le meilleur est
+promu sous training/models/daleel-embedding-finetuned/.
+
+4.3.3 Mise en service du modèle fine-tuné
+
+    Le service embedding_service.py charge le modèle à la demande via _get_model(), qui
+résout un identifiant Hugging Face ou un chemin local. Le passage en production se fait en mo-
+difiant DALEEL_EMBEDDING_MODEL vers ./training/models/daleel-embedding-finetuned.
+Le code de "fine-tuning" et le script d'évaluation sont versionnés afin de garantir la reproduc-
+tibilité des résultats du chapitre 5.
+
+                                                                                                                   45
+Chapitre 4. Réalisation du volet "Legal RAG"
+
+4.4 Implémentation du pipeline RAG à six modules
+
+4.4.1 Service de recherche hybride
+
+    Le service search_service.py expose semantic_search(db, query, top_k,...). Il
+encode la requête avec le modèle fine-tuné, interroge FAISS, applique les filtres tenant et
+document, puis bascule vers une recherche cosinus Python si l'index est temporairement
+indisponible. Le reclassement lexical est appliqué ensuite dans llm_service.py selon la
+fonction de fusion pondérée définie au chapitre 3.
+
+4.4.2 Reranking par cross-encoder
+
+    Le RerankingService charge cross-encoder/ms-marco-MiniLM-L-6-v2 à la première
+utilisation via un asyncio.Lock. La méthode rerank(query, chunks) produit un score
+MS-MARCO pour chaque chunk, trie par score décroissant et filtre les candidats sous
+MIN_RERANK_SCORE = -2.0. L'activation est contrôlée par DALEEL_ENABLE_CROSS_ENCODER.
+
+4.4.3 Routeur de domaine et "retrieval" partitionné
+
+    Le module domain_router.py parcourt cinq dictionnaires de mots-clés trilingues, cor-
+respondant au travail, aux sociétés, aux données personnelles, à la fiscalité et à la sécurité
+au travail. Il produit un DomainRoutingResult que les services aval utilisent pour ajuster
+top_k, langue et collections.
+
+    Le service legal_retrieval_orchestrator.py matérialise le "retrieval" partitionné. Il
+classifie l'intention, traduit l'intention en une liste de RetrievalMix, exécute les recherches
+partition par partition avec asyncio.gather, filtre is_base_version, déduplique et fusionne
+les scores. Le mode est activé par DALEEL_PARTITIONED_RETRIEVAL_ENABLED.
+
+4.4.3.1 Extensibilité à de nouveaux domaines
+    Le routeur de domaine est conçu pour être extensible sans modification architecturale.
+
+L'ajout d'un nouveau domaine juridique (par exemple le droit de l'environnement ou le droit
+bancaire) nécessite trois étapes : (1) ajouter un dictionnaire de mots-clés trilingues dans
+domain_router.py, structuré comme les cinq domaines existants ; (2) alimenter le corpus
+
+                                                                                                                   46
+Chapitre 4. Réalisation du volet "Legal RAG"
+FAISS avec les textes juridiques correspondants via le pipeline d'ingestion standard ; (3)
+optionnellement, définir des paramètres de recherche spécifiques (pondérations, top_k, filtres
+de langue). Le repli LLM, activé lorsque la classification par mots-clés est ambiguë, s'adapte
+automatiquement aux nouveaux domaines sans reconfiguration, puisqu'il analyse la question
+en contexte ouvert.
+
+4.4.4 Graphe de connaissances et garde-qualité
+
+    Le service graph_resolver.py récupère les lois, versions d'articles, exigences, actions et
+criticités associées. Les services d'exigences assurent l'extraction, le stockage, la recherche
+sémantique et l'association de ces exigences avec les actions correctives et les objets de confor-
+mité. Le service quality_guard_service.py exécute ensuite la vérification des citations par
+fenêtre glissante, la comparaison des références supportées, la cohérence article­contenu et le
+verdict final accepted, rewritten ou rejected.
+
+4.4.4.1 Définition et implémentation de la criticité
+    La criticité mesure le degré d'urgence et de gravité d'une action corrective issue d'une
+
+exigence réglementaire. Elle répond à la question : parmi toutes les actions identifiées,
+lesquelles traiter en priorité ? Un manquement à une obligation assortie d'une sanction pénale
+est plus critique qu'un défaut de conformité à une recommandation sans sanction explicite.
+Le service criticality_service.py implémente un scoring déterministe en trois étapes : (1)
+un score de base selon la modalité juridique : sanction (0,85), interdiction (0,70), obligation
+(0,65) ou condition (0,35) ; (2) des boosts contextuels additifs : mots-clés de sanction (+0,10),
+montants pécuniaires (+0,05), données personnelles (+0,15), sécurité au travail (+0,12),
+sanction héritée (+0,07), et une pénalité de -0,15 pour le langage conditionnel ; (3) le score,
+borné dans [0, 1], est classé en critique ( 0,70), importante ( 0,45) ou secondaire. Ce
+modèle déterministe garantit l'auditabilité : chaque composante appliquée est journalisée
+dans criticality_reasons.
+
+                                                                                                                   47
+Chapitre 4. Réalisation du volet "Legal RAG"
+
+4.5 Implémentation de l'agent autonome ReAct
+
+    L'agent est implémenté dans backend/app/services/autonomous_agent.py. Il prépare
+douze ToolDefinition, détecte le derja et la langue de la question, sélectionne le system
+prompt trilingue, injecte un exemple few-shot et ajoute jusqu'à 20 messages d'historique.
+
+    La boucle principale borne les itérations par un maximum configurable et par un timeout
+total. À chaque tour, _call_ollama_with_tools envoie la requête à Ollama avec retry
+exponentiel. Si des appels d'outils sont produits, chaque handler est exécuté avec timeout
+individuel, son résultat est tronqué à 4 000 caractères puis réinjecté comme observation.
+Sinon, le contenu est considéré comme réponse finale.
+
+    Chaque outil exécuté produit un ToolCallRecord contenant itération, nom, arguments,
+résumé, durée et erreur éventuelle. À la sortie, _enforce_output_format impose le format
+de réponse, la langue est vérifiée, puis la garde-qualité est appliquée aux sources cumulées.
+
+4.6 Démonstrations qualitatives
+
+4.6.1 Démonstration 1 ­ Requête simple
+
+    La question « Quelles sont les obligations du responsable de traitement des données
+personnelles en Tunisie ? » déclenche le pipeline RAG classique : détection de langue, classifi-
+cation d'intention, encodage, recherche FAISS, fusion pondérée, "reranking", enrichissement
+KG Light, génération puis garde-qualité. La réponse produite identifie automatiquement la
+loi n° 2004-63 relative à la protection des données personnelles, cite les articles pertinents
+et structure la réponse en obligations concrètes. Cet exemple illustre la valeur ajoutée de la
+plateforme : l'utilisateur n'a pas besoin de connaître le texte de loi applicable. Le système
+identifie automatiquement les sources pertinentes, sélectionne les versions en vigueur et
+effectue les rapprochements entre textes de base et textes d'application.
+
+                                                                                                                   48
+Chapitre 4. Réalisation du volet "Legal RAG"
+
+   Figure 4.1:: Réponse du pipeline RAG classique avec sources numérotées et badge de
+validation qualité
+
+4.6.2 Démonstration 2 ­ Requête multilingue avec agent ReAct
+
+    La question « Ma société de 25 salariés traite des données clients sensibles. Quelles
+obligations liées à la loi n° 2004-63 relative à la protection des données personnelles et au
+cadre INPDP s'appliquent ? Donne-moi un plan d'action priorisé. » mobilise successivement
+semantic_search, lookup_law, match_exigences, get_applicability, get_criticality
+et generate_roadmap. La réponse finale synthétise les actions prioritaires : déclaration INPDP,
+nomination d'un référent interne, registre des traitements, procédures d'accès et accords de
+sous-traitance.
+
+                                                                                                                   49
+Chapitre 4. Réalisation du volet "Legal RAG"
+
+                      Figure 4.2:: Trace d'exécution de l'agent en mode agentique
+
+4.6.3 Démonstration 3 ­ Requête en dialecte tunisien (derja)
+
+    La question « Chnoua el far9 bin CDD w CDI fi Tounes ? » (« Quelle est la différence
+entre un CDD et un CDI en Tunisie ? ») est détectée comme derja et normalisée vers le
+français avant traitement. Le système identifie le dialecte, reformule la requête en langue
+standard, puis détermine dynamiquement la langue de recherche : si le corpus arabe couvre
+le sujet, la recherche s'effectue en arabe ; dans le cas contraire, le français est utilisé comme
+langue de repli, le corpus juridique tunisien indexé étant majoritairement francophone. La
+réponse compare les deux types de contrats ­ durée déterminée et durée indéterminée ­ en
+citant les articles correspondants du Code du Travail, et elle est restituée dans la langue de
+la question d'origine.
+
+                                                                                                                   50
+Chapitre 4. Réalisation du volet "Legal RAG"
+
+             Figure 4.3:: Détection et normalisation d'une requête en dialecte tunisien
+
+Conclusion
+
+    Ce chapitre a documenté la réalisation effective du volet "Legal RAG" : environnement,
+ingestion documentaire, nettoyage arabe, segmentation, indexation FAISS, "fine-tuning" du
+modèle d'"embeddings", pipeline RAG modulaire, agent autonome ReAct et démonstrations
+qualitatives. Le chapitre suivant abordera le volet "Compliance Operations", les interfaces,
+l'évaluation quantitative et le déploiement.
+
+                                                                                                                   51
+            5
+
+         "Compliance Operations", évaluation et
+                                          déploiement
+
+Introduction
+
+    Ce dernier chapitre couvre les phases 5 ­ évaluation ­ et 6 ­ déploiement ­ du cycle CRISP-
+DM, après une dernière itération de modélisation dédiée au volet "Compliance Operations".
+Il présente l'implémentation du cycle de conformité, les interfaces utilisateur, l'évaluation
+quantitative, le déploiement conteneurisé, puis les limites et perspectives.
+
+5.1 Implémentation du cycle de conformité
+
+5.1.1 Services métier
+
+    Le volet "Compliance Operations" est porté par dix services métier interconnectés et
+exposés au travers de quatre routeurs FastAPI totalisant plus de 50 endpoints.
+
+                                                                                                                                           52
+Chapitre 5. "Compliance Operations", évaluation et déploiement
+
+Service       Table 5.1:: Services métier du volet "Compliance Operations"
+                               Rôle
+
+case_service        CRUD des dossiers, constats et actions
+
+case_conversation_  Conversation LLM dans un dossier et extraction de faits
+
+service
+
+case_document_service Upload et analyse des documents joints
+
+compliance_case_    Orchestration ASK/CLARIFY/ACT/REVIEW
+
+orchestrator
+
+compliance_service  Calcul de posture globale
+
+applicability_service Exigences applicables à un profil
+
+action_service      Actions correctives et extraction depuis articles
+
+criticality_service Scoring déterministe de criticité
+
+roadmap_service     Plan d'action priorisé avec dépendances
+
+audit_service       Journalisation auditable
+
+5.1.2 Moteur déterministe de criticité
+
+    Le calcul de criticité repose sur un modèle additif déterministe structuré en trois étapes.
+Premièrement, un score de base est attribué selon la modalité juridique de l'exigence source :
+sanction (0,85), interdiction (0,70), obligation (0,65) ou condition (0,35). Deuxièmement, des
+facteurs contextuels ajustent ce score : présence de mots-clés de sanction pénale (+0,10),
+montants pécuniaires explicites (+0,05), domaine des données personnelles (+0,15), santé
+et sécurité au travail (+0,12), fiscalité (+0,08), sanction héritée d'un article parent (+0,07),
+et une pénalité de -0,15 pour les formulations conditionnelles. Troisièmement, le score total,
+borné dans [0, 1], détermine le niveau : critique ( 0,70), importante ( 0,45) ou secondaire
+(en dessous). Ce modèle déterministe garantit la reproductibilité et l'auditabilité : chaque
+facteur appliqué est consigné dans criticality_reasons, permettant à l'utilisateur de
+comprendre et, si nécessaire, de contester le classement.
+
+                                                                             53
+Chapitre 5. "Compliance Operations", évaluation et déploiement
+
+5.1.3 Roadmap et applicabilité
+
+    Le service roadmap_service.generate_roadmap produit un plan priorisé combinant
+criticité, dépendances et effort estimé. Il utilise un tri topologique de Kahn modifié : parmi les
+actions sans dépendances non satisfaites, l'action la plus critique est sélectionnée. Le service
+applicability_service relie les exigences réglementaires aux profils d'entreprise selon des
+attributs structurés : secteur, effectif, chiffre d'affaires, périmètre géographique et traitement
+de données personnelles.
+
+5.2 Orchestrateur LLM ASK / CLARIFY / ACT / RE-
+
+       VIEW
+
+    La méthode principale orchestrate(case_id,...) séquence sept phases : (i) collecte de
+contexte, (ii) analyse d'écarts, (iii) vérification d'applicabilité, (iv) génération de constats,
+(v) scoring de criticité, (vi) priorisation des actions et (vii) mappage des preuves. Le LLM
+est sollicité pour extraire les faits connus et manquants, générer des constats structurés et
+proposer des éléments de preuve.
+
+    La décision finale suit quatre branches. ASK demande des faits manquants ; CLARIFY
+lève les contradictions ; ACT produit les constats et actions lorsque la confiance est suffisante ;
+REVIEW demande une revue humaine pour les cas critiques ou incertains. Chaque décision
+est exposée au "frontend" afin d'adapter l'interface : formulaire de clarification, affichage du
+plan d'action ou demande de validation experte.
+
+    Chaque opération sensible est journalisée dans audit_logs : création de cas, ajout de
+constat, modification d'action, décision orchestrateur et rattachement de preuve. Cette
+traçabilité soutient les exigences d'audit et les démarches de certification.
+
+    Une opération est qualifiée de sensible lorsqu'elle modifie l'état d'un dossier de conformité
+ou produit un engagement traçable. Les critères retenus sont : la création ou la suppression
+d'un dossier, l'ajout ou la modification d'un constat de non-conformité, la création ou
+le changement de statut d'une action corrective, toute décision de l'orchestrateur (ASK,
+CLARIFY, ACT, REVIEW), le rattachement ou le retrait d'une preuve, et la modification
+du profil de conformité d'une organisation. Ces critères couvrent l'ensemble des opérations
+susceptibles d'engager la responsabilité de l'organisation ou d'affecter sa posture de conformité.
+
+                                                                                                                   54
+Chapitre 5. "Compliance Operations", évaluation et déploiement
+
+5.3 Interfaces utilisateur
+
+5.3.1 Chatbot conversationnel
+
+    La page frontend/src/pages/Chat.jsx constitue l'interface principale. Elle propose
+une zone de saisie multilingue, un fil de conversation, l'affichage des sources cliquables, le
+journal de raisonnement de l'agent, le badge de garde-qualité et un bouton de "feedback".
+
+                    Figure 5.1:: Interface du "chatbot" conversationnel multilingue
+
+5.3.2 Panneau d'administration
+
+    Le panneau d'administration regroupe les pages Documents, Amendments, Cases, Noti-
+fications, Organizations, Users, CompanyProfile, Settings, ContractAnalysis et History. La
+page Documents suit le pipeline d'ingestion selon les statuts uploaded, extracted, cleaned,
+segmented, embedded et indexed.
+
+                                                                                                                   55
+Chapitre 5. "Compliance Operations", évaluation et déploiement
+
+      Figure 5.2:: Panneau d'administration : gestion documentaire et suivi de l'ingestion
+
+5.3.3 Tableau de bord BI et internationalisation
+
+    La page Dashboard.jsx agrège le score global de conformité, les dossiers actifs, les
+constats critiques, le taux de respect des échéances, les graphiques temporels, la heatmap
+domaine­organisation et les actions critiques en retard. Le "frontend" exploite i18next avec
+trois fichiers de traduction et active automatiquement le mode RTL pour l'arabe.
+
+                      Figure 5.3:: Tableau de bord BI de la posture de conformité
+                                                                                                                   56
+Chapitre 5. "Compliance Operations", évaluation et déploiement
+
+    Ce tableau de bord est instancié par organisation : chaque Owner accède uniquement aux
+indicateurs de conformité de son entreprise. Cette isolation permet à chaque organisation de
+surveiller en temps réel sa propre posture de conformité ­ score global, dossiers actifs, constats
+critiques, taux de respect des échéances et actions en retard ­ sans visibilité sur les données
+des autres organisations. Le Super Admin dispose d'une vue agrégée inter-organisations à des
+fins de supervision globale de la plateforme.
+
+5.4 Évaluation quantitative
+
+5.4.1 Retrieval avant et après "fine-tuning"
+
+    Le benchmark a été conduit sur 30 requêtes gold, 20 en français et 10 en arabe. Les
+métriques calculées sont Recall@k, MRR@k et nDCG@k.
+
+           Table 5.2:: Performance globale avant et après "fine-tuning"
+
+Métrique   Baseline  Daleel  Gain abs. Gain rel.
+
+Recall@1   0,33      0,47    +0,13  +40 %
+
+Recall@5   0,53      0,70    +0,17  +31 %
+
+Recall@10  0,70      0,73    +0,03  +5 %
+
+MRR@10     0,42      0,57    +0,14  +34 %
+
+nDCG@5     0,43      0,59    +0,16  +37 %
+
+nDCG@10    0,49      0,61    +0,12  +24 %
+
+                                                                         57
+Chapitre 5. "Compliance Operations", évaluation et déploiement
+
+        Figure 5.4:: Comparaison des métriques de "retrieval" avant et après "fine-tuning"
+    Les gains les plus importants concernent Recall@1 et MRR@10, ce qui confirme que
+le "fine-tuning" améliore la précision sur les premières positions. Par langue, les requêtes
+francophones progressent fortement : +50 % en Recall@1, +43 % en MRR@10 et +34 % en
+nDCG@10. Sur les requêtes arabes, le Recall@5 progresse de 50 %, tandis que le Recall@1
+reste stable en raison du corpus arabe initialement contaminé par des artefacts d'extraction.
+
+5.4.2 Apport qualitatif des modules RAG
+
+    La recherche hybride améliore les requêtes contenant des références précises ; le cross-
+encoder filtre les "chunks" non pertinents sur les sujets ambigus ; le routeur de domaine réduit
+le bruit ; le "retrieval" partitionné évite le mélange de versions contradictoires ; KG Light
+enrichit les réponses en exigences et actions ; la garde-qualité réduit les citations fabriquées et
+les références inventées. Une étude d'ablation quantitative complète constitue une perspective
+immédiate.
+
+5.4.3 Agent autonome et garde-qualité
+
+    L'agent invoque généralement semantic_search en première action, puis mobilise les
+outils de conformité lorsque le profil d'entreprise est disponible. Les requêtes simples convergent
+
+                                                                                                                   58
+Chapitre 5. "Compliance Operations", évaluation et déploiement
+en une à deux itérations ; les requêtes complexes nécessitent trois à cinq itérations. La latence
+médiane observée se situe entre 8 et 15 secondes, et peut atteindre 20 à 25 secondes pour les
+requêtes complexes.
+
+    La garde-qualité neutralise les citations fabriquées par fenêtre glissante, détecte les
+références inventées et vérifie la conformité linguistique. L'évaluation reste qualitative dans
+cette version. Un protocole annoté avec et sans garde-qualité est prévu pour produire des
+indicateurs chiffrés. Les indicateurs envisagés sont : le taux de citations fabriquées (pourcentage
+de citations textuelles non retrouvées dans les chunks sources par fenêtre glissante), le taux
+de références inventées (pourcentage d'articles ou de lois cités dans la réponse mais absents
+des chunks récupérés), le score de fidélité sémantique (similarité cosinus entre la réponse et le
+contexte source), le taux de conformité linguistique (pourcentage de réponses restituées dans
+la langue de la question) et le taux de réponses rejetées ou réécrites par la garde-qualité. Ces
+indicateurs seraient mesurés sur un échantillon annoté par un évaluateur humain, avec et
+sans activation de la garde-qualité, afin de quantifier son apport effectif.
+
+5.4.4 Couverture de tests
+
+    La suite de tests compte 55 fichiers test_*.py. Elle couvre les modules de processing, les
+services "Legal RAG", les services Compliance, l'API, l'authentification, les tests d'intégration
+et les services transverses. Ruff est exécuté à chaque push avec une politique zéro avertissement.
+
+5.5 Déploiement et intégration continue
+
+5.5.1 Architecture Docker Compose
+
+    La plateforme est déployable via Docker Compose avec trois services : MongoDB 7.0, Ol-
+lama servant qwen2.5:7b, et FastAPI/Uvicorn. L'image FastAPI utilise un build multi-stage :
+une étape builder assemble les wheels Python, puis une étape runtime python:3.12-slim
+embarque uniquement Python, Tesseract OCR et poppler-utils.
+
+                                                                                                                   59
+Chapitre 5. "Compliance Operations", évaluation et déploiement
+
+           Figure 5.5:: Schéma de déploiement Docker Compose de la plateforme Daleel
+    Source : élaborée par l'auteur.
+    Chaque service expose un health check. Les données persistantes sont stockées dans des
+volumes Docker et la configuration est pilotée par variables d'environnement DALEEL_*.
+
+5.5.2 CI/CD GitHub Actions
+
+    Le workflow CI exécute Ruff, pytest sur Python 3.11/3.12/3.13 avec MongoDB en conte-
+neur sidecar, le build "frontend" npm ci && npm run build, puis des vérifications de sécu-
+rité. Les secrets de production sont injectés au runtime via un gestionnaire de secrets, et
+_validate_production_settings bloque le démarrage si les secrets critiques ou la configu-
+ration CORS sont non sécurisés.
+
+5.6 Discussion critique : limites et perspectives
+
+5.6.1 Limites identifiées
+
+    Les limites principales sont : taille encore restreinte du corpus annoté ; sensibilité de l'OCR
+arabe aux PDF anciens ; couverture limitée du LLM-juge ; latence de l'agent autonome ;
+
+                                                                                                                   60
+Chapitre 5. "Compliance Operations", évaluation et déploiement
+calibration empirique du scoring de criticité ; multi-tenant encore fondé sur un filtrage
+applicatif ; asymétrie initiale entre français et arabe ; absence de validation par un panel
+d'experts juridiques.
+
+5.6.2 Perspectives d'évolution
+
+    Les perspectives incluent l'extension à d'autres juridictions, notamment au Maghreb,
+en Europe et dans les pays du Golfe, la détection automatique d'amendements depuis
+les sources juridiques officielles des pays cibles, la génération d'avis juridiques structurés,
+l'apprentissage sur "feedback" utilisateur, l'intégration ERP/GED, la simulation prédictive
+d'impact réglementaire et la validation par un panel de praticiens du droit dans les pays
+cibles.
+
+Conclusion
+
+    Ce chapitre a documenté le volet opérationnel de Daleel. Le volet "Compliance Operations"
+transforme l'assistant juridique en outil de pilotage couvrant toute la chaîne, de l'identifi-
+cation des exigences réglementaires jusqu'au suivi opérationnel de leur mise en conformité.
+L'évaluation a montré des gains significatifs grâce au "fine-tuning", tandis que le déploiement
+Docker Compose et la CI GitHub Actions garantissent reproductibilité et qualité logicielle.
+Les limites identifiées ouvrent un nouveau cycle d'amélioration CRISP-DM à trois niveaux :
+technologique (re-"fine-tuning" arabe, étude d'ablation), organisationnelle (validation par des
+praticiens du droit) et opérationnelle (extension à de nouvelles juridictions et intégration
+ERP/GED).
+
+                                                                                                                   61
+                                Conclusion Générale
+
+    Ce Projet de Fin d'Études a abouti à la conception et à la réalisation de Daleel, une
+plateforme intégrée d'assistance juridique et de gestion de la conformité réglementaire et légale
+fondée sur l'intelligence artificielle, pensée dès l'origine pour une exploitation internationale
+et expérimentée dans un premier temps sur le droit tunisien.
+
+    La méthodologie CRISP-DM, appliquée de manière itérative, a permis d'atteindre un
+niveau de qualité élevé tant au niveau de la performance de la plateforme qu'au niveau de
+ses livrables et des services qu'elle offre : l'évaluation du retrieval a déclenché un retour vers
+la modélisation pour le fine-tuning du modèle d'embeddings, et l'audit des réponses arabes a
+renvoyé vers la préparation des données pour renforcer le nettoyage du corpus.
+
+    La plateforme apporte une valeur concrète aux professionnels du droit et aux responsables
+conformité à travers deux volets complémentaires. Le volet Legal RAG offre un accès instantané
+et fiable à l'information juridique : un professionnel peut obtenir en quelques secondes une
+réponse sourcée, vérifiée et multilingue à une question complexe, là où la recherche manuelle
+dans des PDF épars prenait des heures. Le système identifie automatiquement les textes
+applicables, sélectionne les versions en vigueur et effectue les rapprochements entre textes de
+base et textes d'application ­ un travail de recoupement qui constitue aujourd'hui l'essentiel
+du temps des équipes juridiques. Le volet Compliance Operations transforme ces obligations
+juridiques en un plan d'action opérationnel : l'entreprise dispose d'un tableau de bord en
+temps réel de sa posture de conformité, avec des constats priorisés, des actions correctives
+tracées et des preuves documentées.
+
+    La contribution de ce travail est triple. Scientifique, par le fine-tuning d'un modèle
+d'embeddings multilingue qui a produit des gains de +40 % en Recall@1 et +34 % en MRR@10,
+démontrant qu'une spécialisation sur un corpus juridique local améliore significativement la
+pertinence du retrieval. Technique, par la livraison d'une architecture modulaire de plus de
+170 endpoints, 38 collections, 41 services et un agent autonome à 12 outils, le tout déployable
+localement et respectueux de la confidentialité des données. Applicative, par la réponse à un
+besoin réel du marché : les entreprises, qu'elles soient tunisiennes, européennes ou du Golfe,
+
+                                                                                                                                           62
+Conclusion Générale
+font face à des exigences de conformité croissantes et ont besoin d'outils intelligents pour
+maîtriser cette complexité.
+
+    Les perspectives d'évolution sont nombreuses et porteuses : extension à d'autres juri-
+dictions, notamment au Maghreb, en Europe et dans les pays du Golfe où le besoin est
+considérable ; détection automatique d'amendements depuis les sources juridiques officielles
+des pays cibles ; génération d'avis juridiques structurés ; apprentissage continu sur le feedback
+utilisateur ; intégration avec les systèmes ERP et GED existants ; et validation par un panel
+de praticiens du droit dans les pays cibles. Deux perspectives présentent un impact court
+terme majeur : le re-fine-tuning sur un corpus arabe nettoyé et la validation qualitative par
+des professionnels du droit.
+
+    Sur le plan personnel, ce projet m'a permis de mobiliser un large spectre de compétences :
+ingénierie des données, fine-tuning de modèles de langage, conception d'agents IA, architecture
+multi-tenant, sécurité applicative et déploiement DevOps. Il démontre qu'une solution IA
+ambitieuse, combinant RAG avancé, agents autonomes et pilotage de conformité, peut être
+conduite avec rigueur méthodologique dans un cadre académique tout en produisant un
+livrable déployable et immédiatement exploitable sur le marché.
+
+                                                                                                                   63
+                                                                   Annexes
+
+    Les annexes présentent des éléments de référence complémentaires au corps du mémoire.
+Conformément aux exigences de confidentialité de l'entreprise d'accueil Didax IT, elles
+conservent uniquement deux éléments utiles à la compréhension technique : une cartographie
+API REST détaillée et la spécification des outils de l'agent autonome ReAct.
+
+Annexe              Table 3:: Organisation des annexes conservées
+A
+B       Intitulé
+        Cartographie complète de l'API REST
+        Spécification des douze outils de l'agent autonome ReAct
+
+                                                                   i
+               A
+
+      Cartographie complète de l'API REST
+
+    La plateforme expose plus de 170 points d'accès REST répartis en 7 routeurs FastAPI,
+tous montés sous le préfixe racine /api/v1. Chaque endpoint est validé par schéma Pydantic,
+protégé par authentification JWT, hors endpoints publics d'authentification, et soumis à la
+limitation de débit. Cette annexe recense les routes principales, regroupées par routeur puis
+par domaine fonctionnel.
+
+A.1 Routeur principal ­ Legal RAG, corpus et administra-
+tion
+
+      Table A.1:: Documents et ingestion documentaire
+
+Méthode Chemin           Rôle
+                         Téléversement d'un document :
+POST  /documents/upload  PDF, DOCX ou image.
+                         Liste paginée des documents de
+GET   /documents         l'organisation.
+
+                                                         ii
+Annexe A. Cartographie complète de l'API REST
+
+Méthode Chemin              Rôle
+
+GET   /documents/{doc_id}   Métadonnées d'un document.
+
+GET   /documents/{doc_id}/sour Fichier source original.
+
+      ce
+
+GET   /documents/{doc_id}/ch Chunks indexés du document.
+
+      unks
+
+GET   /documents/{doc_id}/ra Pages brutes extraites.
+
+      w-pages
+
+GET   /documents/{doc_id}/cl Pages après nettoyage.
+
+      eaned-pages
+
+GET   /documents/{doc_id}/ex Exigences extraites du document.
+
+      igences
+
+POST  /documents/{doc_id}/extr Lancement de l'extraction d'exi-
+
+      act-exigences         gences.
+
+GET   /documents/{doc_id}/ex Export des exigences.
+
+      igences/export
+
+PATCH /documents/{doc_id}/cl Classification du document.
+
+      assify
+
+GET   /documents/{doc_id}/am Amendements détectés.
+
+      endments
+
+DELETE /documents/{doc_id}  Suppression d'un document.
+
+POST  /exigences/match      Appariement sémantique d'exi-
+                            gences.
+
+            Table A.2:: Recherche et questions-réponses
+
+Méthode Chemin              Rôle
+                            Recherche hybride dans le corpus.
+POST  /search               Question-réponse RAG classique.
+
+POST  /ask
+
+                                                                 iii
+Annexe A. Cartographie complète de l'API REST
+
+Méthode Chemin            Rôle
+                          Question traitée par l'agent auto-
+POST  /ask-agentic        nome ReAct.
+                          Question contextualisée sur un do-
+POST  /ask-with-document  cument téléversé.
+                          Sélection automatique du mode
+POST  /ask-auto           classique ou agentique.
+                          Réponse en streaming via Server-
+POST  /ask-stream         Sent Events.
+                          Enregistrement d'un retour utili-
+POST  /feedback           sateur.
+                          Consultation des retours.
+GET   /feedback
+
+      Table A.3:: Profils d'entreprise et applicabilité
+
+Méthode Chemin            Rôle
+
+POST  /company-profiles   Création d'un profil d'entreprise.
+
+GET   /company-profiles   Liste des profils.
+
+POST  /company-profiles/ensu Récupération ou création du profil
+
+      re-current          courant.
+
+GET   /company-profiles/{prof Détail d'un profil.
+
+      ile_id}
+
+PUT   /company-profiles/{prof Mise à jour d'un profil.
+
+      ile_id}
+
+DELETE /company-profiles/{prof Suppression d'un profil.
+
+      ile_id}
+
+POST  /company-profiles/{prof Évaluation d'applicabilité régle-
+
+      ile_id}/evaluate-appli mentaire.
+
+      cabilities
+
+                                                                 iv
+Annexe A. Cartographie complète de l'API REST
+
+Méthode Chemin                    Rôle
+
+GET     /company-profiles/{prof Synthèse d'applicabilité.
+
+        ile_id}/applicabilities/
+
+        summary
+
+           Table A.4:: Hiérarchie juridique : lois, articles, versions
+        et actions
+
+Méthode Chemin                                 Rôle
+
+POST / GET /lois                               Création et liste des lois.
+
+GET     / /lois/{loi_id}                       Détail, mise à jour ou suppres-
+
+PATCH /                                        sion d'une loi.
+
+DELETE
+
+GET      /lois/{loi_id}/articles Articles d'une loi.
+
+GET      /articles/{article_id} Détail d'un article.
+
+GET      /articles/{article_id}/ Versions d'un article.
+
+         versions
+
+GET      /article-versions/{ve Détail d'une version.
+
+         rsion_id}
+
+GET      /article-versions/{ve Exigences d'une version.
+
+         rsion_id}/exigences
+
+GET / DE- /article-versions/{ve Actions liées à une version.
+
+LETE     rsion_id}/actions
+
+GET      /actions/{action_id}                  Détail d'une action corrective.
+
+GET      /actions/{action_id}/cr Criticité d'une action.
+
+         iticality
+
+DELETE   /action-dependencies/ Suppression d'une dépendance
+
+         {dep_id}                              d'action.
+
+                                                                                v
+Annexe A. Cartographie complète de l'API REST
+                             Table A.5:: Administration, audit et supervision
+
+Méthode Chemin                                     Rôle
+
+GET      /platform/stats                           Statistiques globales de la pla-
+
+                                                   teforme.
+
+GET      /admin/stats, /admin/vec Tableaux de bord d'administra-
+         tor-stats, /admin/analy tion.
+
+         tics
+
+GET / POST /admin/cache/stats, /adm Gestion du cache.
+
+         in/cache/invalidate
+
+POST     /admin/create-vector-i Reconstruction de l'index vecto-
+
+         ndex, /admin/reindex                      riel.
+
+GET      /admin/check-index-con Contrôle de cohérence de l'in-
+
+         sistency                                  dex.
+
+GET      /audit-logs, /lois/{loi_ Journaux d'audit.
+         id}/audit-logs, /article
+
+         s/{article_id}/audit-l
+
+         ogs
+
+         Table A.6:: Notifications, historique et mémoire
+
+Méthode  Chemin                                    Rôle
+GET
+         /notifications/mine, /n Notifications de l'utilisateur.
+POST
+         o t i f i c a t i o n s / u n r e a d- c
+DELETE
+         ount
+
+         /notifications/read-a Marquage comme lu.
+         ll, /notifications/{id}/
+
+         read
+
+         /notifications/{id}                       Suppression d'une notification.
+
+                                                                                     vi
+Annexe A. Cartographie complète de l'API REST
+
+Méthode Chemin                                 Rôle
+
+GET / POST /admin/notifications, /a Modération des inscriptions.
+
+        dmin/notifications/{id
+        }/approve, /{id}/reject
+
+GET     /chat-history, /chat-h Historique de conversation.
+
+        istory/conversation/{id
+
+        }
+
+PATCH   /chat-history/convers Archivage ou renommage de
+        ation/{id}/archive, /r conversation.
+
+        ename
+
+DELETE  /chat- history/{entry_ Suppression d'un échange.
+
+        id}
+
+GET / PUT /memory                              Mémoire conversationnelle per-
+/ DELETE                                       sistante.
+
+A.2 Routeur d'authentification ­ /api/v1/auth
+
+           Table A.7:: Endpoints d'authentification et de gouver-
+        nance
+
+Méthode Chemin                                 Rôle
+
+POST    /register                              Inscription : compte et organi-
+                                               sation.
+
+POST    /verify-email                          Confirmation d'email par jeton.
+
+POST    /verify-phone/send, /ver Envoi et vérification du code
+
+        ify-phone                              OTP téléphone.
+
+POST    /login, /refresh, /logout Cycle de session JWT.
+
+GET / PUT /me, /me/password                    Profil courant et changement de
+                                               mot de passe.
+
+                                                                                vii
+Annexe A. Cartographie complète de l'API REST
+
+Méthode Chemin                                 Rôle
+
+POST     /forgot-password, /res Réinitialisation de mot de passe.
+
+         et-password
+
+GET / PUT /organizations, /organiz Gestion des organisations.
+
+/ PATCH  ations/{id}, /organizat
+
+         ions/{id}/status
+
+POST     /organizations/{id}/ap Gouvernance des organisations.
+         prove, /reject, /renew
+
+GET / PUT /organizations/{id}/us Gestion des utilisateurs.
+/ DELETE ers, /users/{user_id}
+
+POST / GET /invitations, /invitatio Invitations par email.
+/ DELETE ns/accept, /invitations
+
+         /{id}
+
+A.3 Routeurs Compliance Operations ­ /api/v1/cases et
+/api/v1/compliance
+
+         Table A.8:: Endpoints du cycle Compliance Operations
+
+Méthode Chemin                                 Rôle
+
+GET      /cases/summary                        Tableau de bord des dossiers.
+
+GET      / /cases/{case_id}                    Cycle de vie d'un dossier.
+PATCH    /
+DELETE
+
+POST / GET /cases/{case_id}/messag Conversation guidée du dossier.
+
+         es
+
+POST / GET /cases/{case_id}/docume Pièces jointes et analyse.
+/ DELETE nts
+
+                                                                              viii
+Annexe A. Cartographie complète de l'API REST
+
+Méthode Chemin                                 Rôle
+
+POST     /cases/{case_id}/docume Analyse OCR et LLM d'une
+
+         nts/{id}/analyze                      pièce.
+
+GET      /cases/{case_id}/docume Entités extraites.
+
+         nts/{id}/entities
+
+POST / GET /cases/{case_id}/findin Constats de non-conformité.
+
+/ PATCH  gs
+
+POST / GET /cases/{case_id}/action Actions correctives.
+
+/ PATCH  s
+
+POST / GET /compliance/assessments Évaluations de posture.
+/ PATCH
+
+POST / GET /compliance/controls                Contrôles internes.
+/ PATCH
+
+PATCH    /compliance/evidences/ Preuves de mise en conformité.
+
+         {id}
+
+POST / GET /compliance/links                   Liens exigence­contrôle.
+/ PATCH /
+
+DELETE
+
+GET      /compliance/gaps/{prof Analyse d'écarts.
+
+         ile_id}
+
+POST / GET /compliance/exceptions Registre d'exceptions.
+/ PATCH
+
+POST     /compliance/remediatio Actions de remédiation.
+
+         n-actions
+
+    Le routeur d'orchestration de cas expose en complément les endpoints de déclenchement
+et de consultation du cycle ASK / CLARIFY / ACT / REVIEW décrit au chapitre 5.
+
+A.4 Routeur vocal ­ /api/v1/voice
+
+                                                                         ix
+Annexe A. Cartographie complète de l'API REST
+                                         Table A.9:: Endpoints vocaux
+
+Méthode Chemin     Rôle
+                   Transcription parole vers texte.
+POST  /transcribe  Synthèse texte vers parole.
+                   Question vocale de bout en bout.
+POST  /tts
+
+POST  /ask
+
+                                                                       x
+            B
+
+         Spécification des douze outils de l'agent
+                                    autonome ReAct
+
+    L'agent autonome, implémenté dans a u t o n o m o u s _ a g e n t . p y, instancie douze
+ToolDefinition, chacune exposée au modèle qwen2.5:7b au format function calling
+d'Ollama. Le tableau suivant détaille, pour chaque outil, son rôle fonctionnel et ses
+principaux paramètres.
+
+                                                                                                                                           xi
+Annexe B. Spécification des douze outils de l'agent autonome ReAct
+
+B.1 Outils de recherche
+
+                   Table B.1:: Outils de recherche de l'agent autonome
+
+Outil              Paramètres principaux                      Description
+semantic_search
+                   query (str), top_k, language_filter, docu  Recherche par similarité sémantique dans le
+lookup_law         ment_id                                    corpus et renvoi de chunks avec métadon-
+                                                              nées.
+search_articles
+get_article_text   code (str : CT, CS, CF, LP63...)           Recherche d'une loi par code court et renvoi
+                                                              de son identifiant, son nom et son nombre
+                                                              d'articles.
+
+                   loi_id (str), keyword, limit               Recherche d'articles dans une loi donnée,
+                                                              filtrés par mot-clé.
+
+                   version_id (str)                           Renvoi du texte complet d'une version d'ar-
+                                                              ticle, avec décompte des exigences et actions.
+
+B.2 Outils de graphe de connaissances
+
+       Table B.2:: Outils de graphe de connaissances de l'agent autonome
+
+Outil              Paramètres principaux                      Description
+
+get_article_graph  article_id (str)                           Construction du sous-graphe complet d'un
+                                                              article : versions, exigences, actions, critici-
+                                                              tés et dépendances.
+
+get_company_graph  profile_id (str)                           Construction du graphe d'entreprise : exi-
+                                                              gences applicables et actions liées au profil.
+
+                                                                           xii
+Annexe B. Spécification des douze outils de l'agent autonome ReAct
+
+B.3 Outils d'exigences et de conformité
+
+       Table B.3:: Outils d'exigences et de conformité de l'agent autonome
+
+Outil                    Paramètres principaux              Description
+
+list_document_exigences  document_id (str)                  Liste des exigences extraites d'un document.
+
+match_exigences          query (str), exigence_type, top_k  Recherche sémantique des exigences perti-
+                                                            nentes pour une situation décrite.
+
+get_applicability        profile_id (str)                   Résumé d'applicabilité par type d'exigence
+                                                            pour un profil.
+
+get_criticality          profile_id (str)                   Répartition des criticités : critique, impor-
+                                                            tante et secondaire.
+
+compute_compliance       profile_id (str)                   Calcul de la posture globale de conformité :
+                                                            couverture et écarts.
+
+generate_roadmap         profile_id (str)                   Génération d'un plan d'action priorisé avec
+                                                            dépendances.
+
+    Chaque exécution d'outil est journalisée dans un ToolCallRecord comprenant l'itération,
+le nom, les arguments, le résumé du résultat, la durée et l'erreur éventuelle. Le contrôle
+d'accès multi-tenant est appliqué uniformément : tout outil manipulant un profile_id vérifie
+son appartenance à l'organisation courante avant exécution.
+
+                                                                            xiii
+                                         Bibliographie
+
+ [1] Ashish Vaswani, Noam Shazeer, Niki Parmar, et al. Attention is all you need. In
+     Advances in Neural Information Processing Systems, 2017.
+
+ [2] Jacob Devlin, Ming-Wei Chang, Kenton Lee, and Kristina Toutanova. Bert : Pre-training
+      of deep bidirectional transformers for language understanding. In NAACL-HLT, 2019.
+
+ [3] Tom Brown, Benjamin Mann, Nick Ryder, et al. Language models are few-shot learners.
+      In NeurIPS, 2020.
+
+ [4] An Yang, Baosong Yang, Binyuan Hui, et al. Qwen2.5 technical report. arXiv preprint
+     arXiv :2412.15115, 2024.
+
+ [5] Joshua Maynez, Shashi Narayan, Bernd Bohnet, and Ryan McDonald. On faithfulness
+      and factuality in abstractive summarization. In ACL, 2020.
+
+ [6] Patrick Lewis, Ethan Perez, Aleksandra Piktus, et al. Retrieval-augmented generation
+      for knowledge-intensive nlp tasks. In NeurIPS, 2020.
+
+ [7] Yunfan Gao, Wenhao Xiong, Xinyu Gao, et al. Retrieval-augmented generation for large
+      language models : A survey. arXiv preprint arXiv :2312.10997, 2024.
+
+ [8] Noah Shinn, Federico Cassano, Ashwin Gopinath, et al. Reflexion : Language agents
+     with verbal reinforcement learning. In NeurIPS, 2023.
+
+ [9] Jiongnan Chen, Shitao Xiao, Zheng Liu, et al. Bge-m3-embedding : Multi-lingual, multi-
+      functionality, multi-granularity text embeddings. arXiv preprint arXiv :2402.03216,
+      2024.
+
+[10] Areti Manataki et al. Retrieval-augmented generation for legal question answering. arXiv
+      preprint, 2023.
+
+[11] Stephen Robertson and Hugo Zaragoza. The probabilistic relevance framework : Bm25
+      and beyond. Foundations and Trends in Information Retrieval, 2009.
+
+                                                                                                                                          xiv
+Bibliographie
+
+[12] Gordon V. Cormack, Charles L. A. Clarke, and Stefan Buettcher. Reciprocal rank fusion
+      outperforms condorcet and individual rank learning methods. In SIGIR, 2009.
+
+[13] Rodrigo Nogueira and Kyunghyun Cho. Passage re-ranking with bert. arXiv preprint
+     arXiv :1901.04085, 2019.
+
+[14] Shunyu Yao, Jeffrey Zhao, Dian Yu, et al. React : Synergizing reasoning and acting in
+      language models. In ICLR, 2023.
+
+[15] Timo Schick, Jane Dwivedi-Yu, Roberto Dessi, et al. Toolformer : Language models can
+      teach themselves to use tools. In NeurIPS, 2023.
+
+[16] Nils Reimers and Iryna Gurevych. Sentence-bert : Sentence embeddings using siamese
+      bert-networks. In EMNLP-IJCNLP, 2019.
+
+[17] Nils Reimers and Iryna Gurevych. Making monolingual sentence embeddings multilingual
+      using knowledge distillation. In EMNLP, 2020.
+
+[18] Matthew Henderson, Rami Al-Rfou, Brian Strope, et al. Efficient natural language
+      response suggestion for smart reply. In KDD, 2017.
+
+[19] Ilias Chalkidis, Manos Fergadiotis, Prodromos Malakasiotis, et al. Legal-bert : The
+      muppets straight out of law school. In Findings of EMNLP, 2020.
+
+[20] Lu Zheng, Neel Guha, Brandon Anderson, Peter Henderson, and Dan Jurafsky. When
+      does pretraining help ? assessing self-supervised learning for law and the casehold dataset.
+      In ICAIL, 2021.
+
+[21] Ilias Chalkidis, Abhinav Jana, Nikolaos Aletras, et al. Lexglue : A benchmark dataset
+      for legal language understanding in english. In ACL, 2022.
+
+[22] Neel Guha, Julian Nyarko, Daniel Ho, et al. Legalbench : A collaboratively built
+      benchmark for measuring legal reasoning in large language models. In NeurIPS Datasets
+     and Benchmarks, 2023.
+
+[23] Ahmed Abdelali et al. Arabert and marbert : Deep bidirectional transformers for arabic.
+      In ACL, 2021.
+
+                                                                                                                   xv
+Bibliographie
+[24] Boris Otto et al. Ai-supported compliance management : A hybrid approach. Information
+
+     Systems Frontiers, 2022.
+[25] Jeff Johnson, Matthijs Douze, and Herve Jegou. Billion-scale similarity search with gpus.
+
+     IEEE Transactions on Big Data, 2019.
+[26] Sebastian Hofstatter, Sheng-Chieh Lin, Jheng-Hong Yang, et al. Efficiently teaching an
+
+      effective dense retriever with balanced topic-aware sampling. In SIGIR, 2021.
+[27] Yu. A. Malkov and D. A. Yashunin. Efficient and robust approximate nearest neighbor
+
+      search using hierarchical navigable small world graphs. IEEE Transactions on Pattern
+     Analysis and Machine Intelligence, 2020.
+[28] Karthik Ganesan et al. Textdiscover : Robust legal document segmentation across
+      heterogeneous formats. In Workshop on Natural Legal Language Processing, 2022.
+[29] Pete Chapman, Julian Clinton, Randy Kerber, et al. CRISP-DM 1.0 : Step-by-step data
+     mining guide. SPSS Inc., 2000.
+[30] Albert Q. Jiang, Alexandre Sablayrolles, Arthur Mensch, et al. Mistral 7b. arXiv preprint
+     arXiv :2310.06825, 2023.
+[31] Hugo Touvron, Louis Martin, Kevin Stone, et al. Llama 2 : Open foundation and
+      fine-tuned chat models. arXiv preprint arXiv :2307.09288, 2023.
+[32] Meta AI. The llama 3 herd of models. arXiv preprint arXiv :2407.21783, 2024.
+[33] Edward J. Hu, Yelong Shen, Phillip Wallis, et al. Lora : Low-rank adaptation of large
+      language models. In ICLR, 2022.
+[34] Tim Dettmers, Artidoro Pagnoni, Ari Holtzman, and Luke Zettlemoyer. Qlora : Efficient
+      finetuning of quantized llms. In NeurIPS, 2023.
+[35] Wissam Antoun, Fady Baly, and Hazem Hajj. Arabert : Transformer-based model for
+      arabic language understanding. In LREC Workshop on Open-Source Arabic Corpora,
+      2020.
+
+                                                                                                                  xvi
+Bibliographie
+[36] Omar Khattab and Matei Zaharia. Colbert : Efficient and effective passage search via
+
+      contextualized late interaction over bert. In SIGIR, 2020.
+[37] Jason Wei, Xuezhi Wang, Dale Schuurmans, et al. Chain-of-thought prompting elicits
+
+      reasoning in large language models. In NeurIPS, 2022.
+[38] Republique Tunisienne. Loi no 2025-9 du 21 mai 2025, portant reglementation des
+
+      contrats de travail et interdiction de la sous-traitance de main-d'oeuvre. Journal Officiel
+      de la Republique Tunisienne, no 61, 2025.
+
+                                                                                                                 xvii
+

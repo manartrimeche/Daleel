@@ -354,6 +354,38 @@ class RequirementGap(BaseModel):
     has_exception: bool = False
 
 
+class RequirementCoverRequest(BaseModel):
+    control_title: Optional[str] = Field(None, min_length=1, max_length=512)
+    justification: Optional[str] = Field(None, max_length=4000)
+    linked_by: str = Field(default="system", max_length=256)
+
+
+class CoverageEvidenceMatch(BaseModel):
+    source_type: str
+    title: Optional[str] = None
+    snippet: Optional[str] = None
+    control_id: Optional[str] = None
+    evidence_id: Optional[str] = None
+    document_id: Optional[str] = None
+    score: float = 0.0
+
+
+class CoverageSuggestion(BaseModel):
+    exigence_id: str
+    exigence_title: Optional[str] = None
+    suggested_status: str
+    confidence: float = 0.0
+    rationale: str
+    matches: List[CoverageEvidenceMatch] = Field(default_factory=list)
+
+
+class CoverageSuggestionListOut(BaseModel):
+    company_profile_id: str
+    suggestions: List[CoverageSuggestion] = Field(default_factory=list)
+    analyzed: int = 0
+    generated_at: datetime
+
+
 class CompliancePosture(BaseModel):
     company_profile_id: str
     total_applicable: int

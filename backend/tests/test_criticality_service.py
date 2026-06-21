@@ -1,5 +1,7 @@
 """Tests for criticality_service — scoring engine and helpers."""
 
+import pytest
+
 from app.services.criticality_service import (
     compute_criticality_score,
     score_to_level,
@@ -170,6 +172,91 @@ class TestComputeCriticalityScore:
         }
         score_single, _ = compute_criticality_score(action_single)
         assert score_multi >= score_single
+
+
+class TestInheritedSanctionBoost:
+    """Verify that an obligation/condition inherits criticality when the parent
+    article contains a separate sanction exigence."""
+
+    def test_obligation_inherits_sanction_keyword_from_article(self):
+        action = {
+            "modalite": "obligation",
+            "action_precise": "Remettre un contrat de travail écrit dans les 8 jours",
+        }
+        sanctions = "La méconnaissance des dispositions du présent article est punie d'une amende."
+        score, factors = compute_criticality_score(action, sanctions_context=sanctions)
+        assert score > _BASE_SCORES["obligation"]
+        assert any("Sanction associée" in f for f in factors)
+
+    def test_obligation_inherits_amount_from_article(self):
+        action = {
+            "modalite": "obligation",
+            "action_precise": "Tenir un registre du personnel",
+        }
+        sanctions = "L'employeur encourt une amende de 300 à 1000 dinars."
+        score, factors = compute_criticality_score(action, sanctions_context=sanctions)
+        # Both sanction keyword AND amount boosts apply.
+        expected = _BASE_SCORES["obligation"] + 0.10 + 0.07
+        assert score == pytest.approx(expected, abs=1e-3)
+        assert any("Montant de pénalité dans l'article" in f for f in factors)
+
+    def test_obligation_8_days_becomes_critical_with_article_sanctions(self):
+        """Real-world example from Code du Travail Art. 6.
+
+        Bare obligation scores 0.65 (importante). With the associated sanction
+        (amende 300-1000 DT) discovered in the same article, it should rise
+        to 0.82 → critique.
+        """
+        action = {
+            "modalite": "obligation",
+            "action_precise": (
+                "Remettre un contrat de travail écrit à chaque salarié au plus "
+                "tard dans les 8 jours suivant l'embauche"
+            ),
+            "preuve": "Contrat de travail signé conservé dans le dossier",
+            "conditions": ["s'applique à tout employeur"],
+        }
+        sanctions = (
+            "La méconnaissance des dispositions du présent article est punie "
+            "d'une amende de 300 à 1000 dinars."
+        )
+        bare_score, _ = compute_criticality_score(action)
+        boosted_score, factors = compute_criticality_score(
+            action, sanctions_context=sanctions,
+        )
+        assert bare_score == 0.65
+        assert boosted_score == 0.82
+        assert score_to_level(boosted_score) == "critique"
+        assert any("Sanction associée" in f for f in factors)
+        assert any("Montant de pénalité dans l'article" in f for f in factors)
+
+    def test_sanction_action_does_not_self_inherit(self):
+        """A sanction action already has a high base; do not double-count."""
+        action = {
+            "modalite": "sanction",
+            "action_precise": "Constater l'infraction et dresser procès-verbal",
+        }
+        sanctions = "amende de 5000 dinars en cas de récidive"
+        score_with, factors_with = compute_criticality_score(
+            action, sanctions_context=sanctions,
+        )
+        score_without, _ = compute_criticality_score(action)
+        assert score_with == score_without
+        assert not any("Sanction associée" in f for f in factors_with)
+
+    def test_empty_context_preserves_legacy_behaviour(self):
+        action = {"modalite": "obligation", "action_precise": "tenir un registre"}
+        legacy, _ = compute_criticality_score(action)
+        with_empty, _ = compute_criticality_score(action, sanctions_context="")
+        assert legacy == with_empty
+
+    def test_context_without_sanction_words_no_boost(self):
+        action = {"modalite": "obligation", "action_precise": "remettre un document"}
+        # Context describing an unrelated obligation — no sanction keyword, no amount.
+        sanctions = "Le ministre peut publier les statistiques annuelles."
+        score, factors = compute_criticality_score(action, sanctions_context=sanctions)
+        assert score == _BASE_SCORES["obligation"]
+        assert not any("Sanction associée" in f for f in factors)
 
 
 class TestCritToDict:

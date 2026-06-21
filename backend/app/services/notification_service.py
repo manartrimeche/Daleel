@@ -3,7 +3,6 @@ Notification service — generate and persist alerts when amendments affect comp
 
 Alert types:
   • amendment_impact  — an applied amendment touches articles relevant to a profile
-  • coverage_change   — applicability re-evaluation changed a profile's coverage
 """
 
 from __future__ import annotations
@@ -28,6 +27,53 @@ _EPHEMERAL_ALERT_TYPES = frozenset({
     "invitation_revoked",
 })
 _EPHEMERAL_TTL_DAYS = 90
+_SUPER_ADMIN_ONLY_ALERT_TYPES = frozenset({
+    "approval_amendment",
+    "approval_document",
+    "approval_invitation",
+    "approval_organization",
+})
+_SUPER_ADMIN_VISIBLE_ALERT_TYPES = _SUPER_ADMIN_ONLY_ALERT_TYPES | frozenset({
+    "amendment_summary",
+})
+_ORGANIZATION_VISIBLE_ALERT_TYPES = frozenset({
+    "account_login",
+    "account_updated",
+    "account_deactivated",
+    "amendment_impact",
+    "invitation_revoked",
+    "member_joined",
+    "organization_approved",
+    "organization_rejected",
+    "subscription_expiring",
+})
+
+
+def super_admin_notification_query() -> dict[str, Any]:
+    """Build the query for notifications visible in the super admin list."""
+    return {"alert_type": {"$in": sorted(_SUPER_ADMIN_VISIBLE_ALERT_TYPES)}}
+
+
+def organization_notification_query(
+    organization_id: str,
+    user_id: str | None = None,
+    include_org_wide: bool = True,
+) -> dict[str, Any]:
+    """Build the query for notifications visible to an organization user."""
+    query: dict[str, Any] = {
+        "details.organization_id": organization_id,
+        "details.audience": {"$ne": "super_admin"},
+        "alert_type": {"$in": sorted(_ORGANIZATION_VISIBLE_ALERT_TYPES)},
+    }
+    if user_id and include_org_wide:
+        query["$or"] = [
+            {"details.recipient_user_id": {"$exists": False}},
+            {"details.recipient_user_id": None},
+            {"details.recipient_user_id": user_id},
+        ]
+    elif user_id:
+        query["details.recipient_user_id"] = user_id
+    return query
 
 
 async def create_notification(
@@ -68,11 +114,19 @@ async def list_notifications(
     skip: int = 0,
     limit: int = 50,
     organization_id: str | None = None,
+    user_id: str | None = None,
+    include_org_wide: bool = True,
 ) -> tuple[list[dict], int]:
     """List notifications most-recent-first."""
     query: dict[str, Any] = {}
     if organization_id:
-        query["details.organization_id"] = organization_id
+        query = organization_notification_query(
+            organization_id,
+            user_id=user_id,
+            include_org_wide=include_org_wide,
+        )
+    else:
+        query = super_admin_notification_query()
 
     total = await db["notifications"].count_documents(query)
     cursor = (
@@ -93,6 +147,7 @@ async def mark_read(
     organization_id: str | None = None,
     allow_global: bool = False,
     user_id: str | None = None,
+    include_org_wide: bool = True,
 ) -> str:
     """
     Mark a notification as read within the caller's allowed scope.
@@ -108,7 +163,11 @@ async def mark_read(
 
     filt: dict[str, Any] = {"id": notification_id}
     if not allow_global:
-        filt["details.organization_id"] = organization_id
+        filt.update(organization_notification_query(
+            organization_id,
+            user_id=user_id,
+            include_org_wide=include_org_wide,
+        ))
 
     update = {"$set": {"read": True}} if allow_global else {"$addToSet": {"read_by": user_id}}
 
@@ -124,6 +183,7 @@ async def mark_all_read(
     organization_id: str | None = None,
     allow_global: bool = False,
     user_id: str | None = None,
+    include_org_wide: bool = True,
 ) -> int:
     """
     Mark every notification in the caller's scope as read.
@@ -132,7 +192,7 @@ async def mark_all_read(
     """
     if allow_global:
         result = await db["notifications"].update_many(
-            {"read": {"$ne": True}},
+            super_admin_notification_query() | {"read": {"$ne": True}},
             {"$set": {"read": True}},
         )
         return result.modified_count
@@ -141,14 +201,50 @@ async def mark_all_read(
         return 0
 
     result = await db["notifications"].update_many(
-        {
-            "details.organization_id": organization_id,
+        organization_notification_query(
+            organization_id,
+            user_id=user_id,
+            include_org_wide=include_org_wide,
+        )
+        | {
             "read": {"$ne": True},
             "read_by": {"$ne": user_id},
         },
         {"$addToSet": {"read_by": user_id}},
     )
     return result.modified_count
+
+
+async def delete_notification(
+    db: Any,
+    notification_id: str,
+    *,
+    organization_id: str | None = None,
+    allow_global: bool = False,
+    user_id: str | None = None,
+    include_org_wide: bool = True,
+) -> str:
+    """
+    Delete a notification within the caller's allowed scope.
+
+    Returns:
+        "ok"       — the notification was deleted
+        "not_found"— no notification matches the scope
+        "denied"   — the call lacks required scope
+    """
+    if not allow_global and (not organization_id or not user_id):
+        return "denied"
+
+    filt: dict[str, Any] = {"id": notification_id}
+    if not allow_global:
+        filt.update(organization_notification_query(
+            organization_id,
+            user_id=user_id,
+            include_org_wide=include_org_wide,
+        ))
+
+    result = await db["notifications"].delete_one(filt)
+    return "ok" if result.deleted_count > 0 else "not_found"
 
 
 async def mark_processed(

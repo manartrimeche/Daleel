@@ -23,6 +23,25 @@ def _make_client():
         mock_faiss.rebuild = AsyncMock()
         mock_faiss.size = 0
         from app.main import app
+        from app.api.auth import get_optional_current_user, require_api_key
+        from app.api.compliance_router import require_compliance_access
+
+        async def fake_optional_user():
+            return {
+                "id": "test-user",
+                "email": "test@example.com",
+                "role": "super_admin",
+                "organization_id": None,
+                "is_active": True,
+            }
+
+        async def fake_key():
+            return "test"
+
+        app.dependency_overrides[get_optional_current_user] = fake_optional_user
+        app.dependency_overrides[require_api_key] = fake_key
+        app.dependency_overrides[require_compliance_access] = fake_key
+
         from fastapi.testclient import TestClient
         return TestClient(app, raise_server_exceptions=False)
 
@@ -574,6 +593,12 @@ class TestGapCalculation(unittest.TestCase):
         links_col = MagicMock()
         links_col.find = MagicMock(return_value=MockCursor(links))
 
+        controls_col = MagicMock()
+        controls_col.find = MagicMock(return_value=MockCursor([
+            _fake_control("ctrl-001"),
+            _fake_control("ctrl-002"),
+        ]))
+
         def col_router(name):
             if name == "company_profiles":
                 return profiles_col
@@ -583,6 +608,8 @@ class TestGapCalculation(unittest.TestCase):
                 return exc_col
             if name == "requirement_control_links":
                 return links_col
+            if name == "controls":
+                return controls_col
             return AsyncMock()
 
         mock_col.side_effect = col_router
@@ -611,7 +638,11 @@ class TestGapCalculation(unittest.TestCase):
             # exig-003 has no link → not_covered
         ]
         exig_002 = {"id": "exig-002", "title": "Safety training obligation"}
-        exig_003 = {"id": "exig-003", "title": "Fire safety audit"}
+        exig_003 = {
+            "id": "exig-003",
+            "article_reference": "Article 12",
+            "text": "The employer must keep a clear fire safety register available for inspection.",
+        }
 
         profiles_col = AsyncMock()
         profiles_col.find_one = AsyncMock(return_value=profile)
@@ -624,6 +655,12 @@ class TestGapCalculation(unittest.TestCase):
 
         links_col = MagicMock()
         links_col.find = MagicMock(return_value=MockCursor(links))
+
+        controls_col = MagicMock()
+        controls_col.find = MagicMock(return_value=MockCursor([
+            _fake_control("ctrl-001"),
+            _fake_control("ctrl-002"),
+        ]))
 
         exigences_col = AsyncMock()
         exigences_col.find_one = AsyncMock(
@@ -639,6 +676,8 @@ class TestGapCalculation(unittest.TestCase):
                 return exc_col
             if name == "requirement_control_links":
                 return links_col
+            if name == "controls":
+                return controls_col
             if name == "exigences":
                 return exigences_col
             return AsyncMock()
@@ -654,6 +693,8 @@ class TestGapCalculation(unittest.TestCase):
         self.assertEqual(data["not_covered"], 1)
         self.assertAlmostEqual(data["overall_coverage_score"], 1 / 3, places=3)
         self.assertEqual(len(data["gaps"]), 2)
+        self.assertIn("Article 12", data["gaps"][1]["exigence_title"])
+        self.assertIn("fire safety register", data["gaps"][1]["exigence_title"])
 
     @patch("app.services.compliance_service._collection")
     def test_posture_with_exception(self, mock_col):
@@ -682,6 +723,11 @@ class TestGapCalculation(unittest.TestCase):
         links_col = MagicMock()
         links_col.find = MagicMock(return_value=MockCursor(links))
 
+        controls_col = MagicMock()
+        controls_col.find = MagicMock(return_value=MockCursor([
+            _fake_control("ctrl-001"),
+        ]))
+
         def col_router(name):
             if name == "company_profiles":
                 return profiles_col
@@ -691,6 +737,8 @@ class TestGapCalculation(unittest.TestCase):
                 return exc_col
             if name == "requirement_control_links":
                 return links_col
+            if name == "controls":
+                return controls_col
             return AsyncMock()
 
         mock_col.side_effect = col_router
@@ -730,6 +778,53 @@ class TestGapCalculation(unittest.TestCase):
         self.assertEqual(data["overall_coverage_score"], 1.0)
 
     @patch("app.services.compliance_service._collection")
+    def test_member_can_read_org_posture(self, mock_col):
+        """Members can read their organization's coverage posture for the dashboard."""
+        from app.api.auth import get_optional_current_user
+        from app.main import app
+
+        async def fake_member_user():
+            return {
+                "id": "member-user",
+                "email": "member@example.com",
+                "role": "member",
+                "organization_id": "org-1",
+                "is_active": True,
+            }
+
+        profile = _fake_profile()
+        profile["organization_id"] = "org-1"
+
+        profiles_col = AsyncMock()
+        profiles_col.find_one = AsyncMock(return_value=profile)
+
+        app_col = MagicMock()
+        app_col.find = MagicMock(return_value=MockCursor([]))
+
+        def col_router(name):
+            if name == "company_profiles":
+                return profiles_col
+            if name == "exigence_applicabilities":
+                return app_col
+            return AsyncMock()
+
+        mock_col.side_effect = col_router
+
+        original_optional_user = app.dependency_overrides.get(get_optional_current_user)
+        app.dependency_overrides[get_optional_current_user] = fake_member_user
+        try:
+            r = self.client.get("/api/v1/compliance/posture/profile-001")
+            self.assertEqual(r.status_code, 200)
+            data = r.json()
+            self.assertEqual(data["company_profile_id"], "profile-001")
+            self.assertEqual(data["overall_coverage_score"], 1.0)
+        finally:
+            if original_optional_user is None:
+                app.dependency_overrides.pop(get_optional_current_user, None)
+            else:
+                app.dependency_overrides[get_optional_current_user] = original_optional_user
+
+    @patch("app.services.compliance_service._collection")
     def test_gaps_endpoint(self, mock_col):
         """Gaps endpoint returns only uncovered/partially covered items."""
         profile = _fake_profile()
@@ -752,6 +847,11 @@ class TestGapCalculation(unittest.TestCase):
         links = [_fake_link("l1", "exig-001", "ctrl-001", coverage_status="fully_covered", coverage_score=1.0)]
         links_col.find = MagicMock(return_value=MockCursor(links))
 
+        controls_col = MagicMock()
+        controls_col.find = MagicMock(return_value=MockCursor([
+            _fake_control("ctrl-001"),
+        ]))
+
         exigences_col = AsyncMock()
         exigences_col.find_one = AsyncMock(return_value=exig_002)
 
@@ -764,6 +864,8 @@ class TestGapCalculation(unittest.TestCase):
                 return exc_col
             if name == "requirement_control_links":
                 return links_col
+            if name == "controls":
+                return controls_col
             if name == "exigences":
                 return exigences_col
             return AsyncMock()
@@ -776,6 +878,82 @@ class TestGapCalculation(unittest.TestCase):
         self.assertEqual(len(gaps), 1)
         self.assertEqual(gaps[0]["exigence_id"], "exig-002")
         self.assertEqual(gaps[0]["coverage_status"], "not_covered")
+
+    @patch("app.services.compliance_service._collection")
+    def test_suggest_coverage_from_existing_control(self, mock_col):
+        """Coverage suggestion proposes matching implemented controls without applying them."""
+        profile = _fake_profile()
+        applicabilities = [
+            {"profile_id": "profile-001", "exigence_id": "exig-001", "is_applicable": True},
+        ]
+        exigence = {
+            "id": "exig-001",
+            "article_reference": "Article 94",
+            "text": "Employee contracts must be signed and archived by the employer.",
+        }
+        control = _fake_control(
+            "ctrl-001",
+            implementation_status="implemented",
+            effectiveness_score=0.9,
+            title="Signed employee contract archive",
+            description="Verify every employee contract is signed and stored in the HR archive.",
+        )
+        evidence = _fake_evidence("ev-001", "ctrl-001")
+        evidence.update({
+            "title": "Accepted signed contracts register",
+            "description": "Register of signed and archived employee contracts.",
+            "status": "accepted",
+        })
+
+        profiles_col = AsyncMock()
+        profiles_col.find_one = AsyncMock(return_value=profile)
+
+        app_col = MagicMock()
+        app_col.find = MagicMock(return_value=MockCursor(applicabilities))
+
+        exc_col = MagicMock()
+        exc_col.find = MagicMock(return_value=MockCursor([]))
+
+        links_col = MagicMock()
+        links_col.find = MagicMock(return_value=MockCursor([]))
+
+        controls_col = MagicMock()
+        controls_col.find = MagicMock(return_value=MockCursor([control]))
+
+        evidences_col = MagicMock()
+        evidences_col.find = MagicMock(return_value=MockCursor([evidence]))
+
+        exigences_col = AsyncMock()
+        exigences_col.find_one = AsyncMock(return_value=exigence)
+
+        def col_router(name):
+            if name == "company_profiles":
+                return profiles_col
+            if name == "exigence_applicabilities":
+                return app_col
+            if name == "exception_register":
+                return exc_col
+            if name == "requirement_control_links":
+                return links_col
+            if name == "controls":
+                return controls_col
+            if name == "control_evidences":
+                return evidences_col
+            if name == "exigences":
+                return exigences_col
+            return AsyncMock()
+
+        mock_col.side_effect = col_router
+
+        r = self.client.post("/api/v1/compliance/posture/profile-001/suggest-coverage")
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertEqual(data["analyzed"], 1)
+        suggestion = data["suggestions"][0]
+        self.assertEqual(suggestion["exigence_id"], "exig-001")
+        self.assertEqual(suggestion["suggested_status"], "fully_covered")
+        self.assertGreaterEqual(suggestion["confidence"], 0.62)
+        self.assertEqual(suggestion["matches"][0]["control_id"], "ctrl-001")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

@@ -11,6 +11,10 @@ from app.services.llm_service import (
     _rerank_chunks_for_question,
     _is_manager_obligations_query,
     _should_auto_scope_company_document,
+    _should_auto_scope_labor_document,
+    _is_labor_trial_period_query,
+    _is_relevant_enough,
+    _augment_query_for_specific_legal_scope,
     _backoff_delay,
 )
 
@@ -80,6 +84,44 @@ class TestShouldAutoScopeCompanyDocument(unittest.TestCase):
 
     def test_unrelated_query(self):
         self.assertFalse(_should_auto_scope_company_document("What is the weather today?"))
+
+    def test_sa_does_not_match_savons(self):
+        self.assertFalse(_should_auto_scope_company_document("Nous ne savons pas comment répondre."))
+
+
+class TestLaborTrialPeriodScope(unittest.TestCase):
+    def test_labor_scope_cdi_trial_period(self):
+        question = "Quelle est la durée maximale de la période d'essai pour un CDI en Tunisie ?"
+        self.assertTrue(_should_auto_scope_labor_document(question))
+        self.assertTrue(_is_labor_trial_period_query(question))
+
+    def test_trial_period_query_is_augmented_for_retrieval(self):
+        question = "Quelle est la durée maximale de la période d'essai pour un CDI en Tunisie ?"
+        augmented = _augment_query_for_specific_legal_scope(question, "fr")
+        self.assertIn("Code du travail", augmented)
+        self.assertIn("article 3-6", augmented)
+
+    def test_trial_period_rejects_off_topic_chunks(self):
+        question = "Quelle est la durée maximale de la période d'essai pour un CDI en Tunisie ?"
+        chunks = [
+            {
+                "text": "Article 7. L'agrément est accordé compte tenu du programme d'activité de la société.",
+                "section": "Article 7",
+                "score": 0.95,
+            }
+        ]
+        self.assertFalse(_is_relevant_enough(question, chunks, "fr"))
+
+    def test_trial_period_accepts_labor_chunks(self):
+        question = "Quelle est la durée maximale de la période d'essai pour un CDI en Tunisie ?"
+        chunks = [
+            {
+                "text": "Article 18. Dans tout contrat de travail, la durée de la période d'essai résulte de la loi.",
+                "section": "Article 18",
+                "score": 0.5,
+            }
+        ]
+        self.assertTrue(_is_relevant_enough(question, chunks, "fr"))
 
 
 class TestRerankChunks(unittest.TestCase):

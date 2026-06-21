@@ -55,7 +55,7 @@ class RerankingService:
             try:
                 def _load():
                     from sentence_transformers import CrossEncoder
-                    return CrossEncoder(self.MODEL_NAME)
+                    return CrossEncoder(self.MODEL_NAME, device="cpu")
 
                 self._model = await asyncio.get_event_loop().run_in_executor(None, _load)
                 self._load_failed = False

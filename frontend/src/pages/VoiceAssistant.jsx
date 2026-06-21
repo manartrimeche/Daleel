@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import DIcon from '../components/DIcon';
 import { authFetch } from '../utils/auth';
+import voiceAgentBg from '../assets/voice-agent-bg.webp';
 
 const STATES = { IDLE: 'idle', LISTENING: 'listening', PROCESSING: 'processing', RESPONDING: 'responding', ERROR: 'error' };
 
@@ -230,11 +231,33 @@ export default function VoiceAssistant() {
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 500,
-      background: 'linear-gradient(160deg, #0f1a2e 0%, #1B2B42 40%, #243752 100%)',
+      backgroundImage: `linear-gradient(180deg, rgba(3,8,16,0.34), rgba(3,8,16,0.66)), url(${voiceAgentBg})`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      backgroundRepeat: 'no-repeat',
       display: 'flex', flexDirection: 'column', alignItems: 'center',
       justifyContent: 'center',
-      overflow: 'hidden',
+      padding: '92px 20px 32px',
+      boxSizing: 'border-box',
+      overflowY: 'auto',
+      overflowX: 'hidden',
     }}>
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        backgroundImage: 'radial-gradient(circle at 50% 44%, rgba(5,12,24,0.08), rgba(5,12,24,0.58) 62%, rgba(5,12,24,0.82) 100%)',
+        pointerEvents: 'none',
+      }} />
+      <div style={{
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        height: '34%',
+        background: 'linear-gradient(0deg, rgba(184,147,90,0.10), transparent)',
+        pointerEvents: 'none',
+      }} />
+
       {/* Header */}
       <div style={{
         position: 'absolute', top: 0, left: 0, right: 0,
@@ -242,86 +265,155 @@ export default function VoiceAssistant() {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         zIndex: 2,
       }}>
-        <button onClick={() => navigate(-1)} style={{
+        <button onClick={() => navigate(-1)} className="hover-glass" style={{
           display: 'flex', alignItems: 'center', gap: 8,
           color: 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: 500,
           padding: '8px 14px', borderRadius: 8,
           background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)',
-          cursor: 'pointer', transition: 'all .15s',
+          cursor: 'pointer',
         }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = '#fff'; }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = 'rgba(255,255,255,0.5)'; }}
         >
           <DIcon name="arrowLeft" size={16} />
           {t('voiceAssistant.back')}
         </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <img
+            src="/daleel-logo-light.png?v=20260526"
+            alt="Daleel"
+            style={{ width: 132, height: 44, objectFit: 'contain', objectPosition: 'right center', opacity: 0.96, filter: 'brightness(0) invert(1)' }}
+          />
+        </div>
       </div>
 
-      {/* Audio equalizer */}
-      <AudioEqualizer state={state} audioPlaying={audioPlaying} />
-
-      {/* Status */}
-      <div style={{
-        marginTop: 16,
-        fontSize: 14, fontWeight: 500,
-        color: state === STATES.LISTENING ? 'rgba(0,230,215,0.8)'
-          : state === STATES.PROCESSING ? 'rgba(180,100,255,0.7)'
-          : state === STATES.ERROR ? 'rgba(255,80,80,0.8)'
-          : 'rgba(255,255,255,0.35)',
-        fontFamily: 'var(--font-body)',
-        minHeight: 24,
-        display: 'flex', alignItems: 'center', gap: 8,
+      <main style={{
+        position: 'relative',
+        zIndex: 1,
+        width: 'min(640px, calc(100vw - 40px))',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        textAlign: 'center',
       }}>
-        {state === STATES.IDLE && t('voiceAssistant.pressToTalk')}
-        {state === STATES.LISTENING && (
-          <>
-            {t('voiceAssistant.listening')}
-            <span style={{ fontFamily: 'var(--font-mono)', letterSpacing: '0.05em' }}>{formatTime(recordingTime)}</span>
-          </>
-        )}
-        {state === STATES.PROCESSING && t('voiceAssistant.processing')}
-        {state === STATES.RESPONDING && audioPlaying && t('voiceAssistant.speaking')}
-        {state === STATES.RESPONDING && !audioPlaying && t('voiceAssistant.pressToTalk')}
-        {state === STATES.ERROR && (errorMsg || t('voiceAssistant.genericError'))}
-      </div>
+        <div style={{
+          width: 94,
+          height: 94,
+          borderRadius: 28,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'linear-gradient(145deg, rgba(255,255,255,0.16), rgba(255,255,255,0.06))',
+          border: '1px solid rgba(255,255,255,0.16)',
+          boxShadow: '0 24px 70px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.18)',
+          marginBottom: 22,
+        }}>
+          <img src="/daleel-mark-light.png?v=20260526" alt="" aria-hidden="true" style={{ width: 64, height: 62, objectFit: 'contain', filter: 'brightness(0) invert(1)' }} />
+        </div>
 
-      {/* Mic button */}
-      <button
-        onClick={handleMicClick}
-        disabled={state === STATES.PROCESSING}
-        style={{
-          marginTop: 20,
-          width: 72, height: 72, borderRadius: '50%',
-          background: state === STATES.LISTENING
-            ? 'rgba(255,60,60,0.9)'
-            : state === STATES.PROCESSING
-              ? 'rgba(255,255,255,0.08)'
-              : state === STATES.RESPONDING && audioPlaying
-                ? 'rgba(255,255,255,0.12)'
-                : 'rgba(255,255,255,0.1)',
-          border: state === STATES.LISTENING
-            ? '2px solid rgba(255,60,60,0.5)'
-            : '2px solid rgba(255,255,255,0.1)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          cursor: state === STATES.PROCESSING ? 'wait' : 'pointer',
-          transition: 'all .25s',
-        }}
-      >
-        {state === STATES.PROCESSING ? (
+        <h1 style={{
+          margin: 0,
+          color: '#fff',
+          fontFamily: 'var(--font-heading)',
+          fontSize: 34,
+          lineHeight: 1.14,
+          fontWeight: 700,
+        }}>
+          {t('sidebar.voiceAssistant')}
+        </h1>
+        <p style={{
+          margin: '10px 0 28px',
+          color: 'rgba(255,255,255,0.62)',
+          fontSize: 14,
+          lineHeight: 1.6,
+          maxWidth: 420,
+        }}>
+          {t('voiceAssistant.subtitle')}
+        </p>
+
+        <section style={{
+          width: '100%',
+          borderRadius: 24,
+          padding: '30px 34px 34px',
+          background: 'rgba(9,17,29,0.42)',
+          border: '1px solid rgba(255,255,255,0.12)',
+          boxShadow: '0 30px 90px rgba(0,0,0,0.30)',
+          backdropFilter: 'blur(18px)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+        }}>
+          {/* Audio equalizer */}
+          <AudioEqualizer state={state} audioPlaying={audioPlaying} />
+
+          {/* Status */}
           <div style={{
-            width: 24, height: 24, borderRadius: '50%',
-            border: '2px solid rgba(255,255,255,0.1)',
-            borderTopColor: 'rgba(180,100,255,0.7)',
-            animation: 'spin 0.8s linear infinite',
-          }} />
-        ) : state === STATES.RESPONDING && audioPlaying ? (
-          <DIcon name="phoneOff" size={26} style={{ color: 'rgba(255,255,255,0.7)' }} />
-        ) : (
-          <DIcon name="mic" size={26} style={{ color: state === STATES.LISTENING ? '#fff' : 'rgba(255,255,255,0.6)' }} />
-        )}
-      </button>
+            marginTop: 14,
+            padding: '8px 14px',
+            borderRadius: 999,
+            fontSize: 14, fontWeight: 600,
+            color: state === STATES.LISTENING ? 'rgba(94,234,212,0.95)'
+              : state === STATES.PROCESSING ? 'rgba(212,184,124,0.95)'
+              : state === STATES.ERROR ? 'rgba(255,130,130,0.95)'
+              : 'rgba(255,255,255,0.62)',
+            background: 'rgba(255,255,255,0.06)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            fontFamily: 'var(--font-body)',
+            minHeight: 24,
+            display: 'flex', alignItems: 'center', gap: 8,
+          }}>
+            {state === STATES.IDLE && t('voiceAssistant.pressToTalk')}
+            {state === STATES.LISTENING && (
+              <>
+                {t('voiceAssistant.listening')}
+                <span style={{ fontFamily: 'var(--font-mono)', letterSpacing: '0.05em' }}>{formatTime(recordingTime)}</span>
+              </>
+            )}
+            {state === STATES.PROCESSING && t('voiceAssistant.processing')}
+            {state === STATES.RESPONDING && audioPlaying && t('voiceAssistant.speaking')}
+            {state === STATES.RESPONDING && !audioPlaying && t('voiceAssistant.pressToTalk')}
+            {state === STATES.ERROR && (errorMsg || t('voiceAssistant.genericError'))}
+          </div>
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          {/* Mic button */}
+          <button
+            onClick={handleMicClick}
+            disabled={state === STATES.PROCESSING}
+            style={{
+              marginTop: 26,
+              width: 82, height: 82, borderRadius: '50%',
+              background: state === STATES.LISTENING
+                ? 'linear-gradient(145deg, rgba(255,80,80,0.96), rgba(190,35,35,0.92))'
+                : state === STATES.PROCESSING
+                  ? 'rgba(255,255,255,0.08)'
+                  : state === STATES.RESPONDING && audioPlaying
+                    ? 'rgba(255,255,255,0.14)'
+                    : 'linear-gradient(145deg, rgba(184,147,90,0.96), rgba(128,96,53,0.96))',
+              border: state === STATES.LISTENING
+                ? '2px solid rgba(255,170,170,0.42)'
+                : '2px solid rgba(255,255,255,0.16)',
+              boxShadow: state === STATES.LISTENING
+                ? '0 18px 48px rgba(255,60,60,0.26)'
+                : '0 18px 48px rgba(184,147,90,0.24)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: state === STATES.PROCESSING ? 'wait' : 'pointer',
+              transition: 'all .25s',
+            }}
+          >
+            {state === STATES.PROCESSING ? (
+              <div style={{
+                width: 24, height: 24, borderRadius: '50%',
+                border: '2px solid rgba(255,255,255,0.1)',
+                borderTopColor: 'rgba(212,184,124,0.9)',
+                animation: 'spin 0.8s linear infinite',
+              }} />
+            ) : state === STATES.RESPONDING && audioPlaying ? (
+              <DIcon name="phoneOff" size={28} style={{ color: 'rgba(255,255,255,0.82)' }} />
+            ) : (
+              <DIcon name="mic" size={28} style={{ color: '#fff' }} />
+            )}
+          </button>
+        </section>
+      </main>
+
     </div>
   );
 }

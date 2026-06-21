@@ -8,6 +8,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch, MagicMock, AsyncMock
 
+from bson import ObjectId
 from fastapi import HTTPException
 
 from app.api.auth import (
@@ -257,10 +258,12 @@ class TestPasswordSchemaIntegration(unittest.TestCase):
         with self.assertRaises(ValidationError):
             RegisterRequest(
                 email="a@b.com",
+                phone="+21698123456",
                 password="weakpass",
                 full_name="Test User",
                 organization_name="Org",
                 sector="finance",
+                country="tunisia",
             )
 
     def test_change_password_rejects_weak_password(self):
@@ -633,6 +636,167 @@ class TestInvitationScope(unittest.TestCase):
             },
             {"$set": {"status": "revoked"}},
         )
+
+
+class TestOwnerUniqueness(unittest.TestCase):
+    def test_create_owner_requires_organization(self):
+        from app.services import auth_service
+
+        with self.assertRaises(ValueError):
+            _run(
+                auth_service.create_user(
+                    email="owner@example.com",
+                    password_hash="hash",
+                    full_name="Owner",
+                    role="owner",
+                    organization_id=None,
+                )
+            )
+
+    def test_create_owner_rejects_existing_owner(self):
+        from app.services import auth_service
+
+        users = MagicMock()
+        users.find_one = AsyncMock(return_value={"_id": ObjectId()})
+        users.insert_one = AsyncMock()
+
+        with patch("app.services.auth_service._users", users):
+            with self.assertRaises(ValueError):
+                _run(
+                    auth_service.create_user(
+                        email="owner2@example.com",
+                        password_hash="hash",
+                        full_name="Owner Two",
+                        role="owner",
+                        organization_id="org-a",
+                    )
+                )
+
+        users.insert_one.assert_not_called()
+
+    def test_update_user_rejects_owner_role_change(self):
+        from app.services import auth_service
+
+        user_id = "507f1f77bcf86cd799439011"
+        users = MagicMock()
+        users.find_one = AsyncMock(
+            return_value={
+                "_id": ObjectId(user_id),
+                "organization_id": "org-a",
+                "role": "owner",
+            }
+        )
+        users.update_one = AsyncMock()
+
+        with patch("app.services.auth_service._users", users):
+            with self.assertRaises(ValueError):
+                _run(auth_service.update_user(user_id, {"role": "admin"}))
+
+        users.update_one.assert_not_called()
+
+    def test_update_user_rejects_second_owner(self):
+        from app.services import auth_service
+
+        user_id = "507f1f77bcf86cd799439011"
+        users = MagicMock()
+        users.find_one = AsyncMock(
+            side_effect=[
+                {
+                    "_id": ObjectId(user_id),
+                    "organization_id": "org-a",
+                    "role": "member",
+                },
+                {"_id": ObjectId("507f1f77bcf86cd799439012")},
+            ]
+        )
+        users.update_one = AsyncMock()
+
+        with patch("app.services.auth_service._users", users):
+            with self.assertRaises(ValueError):
+                _run(auth_service.update_user(user_id, {"role": "owner"}))
+
+        users.update_one.assert_not_called()
+
+
+class TestIdentityUniqueness(unittest.TestCase):
+    def test_create_user_rejects_duplicate_email(self):
+        from app.services import auth_service
+
+        users = MagicMock()
+        users.find_one = AsyncMock(return_value={"_id": ObjectId()})
+        users.insert_one = AsyncMock()
+
+        with patch("app.services.auth_service._users", users):
+            with self.assertRaises(ValueError) as ctx:
+                _run(
+                    auth_service.create_user(
+                        email="taken@example.com",
+                        password_hash="hash",
+                        full_name="Taken",
+                        role="member",
+                        organization_id="org-a",
+                    )
+                )
+
+        self.assertIn("email existe déjà", str(ctx.exception))
+        users.insert_one.assert_not_called()
+
+    def test_create_user_rejects_duplicate_phone(self):
+        from app.services import auth_service
+
+        users = MagicMock()
+        users.find_one = AsyncMock(side_effect=[None, {"_id": ObjectId()}])
+        users.insert_one = AsyncMock()
+
+        with patch("app.services.auth_service._users", users):
+            with self.assertRaises(ValueError) as ctx:
+                _run(
+                    auth_service.create_user(
+                        email="new@example.com",
+                        phone="+21698123456",
+                        password_hash="hash",
+                        full_name="New",
+                        role="member",
+                        organization_id="org-a",
+                    )
+                )
+
+        self.assertIn("numéro de téléphone existe déjà", str(ctx.exception))
+        users.insert_one.assert_not_called()
+
+    def test_create_organization_rejects_duplicate_name(self):
+        from app.services import auth_service
+
+        organizations = MagicMock()
+        organizations.find_one = AsyncMock(return_value={"_id": ObjectId()})
+        organizations.insert_one = AsyncMock()
+
+        with patch("app.services.auth_service._organizations", organizations):
+            with self.assertRaises(ValueError) as ctx:
+                _run(
+                    auth_service.create_organization(
+                        name="ACME",
+                        sector="finance",
+                    )
+                )
+
+        self.assertIn("nom de l'entreprise existe déjà", str(ctx.exception))
+        organizations.insert_one.assert_not_called()
+
+    def test_update_organization_rejects_duplicate_name(self):
+        from app.services import auth_service
+
+        org_id = "507f1f77bcf86cd799439011"
+        organizations = MagicMock()
+        organizations.find_one = AsyncMock(return_value={"_id": ObjectId()})
+        organizations.update_one = AsyncMock()
+
+        with patch("app.services.auth_service._organizations", organizations):
+            with self.assertRaises(ValueError) as ctx:
+                _run(auth_service.update_organization(org_id, {"name": "ACME"}))
+
+        self.assertIn("nom de l'entreprise existe déjà", str(ctx.exception))
+        organizations.update_one.assert_not_called()
 
 
 if __name__ == "__main__":

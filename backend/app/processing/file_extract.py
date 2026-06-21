@@ -109,8 +109,8 @@ async def extract_text_from_upload(
         if tmp_path:
             try:
                 tmp_path.unlink()
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Temp file unlink failed for %s: %s", tmp_path, exc)
 
     if not extracted_text or len(extracted_text.strip()) < 10:
         return {
