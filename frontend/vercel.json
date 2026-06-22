@@ -5,6 +5,10 @@
     {
       "source": "/api/:path*",
       "destination": "https://manartrimeche-daleel.hf.space/api/:path*"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
     }
   ]
 }
