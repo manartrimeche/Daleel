@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     mongodb_db_name: str = "manar"
     mongodb_max_pool_size: int = 50
     mongodb_min_pool_size: int = 0
-    mongodb_server_selection_timeout_ms: int = 5000
+    mongodb_server_selection_timeout_ms: int = 30000
     mongodb_connect_timeout_ms: int = 10000
     mongodb_socket_timeout_ms: int = 30000
 

@@ -38,13 +38,15 @@ FROM python:3.12-slim AS runtime
 
 WORKDIR /app
 
-# System deps: Tesseract OCR + poppler (for PyMuPDF)
+# System deps: Tesseract OCR + poppler + CA certs (for MongoDB Atlas TLS)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr \
     tesseract-ocr-ara \
     tesseract-ocr-fra \
     libtesseract-dev \
     poppler-utils \
+    ca-certificates \
+    && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy virtual environment from builder
@@ -56,9 +58,9 @@ ENV PYTHONPATH="/app/backend"
 COPY backend/ ./backend/
 COPY --from=frontend-builder /app/frontend/dist/ ./interface-daleel/
 
-# Create non-root user and uploads directory
+# Create non-root user with home dir (needed for HF model cache) and uploads directory
 RUN groupadd --gid 1001 daleel && \
-    useradd --uid 1001 --gid daleel --shell /bin/false daleel && \
+    useradd --uid 1001 --gid daleel --create-home --shell /bin/false daleel && \
     mkdir -p uploads && chown daleel:daleel uploads
 
 # Expose FastAPI port (défaut local ; surchargé par $PORT en hébergement)

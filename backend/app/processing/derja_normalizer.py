@@ -37,6 +37,7 @@ logger = logging.getLogger(__name__)
 _DERJA_DICT: dict[str, str] = {
     # ── Interrogatives & connectors ──
     "شنوة": "quoi / que",
+    "شنوّة": "quoi / que",
     "شنو": "quoi / que",
     "شنوا": "quoi / que",
     "آش": "que / quoi",
@@ -81,6 +82,15 @@ _DERJA_DICT: dict[str, str] = {
     "سكّروا": "ils ont fermé",
     "حلّوا": "ils ont ouvert",
     "فتحوا": "ils ont ouvert",
+    "نحلّ شركة": "je crée une société",
+    "نحل شركة": "je crée une société",
+    "نفتح شركة": "je crée une société",
+    "نكوّن شركة": "je constitue une société",
+    "نكون شركة": "je constitue une société",
+    "نؤسس شركة": "je constitue une société",
+    "نأسس شركة": "je constitue une société",
+    "نحلّ": "j'ouvre / je crée",
+    "نحل": "j'ouvre / je crée",
     "نفتح": "j'ouvre / je crée",
     "نسكّر": "je ferme",
     "نشكي": "je porte plainte / je dépose une plainte",
@@ -228,10 +238,10 @@ for _derja, _french in sorted(_DERJA_DICT.items(), key=lambda x: len(x[0]), reve
 _DERJA_MARKERS = re.compile(
     r"(?:"
     # Interrogatives unique to Tunisian
-    r"شنوة|شنو|شنوا|آش(?:نو)?|علاش|وقتاش|كيفاش|قداش"
+    r"شنوة|شنوّة|شنو|شنوا|آش(?:نو)?|علاش|وقتاش|كيفاش|قداش"
     r"|"
     # Verbs with Tunisian conjugation (prefix ن for 1st person)
-    r"نحب|نجّم|نجم|ننجّم|نخدم|نمشي|نعمل|نقاضي|نشكي|نسكّر|نفتح|نوقّع|نخلّص"
+    r"نحب|نجّم|نجم|ننجّم|نخدم|نمشي|نعمل|نقاضي|نشكي|نسكّر|نفتح|نحلّ|نحل|نكوّن|نكون|نؤسس|نأسس|نوقّع|نخلّص"
     r"|"
     # Negation pattern: ما...ش (ma...sh)
     r"ما\s*\S+ش\b|مانيش|ماهوش|ماهيش|ماعنديش"

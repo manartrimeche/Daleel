@@ -336,6 +336,7 @@
     "micNotAccessible": "لا يمكن الوصول إلى الميكروفون.",
     "voiceError": "خطأ صوتي:",
     "connectionError": "خطأ في الاتصال:",
+    "sessionExpired": "انتهت صلاحية الجلسة. يرجى تسجيل الدخول من جديد.",
     "processingError": "خطأ أثناء المعالجة.",
     "unsupportedFormat": "صيغة غير مدعومة. المقبولة: PDF, DOCX, DOC, TXT, PNG, JPG, WEBP.",
     "fileTooLarge": "الملف كبير جدًا (الحد الأقصى 50 ميجابايت).",

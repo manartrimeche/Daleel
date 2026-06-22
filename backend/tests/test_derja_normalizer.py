@@ -30,6 +30,11 @@ class TestDetectDerja(unittest.TestCase):
         text = "نحب نعرف شنوة الإجراءات باش نفتح شركة في تونس"
         self.assertTrue(detect_derja(text))
 
+    def test_clear_derja_query_company_nhel(self):
+        """Tunisian 'nhell charika' means open/create a company."""
+        text = "شنوّة لازمني باش نحلّ شركة في تونس؟"
+        self.assertTrue(detect_derja(text))
+
     def test_derja_with_why(self):
         """Derja question using 'علاش' (why)."""
         text = "علاش باتروني ما يحبش يعطيني عقد خدمة؟"
@@ -89,6 +94,11 @@ class TestNormalizeDerjaToFrench(unittest.TestCase):
         text = "كلمة_غريبة شنوة"
         result = normalize_derja_to_french(text)
         self.assertIn("كلمة_غريبة", result)
+
+    def test_company_creation_nhel_replacement(self):
+        """نحلّ شركة should normalize to company creation, not dissolution."""
+        result = normalize_derja_to_french("شنوّة لازمني باش نحلّ شركة في تونس؟")
+        self.assertIn("crée une société", result)
 
 
 class TestNormalizeIfDerja(unittest.TestCase):

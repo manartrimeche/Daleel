@@ -336,6 +336,7 @@
     "micNotAccessible": "Microphone non accessible.",
     "voiceError": "Erreur vocale:",
     "connectionError": "Erreur de connexion:",
+    "sessionExpired": "Votre session a expiré. Veuillez vous reconnecter.",
     "processingError": "Erreur lors du traitement.",
     "unsupportedFormat": "Format non supporté. Acceptés : PDF, DOCX, DOC, TXT, PNG, JPG, WEBP.",
     "fileTooLarge": "Fichier trop volumineux (max 50 Mo).",

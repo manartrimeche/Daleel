@@ -4,7 +4,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://REMPLACER-PAR-TON-SPACE.hf.space/api/:path*"
+      "destination": "https://manartrimeche-daleel.hf.space/api/:path*"
     }
   ]
 }

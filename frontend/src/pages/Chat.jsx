@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import DIcon from '../components/DIcon';
 import { Badge, DButton, useToast } from '../components/UI';
 import { authFetch } from '../utils/auth';
-import { isArabic, detectMessageLanguage, getAdaptiveRetrievalSettings, stripMarkdown, formatFileSize, getTime } from '../utils/helpers';
+import { isArabic, isRtlText, detectMessageLanguage, getAdaptiveRetrievalSettings, stripMarkdown, formatFileSize, getTime } from '../utils/helpers';
 
 const ALLOWED_EXTENSIONS = ['pdf', 'docx', 'doc', 'txt', 'png', 'jpg', 'jpeg', 'webp'];
 const CONTRACT_EXTENSIONS = ['pdf', 'docx', 'doc'];
@@ -626,6 +626,11 @@ export default function Chat() {
     attachedFile.name.split('.').pop().toLowerCase()
   );
 
+  const getChatErrorMessage = (err) => {
+    if (err?.message === 'Session expired') return t('chat.sessionExpired');
+    return `${t('chat.connectionError')} ${err?.message || t('chat.processingError')}`;
+  };
+
   useEffect(() => {
     loadHistory();
   }, []);
@@ -1001,7 +1006,6 @@ export default function Chat() {
     setMessages(prev => [...prev, { role: 'user', text: userMsg, time: getTime() }]);
 
     try {
-      const jwt = localStorage.getItem('daleel_access_token');
       let response;
 
       if (hasFile) {
@@ -1014,15 +1018,11 @@ export default function Chat() {
         if (conversationHistory.current.length > 0) formData.append('history', JSON.stringify(conversationHistory.current));
         formData.append('conversation_id', activeConvId);
 
-        const headers = {};
-        if (jwt) headers['Authorization'] = 'Bearer ' + jwt;
-        response = await fetch('/api/v1/ask-with-document', { method: 'POST', headers, body: formData });
+        response = await authFetch('/api/v1/ask-with-document', { method: 'POST', body: formData });
       } else {
-        const headers = { 'Content-Type': 'application/json' };
-        if (jwt) headers['Authorization'] = 'Bearer ' + jwt;
-        response = await fetch('/api/v1/ask-auto', {
+        response = await authFetch('/api/v1/ask-auto', {
           method: 'POST',
-          headers,
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ question: text, top_k: retrieval.topK, temperature: retrieval.temperature, response_language: responseLanguage, history: conversationHistory.current, conversation_id: activeConvId }),
         });
       }
@@ -1037,7 +1037,7 @@ export default function Chat() {
         setMessages(prev => [...prev, { role: 'bot', text: data?.detail || t('chat.processingError'), sources: [], time: getTime() }]);
       }
     } catch (err) {
-      setMessages(prev => [...prev, { role: 'bot', text: `${t('chat.connectionError')} ${err.message}`, sources: [], time: getTime() }]);
+      setMessages(prev => [...prev, { role: 'bot', text: getChatErrorMessage(err), sources: [], time: getTime() }]);
     }
     setIsLoading(false);
     inputRef.current?.focus();
@@ -1069,18 +1069,14 @@ export default function Chat() {
     setMessages(prev => [...prev, { role: 'user', text: userMsg, time: getTime() }]);
 
     try {
-      const jwt = localStorage.getItem('daleel_access_token');
       const formData = new FormData();
       formData.append('file', savedFile);
       formData.append('action', action);
       formData.append('response_language', i18n.language || 'fr');
       formData.append('conversation_id', activeConvId);
 
-      const headers = {};
-      if (jwt) headers['Authorization'] = 'Bearer ' + jwt;
-
-      const response = await fetch('/api/v1/chat-contract-analysis', {
-        method: 'POST', headers, body: formData,
+      const response = await authFetch('/api/v1/chat-contract-analysis', {
+        method: 'POST', body: formData,
       });
 
       const data = await response.json();
@@ -1104,7 +1100,7 @@ export default function Chat() {
     } catch (err) {
       setMessages(prev => [...prev, {
         role: 'bot',
-        text: `${t('chat.connectionError')} ${err.message}`,
+        text: getChatErrorMessage(err),
         sources: [],
         time: getTime(),
       }]);
@@ -1365,7 +1361,7 @@ export default function Chat() {
                       color: msg.role === 'user' ? '#fff' : 'var(--text)',
                       border: msg.role === 'user' ? 'none' : '1px solid var(--border)',
                       fontSize: 13, lineHeight: 1.6,
-                      direction: isArabic(msg.text) ? 'rtl' : 'ltr',
+                      direction: isRtlText(msg.text) ? 'rtl' : 'ltr',
                       whiteSpace: 'pre-wrap',
                       overflowWrap: 'anywhere',
                     }}

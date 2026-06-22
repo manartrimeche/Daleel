@@ -32,6 +32,7 @@ export function clearAuth() {
   localStorage.removeItem(USER_KEY);
   // Legacy key from earlier versions — clear it too on logout / session loss.
   localStorage.removeItem('daleel_refresh_token');
+  window.dispatchEvent(new Event('auth:session-lost'));
 }
 
 function decodeJwtPayload(token) {
@@ -80,7 +81,12 @@ export function authHeaders() {
 export async function authFetch(url, options = {}) {
   let token = getAccessToken();
   if (!token) {
-    throw new Error('No token');
+    const refreshed = await refreshAccessToken();
+    if (!refreshed) {
+      clearAuth();
+      throw new Error('Session expired');
+    }
+    token = getAccessToken();
   }
   try {
     if (isTokenExpired(token)) {

@@ -18,7 +18,11 @@ from typing import Any, Optional
 
 from app.config import get_settings
 from app.processing.text_utils import detect_query_language as _detect_query_language
-from app.processing.derja_normalizer import normalize_if_derja as _normalize_if_derja
+from app.processing.derja_normalizer import (
+    detect_derja as _detect_derja,
+    normalize_derja_to_french as _normalize_derja_to_french,
+    normalize_if_derja as _normalize_if_derja,
+)
 from app.services import feedback_service, search_service
 from app.services.domain_router import route_question
 from app.services.llm_cache import llm_cache
@@ -216,6 +220,12 @@ _COMPANY_SCOPE_QUERY_HINTS = {
     "شركة",
     "الشركات",
     "السجل التجاري",
+    "فتح شركة",
+    "نفتح شركة",
+    "نحل شركة",
+    "نحلّ شركة",
+    "إنشاء شركة",
+    "احداث شركة",
 }
 
 _LABOR_SCOPE_QUERY_HINTS = {
@@ -286,8 +296,51 @@ def _is_manager_obligations_query(question: str) -> bool:
     return has_manager and has_duties
 
 
+def _is_company_creation_query(question: str) -> bool:
+    q = _normalized_scope_text(question)
+    has_company = any(
+        _scope_hint_in_text(hint, q)
+        for hint in (
+            "société",
+            "societe",
+            "entreprise",
+            "شركة",
+            "الشركة",
+        )
+    )
+    has_creation = any(
+        _scope_hint_in_text(hint, q)
+        for hint in (
+            "création",
+            "creation",
+            "constituer",
+            "constitution",
+            "créer",
+            "crée",
+            "creer",
+            "cree",
+            "ouvrir",
+            "immatriculation",
+            "تأسيس",
+            "إنشاء",
+            "احداث",
+            "فتح",
+            "نفتح",
+            "نحل",
+        )
+    )
+    return has_company and has_creation
+
+
 def _augment_query_for_specific_legal_scope(question: str, lang: str = "fr") -> str:
     """Append disambiguation hints for known ambiguous legal intents."""
+    if _is_company_creation_query(question):
+        augmentations = {
+            "ar": "تأسيس شركة ترسيم بالسجل التجاري إيداع النظام الأساسي الوثائق القانونية الإشهار الفصل 14 الفصل 15 الفصل 98 الفصل 103 SARL SUARL SA",
+            "fr": "immatriculation registre du commerce registre national des entreprises RNE constitution société dépôt des statuts documents prévus par la loi publicité actes constitutifs article 14 article 15 article 98 article 103 SARL SUARL SA",
+            "en": "company formation incorporation registration commercial register filing articles of association publication constitutive acts article 14 article 15 article 98 article 103 SARL SUARL SA",
+        }
+        return f"{augmentations.get(lang, augmentations['fr'])} {question}"
     if _is_manager_obligations_query(question):
         augmentations = {
             "ar": "صلاحيات المسير واجبات المسير التزامات المسير علاقات المسير مع الشركاء إدارة الشركة الفصل 112 الفصل 113",
@@ -2134,11 +2187,13 @@ async def ask(
     else:
         derja_effective = question
     if is_derja:
-        # Derja detected: switch to French pipeline, keep original for retrieval
+        # Derja detected: switch to French pipeline and use the normalized
+        # meaning for retrieval. This avoids Tunisian "نحلّ شركة" being read
+        # as Arabic "dissolve a company" instead of "open/create a company".
         detected_lang = "fr"
         question = derja_effective  # French-wrapped query for LLM
-        retrieval_question = derja_original  # Original Arabic for embedding search
-        logger.info("Derja pipeline activated — LLM will receive French, retrieval uses original Arabic")
+        retrieval_question = _normalize_derja_to_french(derja_original)
+        logger.info("Derja pipeline activated — LLM will receive French, retrieval uses normalized query")
     else:
         retrieval_question = question  # Normal flow
 
@@ -2164,7 +2219,7 @@ async def ask(
     # Étape 1: récupérer les passages pertinents
     effective_document_id, scope_reason = await _resolve_effective_document_id(
         db,
-        question,
+        retrieval_question,
         detected_lang,
         document_id,
         domain_name=domain_name,
@@ -2253,12 +2308,12 @@ async def ask(
         }
 
     # Étape 1.b: reranker les chunks et garder les meilleurs
-    chunks = _rerank_chunks_for_question(question, chunks, detected_lang, domain_config=domain_config)[:effective_top_k]
+    chunks = _rerank_chunks_for_question(retrieval_query, chunks, detected_lang, domain_config=domain_config)[:effective_top_k]
     reranking_service = _get_reranking_service()
     if await reranking_service.is_available():
         chunks = await reranking_service.rerank(question, chunks)
 
-    if not _is_relevant_enough(question, chunks, detected_lang):
+    if not _is_relevant_enough(retrieval_query, chunks, detected_lang):
         no_result_messages = {
             "ar": "لم أجد مقتطفات قانونية مرتبطة مباشرة بسؤالك. تم رفض النتائج لأنها خارج الموضوع.",
             "fr": "Je n'ai pas trouvé d'extraits juridiques directement liés à votre question. Les résultats récupérés ont été rejetés car ils étaient hors sujet.",
@@ -2625,9 +2680,37 @@ async def ask_agentic(
     t0 = time.perf_counter()
     settings = get_settings()
     model_name = (llm_model or settings.llm_model).strip()
-    detected_lang = response_language if response_language in {"ar", "fr", "en"} else _detect_query_language(question)
+    original_question = question
+    retrieval_question = question
+    routing_lang: str | None = None
+    is_derja = False
+    if getattr(settings, "derja_normalizer_enabled", True):
+        try:
+            is_derja = _detect_derja(question)
+            if is_derja:
+                normalized_derja = _normalize_derja_to_french(question)
+                retrieval_question = normalized_derja
+                question = (
+                    f"{original_question}\n\n"
+                    "[Clarification: cette question est en dialecte tunisien. "
+                    f"Le sens juridique recherché est: « {normalized_derja} ». "
+                    "En contexte tunisien, « نحلّ شركة » signifie ouvrir/créer une société, "
+                    "pas dissoudre/liquider une société.]"
+                )
+                routing_lang = "fr"
+                logger.info("Derja agentic pipeline activated — retrieval uses French-normalized query")
+        except Exception as e:
+            logger.warning("Derja normalization failed (agentic): %s", e)
+
+    detected_lang = (
+        response_language
+        if response_language in {"ar", "fr", "en"}
+        else ("ar" if is_derja else _detect_query_language(original_question))
+    )
+    routing_lang = routing_lang or detected_lang
     lang_name, lang_instruction = _LANG_LABELS.get(detected_lang, _LANG_LABELS["en"])
-    intent = _detect_intent(question, detected_lang)
+    intent_question = retrieval_question if is_derja else question
+    intent = _detect_intent(intent_question, routing_lang)
     route_cfg = _route_config_for_intent(intent)
     route_decision = str(route_cfg["route_decision"])
     dynamic_max_attempts = min(max_attempts, int(route_cfg["max_attempts"]))
@@ -2645,8 +2728,8 @@ async def ask_agentic(
     if getattr(settings, "domain_router_enabled", False) and use_domain_router:
         try:
             domain_name, domain_config = await route_question(
-                question=question,
-                lang=detected_lang,
+                question=retrieval_question,
+                lang=routing_lang,
                 targeted_loi_code=document_id,
             )
             reasoning_steps.append(f"domain_routed:{domain_name}")
@@ -2659,14 +2742,14 @@ async def ask_agentic(
     retrieval_ms = 0.0
     generation_ms = 0.0
 
-    current_query = _augment_query_for_specific_legal_scope(question, detected_lang)
+    current_query = _augment_query_for_specific_legal_scope(retrieval_question, routing_lang)
     rewritten_query: Optional[str] = None
     final_chunks: list[dict] = []
     retrieval_attempts = 0
     effective_document_id, scope_reason = await _resolve_effective_document_id(
         db,
-        question,
-        detected_lang,
+        retrieval_question,
+        routing_lang,
         document_id,
         domain_name=domain_name,
     )
@@ -2809,15 +2892,17 @@ async def ask_agentic(
         if not chunks:
             reasoning_steps.append("no_chunks_found")
         else:
-            reranked = _rerank_chunks_for_question(question, chunks, detected_lang, domain_config=domain_config)[:effective_top_k]
-            if _is_relevant_enough(question, reranked, detected_lang):
+            rerank_question = current_query if is_derja else question
+            reranked = _rerank_chunks_for_question(rerank_question, chunks, routing_lang, domain_config=domain_config)[:effective_top_k]
+            if _is_relevant_enough(rerank_question, reranked, routing_lang):
                 final_chunks = reranked
                 reasoning_steps.append("chunks_accepted")
                 break
             reasoning_steps.append("chunks_rejected_low_relevance")
 
         if attempt < dynamic_max_attempts:
-            rewritten_query = _rewrite_query_for_agentic(question, detected_lang, intent)
+            rewrite_base = retrieval_question if is_derja else question
+            rewritten_query = _rewrite_query_for_agentic(rewrite_base, routing_lang, intent)
             current_query = rewritten_query
             reasoning_steps.append("query_rewritten")
 

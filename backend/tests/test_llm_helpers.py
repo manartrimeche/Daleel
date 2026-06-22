@@ -10,6 +10,7 @@ from app.services.llm_service import (
     _detect_intent,
     _rerank_chunks_for_question,
     _is_manager_obligations_query,
+    _is_company_creation_query,
     _should_auto_scope_company_document,
     _should_auto_scope_labor_document,
     _is_labor_trial_period_query,
@@ -81,6 +82,15 @@ class TestShouldAutoScopeCompanyDocument(unittest.TestCase):
 
     def test_arabic_company(self):
         self.assertTrue(_should_auto_scope_company_document("تأسيس شركة في تونس"))
+
+    def test_derja_company_opening_scope(self):
+        self.assertTrue(_should_auto_scope_company_document("شنوّة لازمني باش نحلّ شركة في تونس؟"))
+        self.assertTrue(_is_company_creation_query("شنوّة لازمني باش نحلّ شركة في تونس؟"))
+
+    def test_company_creation_query_is_augmented_for_retrieval(self):
+        augmented = _augment_query_for_specific_legal_scope("شنوّة لازمني باش نحلّ شركة في تونس؟", "fr")
+        self.assertIn("immatriculation", augmented)
+        self.assertIn("RNE", augmented)
 
     def test_unrelated_query(self):
         self.assertFalse(_should_auto_scope_company_document("What is the weather today?"))

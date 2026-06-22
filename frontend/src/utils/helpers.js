@@ -10,6 +10,14 @@ export function isArabic(text) {
   return /[؀-ۿ]/.test(text);
 }
 
+// Direction d'affichage : RTL uniquement si l'arabe domine (évite de basculer
+// toute une réponse FR/EN à droite à cause de quelques références en arabe).
+export function isRtlText(text) {
+  const ar = (String(text).match(/[؀-ۿ]/g) || []).length;
+  const lat = (String(text).match(/[A-Za-zÀ-ÿ]/g) || []).length;
+  return ar > lat;
+}
+
 export function detectMessageLanguage(text) {
   if (isArabic(text)) return 'ar';
   const lower = (text || '').toLowerCase();

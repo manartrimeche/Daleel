@@ -1,10 +1,16 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { getUser, logout as doLogout } from './auth';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUserState] = useState(() => getUser());
+
+  useEffect(() => {
+    const onSessionLost = () => setUserState(null);
+    window.addEventListener('auth:session-lost', onSessionLost);
+    return () => window.removeEventListener('auth:session-lost', onSessionLost);
+  }, []);
 
   const logout = () => {
     doLogout();
